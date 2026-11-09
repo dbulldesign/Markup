@@ -20,6 +20,16 @@ The page loads three libraries from cdnjs (pdf.js 3.11.174, pdf-lib 1.17.1, pako
 
 Author name, style defaults and imported tool sets are remembered in the browser on that device.
 
+## Your own tools, palettes and favourites
+
+- Pick a tool and style, then tap *Save as a tool…* in the style menu (or *+ Tool* in the Tool Chest). Give it a name, subject, default comment and style, and choose the palette it goes in (or make a new one).
+- Tap ☆ on any tool to make it a favourite. Favourites appear as one-tap buttons in the toolbar and at the top of the Tool Chest.
+- Tap ••• on a tool to edit it, move it to another palette, change what it draws, or delete it. *Use current style* copies the style you are drawing with.
+- *+ Palette* makes an empty palette; each palette can be renamed, exported to a file or removed. Imported Revu tool sets can be edited the same way.
+- *Back up* saves every palette, favourite and your author name and style to one file. *Import* restores it (or adds a single exported palette, or a Revu `.btx`), which is how you move your tools to another iPad.
+
+Tools and settings are kept in the browser on that device, so back them up before clearing Safari data.
+
 ## Polygons and measurements
 
 - *Polygon*: tap each corner, then tap the first point (or *Finish*) to close it. *Undo point* and *Cancel* are in the bar that appears while drawing; on a keyboard, Enter finishes, Backspace removes the last point and Escape cancels.

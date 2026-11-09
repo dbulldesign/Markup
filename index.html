@@ -7,7 +7,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.1.0">
+<meta name="app-version" content="1.2.0">
 <title>Pencil Markup</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -179,8 +179,33 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 
 /* Tool Chest popover */
 .pop.chest { width: min(440px, calc(100vw - 24px)); max-height: 70vh; overflow: auto; }
-.chest-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
-.chest-head h3 { margin: 0; flex: 1; }
+.chest-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.chest-head h3 { margin: 0; flex: 1 1 100%; }
+.chest-head .btn { min-height: 34px; padding: 0 10px; font-size: 14px; }
+.chest-set .set-title .acts { display: flex; gap: 0; flex-wrap: wrap; justify-content: flex-end; }
+.chest-set .set-title .tag { font-size: 11px; font-weight: 500; color: var(--accent); background: var(--accent-soft); border-radius: 6px; padding: 1px 6px; }
+.chip-wrap { position: relative; display: grid; }
+.chip-wrap .mini { position: absolute; top: 2px; width: 30px; height: 30px; border: 0; background: none; color: var(--ink-2); cursor: pointer; font-size: 17px; line-height: 1; padding: 0; border-radius: 8px; }
+.chip-wrap .mini:active { background: var(--surface-3); }
+.chip-wrap .star { right: 2px; }
+.chip-wrap .star.on { color: #f2a900; }
+.chip-wrap .edit { left: 2px; font-size: 15px; letter-spacing: -1px; }
+.chest-sets .fav-head { font-weight: 600; margin: 4px 0 6px; display: flex; align-items: center; gap: 6px; }
+.chest-sets .fav-head span { color: #f2a900; }
+/* Favourite tools in the toolbar */
+.seg.favs[hidden] { display: none; }
+.tb.fav { padding: 0 6px; }
+.tb.fav svg, .tb.fav img { width: 36px; height: 24px; object-fit: contain; }
+.tb.fav .hl { mix-blend-mode: multiply; }
+.style-save { margin-top: 10px; width: 100%; }
+/* Tool editor */
+.modal .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.modal .check { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink); }
+.modal .check input { width: 22px; height: 22px; margin: 0; }
+.modal .style-box { border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.modal .style-box .head { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--ink-2); margin-bottom: 8px; }
+.modal .style-box .head .btn { min-height: 30px; font-size: 13px; padding: 0 10px; }
+.modal [hidden] { display: none !important; }
 .chest-empty { color: var(--ink-2); font-size: 14px; line-height: 1.45; }
 .chest-set { margin-top: 12px; }
 .chest-set .set-title { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 6px; }
@@ -325,19 +350,24 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
   <div class="pop" id="stylePop" hidden>
     <h3>Style for new markups</h3>
     <div class="style" id="styleNew"></div>
+    <button class="btn style-save" id="btnSaveTool" type="button">Save as a tool…</button>
   </div>
 
-  <button class="tb" id="btnChest" type="button" title="Bluebeam tool sets (.btx)" aria-label="Tool Chest" aria-haspopup="true">
+  <button class="tb" id="btnChest" type="button" title="Your tools, palettes and favourites; Revu tool sets (.btx)" aria-label="Tool Chest" aria-haspopup="true">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 9l2-4h14l2 4M10 13h4"/></svg><span class="lbl">Tool Chest</span>
   </button>
   <div class="pop chest" id="chestPop" hidden>
     <div class="chest-head">
       <h3>Tool Chest</h3>
-      <button class="btn" id="btnImportBtx" type="button">Import .btx</button>
+      <button class="btn" id="btnNewTool" type="button" title="Save the current tool and style as a tool">+ Tool</button>
+      <button class="btn" id="btnNewPalette" type="button">+ Palette</button>
+      <button class="btn" id="btnImportBtx" type="button" title="Import a Revu .btx tool set, an exported palette, or a settings backup">Import</button>
+      <button class="btn" id="btnBackup" type="button" title="Save all palettes, favourites and settings to a file">Back up</button>
       <input id="btxFile" type="file" multiple hidden>
     </div>
     <div id="chestSets" class="chest-sets"></div>
   </div>
+  <div class="seg favs" id="favBar" hidden></div>
 
   <label class="toggle" title="Let a finger draw as well as the Pencil"><input type="checkbox" id="fingerDraw"><span class="lbl keep">Finger draws</span></label>
   <label class="toggle" title="Tap markups to add them to the selection, then Group"><input type="checkbox" id="multiSel"><span class="lbl keep">Multi-select</span></label>
@@ -460,6 +490,30 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
       <span class="spacer"></span>
       <button class="btn" id="scCancel" type="button">Cancel</button>
       <button class="btn primary" id="scOk" type="button">Apply</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="toolModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="toolTitle">
+    <h2 id="toolTitle">Save tool</h2>
+    <label class="fld">Name<input id="tName" placeholder="e.g. Fixture to verify"></label>
+    <div class="two">
+      <label class="fld">Draws<select id="tType"></select></label>
+      <label class="fld">Palette<select id="tSet"></select></label>
+    </div>
+    <label class="fld" id="tNewSetRow" hidden>New palette name<input id="tNewSet" placeholder="e.g. My tools"></label>
+    <label class="fld">Subject<input id="tSubject" list="subjects" placeholder="Shows as Subject in Revu"></label>
+    <label class="fld">Comments<input id="tContents" placeholder="Optional default comment"></label>
+    <div class="style-box">
+      <div class="head"><span>Style</span><button class="btn" id="tUseCurrent" type="button">Use current style</button></div>
+      <div class="style" id="styleTool"></div>
+    </div>
+    <label class="check"><input type="checkbox" id="tFav"> Favourite (one tap from the toolbar)</label>
+    <div class="actions">
+      <button class="btn danger" id="tDelete" type="button">Delete</button>
+      <span class="spacer"></span>
+      <button class="btn" id="tCancel" type="button">Cancel</button>
+      <button class="btn primary" id="tSave" type="button">Save</button>
     </div>
   </div>
 </div>
@@ -1111,7 +1165,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.1.0';
+var APP_VERSION = '1.2.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1140,7 +1194,7 @@ var state = {
   annots: [], sel: new Set(), history: [], future: [], fingerDraw: false, author: '',
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
   chestSets: [], chestTool: null, pendingSave: null,
-  scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null
+  scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null
 };
 
 /* ---------- small helpers ---------- */
@@ -1295,10 +1349,11 @@ function loadPrefs() {
     if (p.style) state.style = Object.assign(state.style, p.style);
     if (typeof p.fingerDraw === 'boolean') state.fingerDraw = p.fingerDraw;
     if (p.lastScale) state.lastScale = p.lastScale;
+    if (p.lastPalette) state.lastPalette = p.lastPalette;
   } catch (e) { /* storage may be empty or blocked */ }
 }
 function savePrefs() {
-  try { localStorage.setItem('pencil-markup-prefs', JSON.stringify({ author: state.author, style: state.style, fingerDraw: state.fingerDraw, lastScale: state.lastScale })); } catch (e) { /* ignore */ }
+  try { localStorage.setItem('pencil-markup-prefs', JSON.stringify({ author: state.author, style: state.style, fingerDraw: state.fingerDraw, lastScale: state.lastScale, lastPalette: state.lastPalette })); } catch (e) { /* ignore */ }
 }
 function loadChest() {
   try { var s = JSON.parse(localStorage.getItem('pencil-markup-toolsets') || '[]'); if (Array.isArray(s)) state.chestSets = s; } catch (e) { state.chestSets = []; }
@@ -2191,60 +2246,259 @@ function toolPreview(t) {
   }
   return '<svg viewBox="0 0 56 36" xmlns="http://www.w3.org/2000/svg">' + body + '</svg>';
 }
+function isActiveTool(set, t) { return !!state.chestTool && state.chestTool.id === t.id && state.chestTool.setId === set.id; }
+function chipHTML(set, t) {
+  var on = isActiveTool(set, t), ids = ' data-set="' + esc(set.id) + '" data-tool="' + esc(t.id) + '"';
+  return '<div class="chip-wrap"><button type="button" class="chip' + (t.supported ? '' : ' off') + (on ? ' on' : '') + '"' + ids + ' title="' + esc(t.title + (t.supported ? '' : ' (' + t.subtype + ' tools cannot be drawn here; tap ... to change it)')) + '"' + (t.supported ? '' : ' aria-disabled="true"') + '>' + toolPreview(t) + '<span class="t">' + esc(t.title) + '</span></button>' +
+    (t.supported ? '<button type="button" class="mini star' + (t.fav ? ' on' : '') + '" data-star="1"' + ids + ' aria-label="' + (t.fav ? 'Remove from favourites' : 'Add to favourites') + '" title="' + (t.fav ? 'Remove from favourites' : 'Add to favourites') + '">' + (t.fav ? '\u2605' : '\u2606') + '</button>' : '') +
+    '<button type="button" class="mini edit" data-edit="1"' + ids + ' aria-label="Edit tool" title="Edit tool">\u2022\u2022\u2022</button></div>';
+}
+function favTools() {
+  var out = [];
+  state.chestSets.forEach(function (s) { s.tools.forEach(function (t) { if (t.fav && t.supported) out.push({ set: s, tool: t }); }); });
+  return out;
+}
+function renderFavBar() {
+  var bar = $('#favBar'), favs = favTools();
+  bar.hidden = !favs.length;
+  bar.innerHTML = favs.map(function (f) {
+    return '<button type="button" class="tb fav' + (isActiveTool(f.set, f.tool) ? ' on' : '') + '" data-set="' + esc(f.set.id) + '" data-fav="' + esc(f.tool.id) + '" title="' + esc(f.tool.title) + '" aria-label="' + esc(f.tool.title) + '">' + toolPreview(f.tool) + '</button>';
+  }).join('');
+}
 function renderChest() {
   var box = $('#chestSets');
+  renderFavBar();
+  $('#btnChest').classList.toggle('on', !!state.chestTool);
   if (!state.chestSets.length) {
-    box.innerHTML = '<p class="chest-empty">Import a tool set exported from Revu (Tool Chest, tool set settings, Export). Circle, rectangle, polygon, pen, length, area and perimeter tools become drawable here with their subject, color, fill, opacity and line width. Other tool types are listed but cannot be drawn in this app.</p>';
+    box.innerHTML = '<p class="chest-empty">Make your own tools: pick a tool and style, then tap <b>+ Tool</b> (or <b>Save as a tool</b> in the style menu). Star a tool to put it in the toolbar.<br><br>You can also import a tool set exported from Revu (Tool Chest, tool set settings, Export). Circle, rectangle, polygon, pen, length, area and perimeter tools become drawable with their subject, color, fill, opacity and line width.</p>';
     return;
   }
-  box.innerHTML = state.chestSets.map(function (s) {
+  var favs = favTools(), html = '';
+  if (favs.length) html += '<section class="chest-set"><div class="fav-head"><span>\u2605</span>Favourites</div><div class="chips">' + favs.map(function (f) { return chipHTML(f.set, f.tool); }).join('') + '</div></section>';
+  html += state.chestSets.map(function (s) {
     var n = s.tools.filter(function (t) { return t.supported; }).length;
-    return '<section class="chest-set" data-set="' + esc(s.id) + '"><div class="set-title"><span>' + esc(s.title) + '</span><span class="n">' + n + ' of ' + s.tools.length + ' drawable</span><button type="button" data-remove="' + esc(s.id) + '">Remove</button></div><div class="chips">' +
-      s.tools.map(function (t) {
-        var on = state.chestTool && state.chestTool.id === t.id && state.chestTool.setId === s.id;
-        return '<button type="button" class="chip' + (t.supported ? '' : ' off') + (on ? ' on' : '') + '" data-tool="' + esc(t.id) + '" title="' + esc(t.title + (t.supported ? '' : ' (' + t.subtype + ' tools cannot be drawn here)')) + '"' + (t.supported ? '' : ' aria-disabled="true"') + '>' + toolPreview(t) + '<span class="t">' + esc(t.title) + '</span></button>';
-      }).join('') + '</div></section>';
+    return '<section class="chest-set" data-set="' + esc(s.id) + '"><div class="set-title"><span>' + esc(s.title) + '</span>' + (s.custom ? '<span class="tag">Mine</span>' : '') +
+      '<span class="n">' + (s.custom ? s.tools.length + (s.tools.length === 1 ? ' tool' : ' tools') : n + ' of ' + s.tools.length + ' drawable') + '</span>' +
+      '<span class="acts"><button type="button" data-rename="' + esc(s.id) + '">Rename</button><button type="button" data-export="' + esc(s.id) + '">Export</button><button type="button" data-remove="' + esc(s.id) + '">Remove</button></span></div>' +
+      (s.tools.length ? '<div class="chips">' + s.tools.map(function (t) { return chipHTML(s, t); }).join('') + '</div>' : '<p class="chest-empty">No tools yet. Pick a tool and style, then tap + Tool.</p>') + '</section>';
   }).join('');
-  $('#btnChest').classList.toggle('on', !!state.chestTool);
+  box.innerHTML = html;
+}
+function findTool(setId, toolId) {
+  var set = null, tool = null;
+  state.chestSets.forEach(function (s) { if (s.id === setId) { set = s; s.tools.forEach(function (t) { if (t.id === toolId) tool = t; }); } });
+  return { set: set, tool: tool };
+}
+function newId(prefix) { return prefix + '-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
+function newPalette(title) {
+  var set = { id: newId('set'), title: title, tools: [], custom: true };
+  state.chestSets.push(set);
+  return set;
+}
+function downloadFile(blob, name) {
+  var done = function () { toast('Saved ' + name + '.'); };
+  try {
+    if (navigator.canShare && typeof File === 'function') {
+      var file = new File([blob], name, { type: blob.type });
+      if (navigator.canShare({ files: [file] })) return navigator.share({ files: [file], title: name }).then(done, function (e) { if (!e || e.name !== 'AbortError') toast('Could not share the file.'); });
+    }
+  } catch (e) { /* fall back to a download */ }
+  var url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url; link.download = name; document.body.appendChild(link); link.click();
+  setTimeout(function () { URL.revokeObjectURL(url); link.remove(); }, 5000);
+  done();
+}
+function exportJSON(obj, name) { downloadFile(new Blob([JSON.stringify(obj, null, 1)], { type: 'application/json' }), name); }
+function safeName(t) { return String(t || 'palette').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-') || 'palette'; }
+function exportPalette(set) { exportJSON({ app: 'pencil-markup', kind: 'palettes', version: 1, sets: [set] }, safeName(set.title) + '.markup-tools.json'); }
+function exportBackup() {
+  exportJSON({ app: 'pencil-markup', kind: 'backup', version: 1, appVersion: APP_VERSION, saved: new Date().toISOString(), sets: state.chestSets,
+    prefs: { author: state.author, style: state.style, fingerDraw: state.fingerDraw, lastScale: state.lastScale } }, 'pencil-markup-settings.json');
+}
+function importJSONText(text) {
+  var j = JSON.parse(text);
+  if (!j || j.app !== 'pencil-markup' || !Array.isArray(j.sets)) throw new Error('Not a Pencil Markup tools or settings file');
+  var n = 0;
+  j.sets.forEach(function (set) {
+    if (!set || !Array.isArray(set.tools)) return;
+    set.tools.forEach(function (t) { t.drawTool = ToolChest.drawToolFor(t.subtype, t.intent); t.supported = !!t.drawTool; });
+    var i = state.chestSets.findIndex(function (s) { return s.id === set.id; });
+    if (i >= 0) state.chestSets[i] = set; else state.chestSets.push(set);
+    n++;
+  });
+  if (j.kind === 'backup' && j.prefs) {
+    var p = j.prefs;
+    if (typeof p.author === 'string') { state.author = p.author; $('#author').value = p.author; }
+    if (p.style) Object.assign(state.style, p.style);
+    if (typeof p.fingerDraw === 'boolean') { state.fingerDraw = p.fingerDraw; $('#fingerDraw').checked = p.fingerDraw; }
+    if (p.lastScale) state.lastScale = p.lastScale;
+    savePrefs(); updateStyleChip(); styleNew.sync();
+  }
+  return { sets: n, backup: j.kind === 'backup' };
 }
 function applyChestTool(set, t) {
   state.chestTool = Object.assign({ setId: set.id }, t);
   setTool(t.drawTool);
   Object.assign(state.style, {
-    color: rgbToHex(t.color || [0, 0, 0]), fill: !!t.fillColor && t.subtype !== 'Ink', fillOpacity: clamp(t.fillOpacity || 0.35, 0.05, 1),
-    opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth || 1, 0, 12), highlight: !!t.highlight
+    color: rgbToHex(t.color || [0, 0, 0]), fill: !!t.fillColor && MarkupIO.FILLABLE.has(t.subtype), fillOpacity: clamp(t.fillOpacity || 0.35, 0.05, 1),
+    opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth == null ? 1 : t.lineWidth, 0, 12), highlight: !!t.highlight
   });
   savePrefs(); updateStyleChip(); styleNew.sync(); renderChest();
   toast(t.title + ': draw with the ' + (TOOLS[t.drawTool] ? TOOLS[t.drawTool].name : 'Circle') + ' tool');
 }
 async function importBtx(files) {
-  var added = 0, failed = [];
+  var added = 0, failed = [], restored = false;
   for (var i = 0; i < files.length; i++) {
     var f = files[i];
     try {
-      var set = ToolChest.parseBtx(await f.arrayBuffer(), f.name);
-      state.chestSets = state.chestSets.filter(function (s) { return s.title !== set.title; }).concat([set]);
+      var buf = await f.arrayBuffer(), head = new TextDecoder('utf-8').decode(new Uint8Array(buf).slice(0, 64)).replace(/^\uFEFF/, '').trim();
+      if (/\.json$/i.test(f.name) || head.charAt(0) === '{') {
+        var r = importJSONText(new TextDecoder('utf-8').decode(buf));
+        added += r.sets; if (r.backup) restored = true;
+        continue;
+      }
+      var set = ToolChest.parseBtx(buf, f.name);
+      state.chestSets = state.chestSets.filter(function (s) { return s.title !== set.title || s.custom; }).concat([set]);
       added++;
     } catch (e) { console.warn(e); failed.push(f.name); }
   }
   if (added) saveChest();
   renderChest();
-  if (failed.length) toast('Could not read ' + failed.join(', ') + '. Export the tool set from Revu again and retry.', 6000);
-  else if (added) toast(added === 1 ? 'Tool set imported.' : added + ' tool sets imported.');
+  if (failed.length) toast('Could not read ' + failed.join(', ') + '. Use a Revu .btx export or a file saved from this app.', 6000);
+  else if (restored) toast('Settings restored: ' + added + (added === 1 ? ' palette' : ' palettes') + ', favourites and style.');
+  else if (added) toast(added === 1 ? 'Palette imported.' : added + ' palettes imported.');
 }
 $('#btnChest').addEventListener('click', function (e) { e.stopPropagation(); var pop = $('#chestPop'); pop.hidden = !pop.hidden; $('#stylePop').hidden = true; $('#verPop').hidden = true; if (!pop.hidden) renderChest(); });
 $('#btnImportBtx').addEventListener('click', function () { $('#btxFile').click(); });
 $('#btxFile').addEventListener('change', function (e) { importBtx(Array.from(e.target.files)); e.target.value = ''; });
 $('#chestSets').addEventListener('click', function (e) {
-  var rm = e.target.closest ? e.target.closest('[data-remove]') : null;
-  if (rm) { state.chestSets = state.chestSets.filter(function (s) { return s.id !== rm.dataset.remove; }); if (state.chestTool && state.chestTool.setId === rm.dataset.remove) state.chestTool = null; saveChest(); renderChest(); return; }
-  var chip = e.target.closest ? e.target.closest('.chip') : null; if (!chip) return;
-  var setEl = chip.closest('.chest-set'), set = null, tool = null;
-  state.chestSets.forEach(function (s) { if (s.id === setEl.dataset.set) { set = s; s.tools.forEach(function (t) { if (t.id === chip.dataset.tool) tool = t; }); } });
-  if (!set || !tool) return;
-  if (!tool.supported) { toast(tool.subtype + ' tools cannot be drawn in this app yet.'); return; }
-  applyChestTool(set, tool);
+  var el = e.target.closest ? e.target.closest('button') : null; if (!el) return;
+  var d = el.dataset;
+  if (d.remove) {
+    var rs = state.chestSets.filter(function (s) { return s.id === d.remove; })[0]; if (!rs) return;
+    if (rs.tools.length && !confirm('Remove the palette "' + rs.title + '" and its ' + rs.tools.length + ' tools?')) return;
+    state.chestSets = state.chestSets.filter(function (s) { return s.id !== d.remove; });
+    if (state.chestTool && state.chestTool.setId === d.remove) state.chestTool = null;
+    saveChest(); renderChest(); return;
+  }
+  if (d.rename) {
+    var ns = state.chestSets.filter(function (s) { return s.id === d.rename; })[0]; if (!ns) return;
+    var name = prompt('Palette name', ns.title); if (name == null || !name.trim()) return;
+    ns.title = name.trim(); saveChest(); renderChest(); return;
+  }
+  if (d.export) { var es = state.chestSets.filter(function (s) { return s.id === d.export; })[0]; if (es) exportPalette(es); return; }
+  var found = findTool(d.set, d.tool); if (!found.tool) return;
+  if (d.star) { found.tool.fav = !found.tool.fav; saveChest(); renderChest(); return; }
+  if (d.edit) { openToolEditor(found.set, found.tool); return; }
+  if (!found.tool.supported) { toast(found.tool.subtype + ' tools cannot be drawn here. Tap ... on the tool to change what it draws.'); return; }
+  applyChestTool(found.set, found.tool);
 });
+$('#favBar').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-fav]') : null; if (!b) return;
+  var f = findTool(b.dataset.set, b.dataset.fav); if (f.tool) applyChestTool(f.set, f.tool);
+});
+$('#btnNewPalette').addEventListener('click', function () {
+  var name = prompt('Name for the new palette', 'My tools'); if (name == null || !name.trim()) return;
+  newPalette(name.trim()); saveChest(); renderChest();
+});
+$('#btnBackup').addEventListener('click', exportBackup);
+$('#btnNewTool').addEventListener('click', function () { openToolEditor(null, null); });
+$('#btnSaveTool').addEventListener('click', function () { $('#stylePop').hidden = true; openToolEditor(null, null); });
+
+/* ---------- tool editor ---------- */
+var DRAWABLE = ['circle', 'rect', 'polygon', 'pen', 'length', 'area', 'perimeter'];
+var editor = null;
+$('#tType').innerHTML = DRAWABLE.map(function (k) { return '<option value="' + k + '">' + esc(TOOLS[k].name) + '</option>'; }).join('');
+var styleTool = buildStyleControls($('#styleTool'), function () { return editor && editor.style; }, function (patch) { if (editor) Object.assign(editor.style, patch); }, true);
+function styleFromTool(t) {
+  return { color: rgbToHex(t.color || [0, 0, 0]), fill: !!t.fillColor, fillOpacity: clamp(t.fillOpacity || 0.35, 0.05, 1), opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth == null ? 1 : t.lineWidth, 0, 12), highlight: !!t.highlight };
+}
+function fillSetOptions(selectedId) {
+  var opts = state.chestSets.map(function (s) { return '<option value="' + esc(s.id) + '">' + esc(s.title) + (s.custom ? '' : ' (imported)') + '</option>'; });
+  opts.push('<option value="__new">New palette…</option>');
+  $('#tSet').innerHTML = opts.join('');
+  $('#tSet').value = selectedId || '__new';
+  $('#tNewSetRow').hidden = $('#tSet').value !== '__new';
+}
+function openToolEditor(set, tool) {
+  var cur = DRAWABLE.indexOf(state.tool) >= 0 ? state.tool : 'circle';
+  if (tool) {
+    editor = { set: set, tool: tool, style: styleFromTool(tool) };
+    $('#toolTitle').textContent = 'Edit tool';
+    $('#tName').value = tool.title || '';
+    $('#tType').value = tool.drawTool || ToolChest.drawToolFor(tool.subtype, tool.intent) || 'circle';
+    $('#tSubject').value = tool.subject || '';
+    $('#tContents').value = tool.contents || '';
+    $('#tFav').checked = !!tool.fav;
+    fillSetOptions(set.id);
+  } else {
+    var ct = state.chestTool && state.chestTool.drawTool === cur ? state.chestTool : null;
+    editor = { set: null, tool: null, style: Object.assign({}, state.style) };
+    $('#toolTitle').textContent = 'Save as a tool';
+    var subj = ct ? (ct.subject || TOOLS[cur].subj) : TOOLS[cur].subj;
+    $('#tName').value = ct ? ct.title : subj;
+    $('#tType').value = cur;
+    $('#tSubject').value = subj;
+    $('#tContents').value = ct ? (ct.contents || '') : '';
+    $('#tFav').checked = true;
+    var mine = state.chestSets.filter(function (s) { return s.custom; });
+    var lastId = state.lastPalette && state.chestSets.some(function (s) { return s.id === state.lastPalette; }) ? state.lastPalette : (mine.length ? mine[mine.length - 1].id : null);
+    fillSetOptions(lastId);
+    if (!lastId) $('#tNewSet').value = 'My tools';
+  }
+  $('#tDelete').hidden = !tool;
+  styleTool.sync();
+  $('#toolModal').hidden = false;
+  $('#chestPop').hidden = true;
+}
+function closeToolEditor() { $('#toolModal').hidden = true; editor = null; }
+function saveToolFromEditor() {
+  if (!editor) return;
+  var type = $('#tType').value, T = TOOLS[type], st = editor.style;
+  var setId = $('#tSet').value, target;
+  if (setId === '__new') {
+    var nm = $('#tNewSet').value.trim(); if (!nm) { toast('Name the new palette.'); $('#tNewSet').focus(); return; }
+    target = newPalette(nm);
+  } else target = state.chestSets.filter(function (s) { return s.id === setId; })[0];
+  if (!target) return;
+  var fields = {
+    title: $('#tName').value.trim() || $('#tSubject').value.trim() || T.name,
+    subtype: T.sub, intent: T.intent || '', drawTool: type, supported: true,
+    color: hexToRgb(st.color), fillColor: st.fill && MarkupIO.FILLABLE.has(T.sub) ? hexToRgb(st.color) : null,
+    fillOpacity: st.fillOpacity, opacity: st.opacity, lineWidth: st.lineWidth, highlight: !!st.highlight,
+    subject: $('#tSubject').value.trim(), contents: $('#tContents').value, fav: $('#tFav').checked, icon: null
+  };
+  var tool = editor.tool;
+  if (tool) {
+    Object.assign(tool, fields);
+    if (editor.set !== target) { editor.set.tools = editor.set.tools.filter(function (t) { return t !== tool; }); target.tools.push(tool); }
+  } else {
+    tool = Object.assign({ id: newId('t'), layer: '', mode: '' }, fields);
+    target.tools.push(tool);
+  }
+  state.lastPalette = target.id; savePrefs();
+  saveChest(); closeToolEditor();
+  applyChestTool(target, tool);
+  toast('Saved "' + tool.title + '" in ' + target.title + (tool.fav ? ' and the toolbar.' : '.'));
+}
+function deleteToolFromEditor() {
+  if (!editor || !editor.tool) return;
+  if (!confirm('Delete the tool "' + editor.tool.title + '"?')) return;
+  var set = editor.set, tool = editor.tool;
+  set.tools = set.tools.filter(function (t) { return t !== tool; });
+  if (state.chestTool && state.chestTool.id === tool.id && state.chestTool.setId === set.id) state.chestTool = null;
+  saveChest(); closeToolEditor(); renderChest();
+}
+$('#tSet').addEventListener('change', function () { $('#tNewSetRow').hidden = $('#tSet').value !== '__new'; });
+$('#tType').addEventListener('change', function () {
+  var subj = $('#tSubject').value.trim();
+  if (!subj || DRAWABLE.some(function (k) { return TOOLS[k].subj === subj; })) $('#tSubject').value = TOOLS[$('#tType').value].subj;
+});
+$('#tUseCurrent').addEventListener('click', function () { if (editor) { editor.style = Object.assign({}, state.style); styleTool.sync(); } });
+$('#tSave').addEventListener('click', saveToolFromEditor);
+$('#tCancel').addEventListener('click', closeToolEditor);
+$('#tDelete').addEventListener('click', deleteToolFromEditor);
+$('#toolModal').addEventListener('pointerdown', function (e) { if (e.target === $('#toolModal')) closeToolEditor(); });
 
 /* ---------- scale (calibration) ---------- */
 function currentPageIndex() {
@@ -2479,6 +2733,7 @@ var KEY_TOOL = { v: 'select', c: 'circle', r: 'rect', g: 'polygon', p: 'pen', l:
 document.addEventListener('keydown', function (e) {
   var tag = (e.target.tagName || '').toLowerCase();
   state.multi = e.shiftKey || e.metaKey || e.ctrlKey;
+  if (!$('#toolModal').hidden) { if (e.key === 'Escape') closeToolEditor(); else if (e.key === 'Enter' && tag === 'input') { e.preventDefault(); saveToolFromEditor(); } return; }
   if (!$('#scaleModal').hidden) { if (e.key === 'Escape') closeScale(); else if (e.key === 'Enter' && tag !== 'select') { e.preventDefault(); applyScaleFromDialog(); } return; }
   if (tag === 'input' || tag === 'textarea') return;
   if (state.draft) {
@@ -2521,6 +2776,7 @@ $('#author').value = state.author;
 $('#fingerDraw').checked = state.fingerDraw;
 updateStyleChip(); styleNew.sync();
 renderVersion(); setTimeout(maybeCheck, 1500);
+renderFavBar();
 if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) $('#panel').hidden = false;
 renderList();
 })();

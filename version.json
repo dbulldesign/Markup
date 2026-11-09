@@ -1,5 +1,5 @@
 {
-  "version": "1.1.0",
+  "version": "1.2.0",
   "date": "2026-11-09",
-  "notes": "Polygon tool. Scale (presets, custom, calibrate) with Length, Area and Perimeter measurements that Revu reads. Version number and update check. Toolbar no longer slides under the status bar; no grey strip at the bottom."
+  "notes": "Favourite tools (one tap from the toolbar). Make your own palettes and save any tool with its style, subject and comment. Export palettes, and back up or restore all your tools and settings to a file."
 }
