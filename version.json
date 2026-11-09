@@ -1,5 +1,5 @@
 {
-  "version": "1.6.1",
+  "version": "1.7.0",
   "date": "2026-11-09",
-  "notes": "Fixes sliders: the handle no longer runs over the value at 100%, and sliders in the tool editor no longer sit in a grey box."
+  "notes": "Symbols can now be ovals, rectangles or rounded rectangles with their own width and height, for symbols, numbered counts and saved tools."
 }

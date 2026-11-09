@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.6.1">
+<meta name="app-version" content="1.7.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -197,7 +197,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .pop[hidden] { display: none; }
 .pop { overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
 .symset { display: grid; gap: 8px; border-top: 1px solid var(--line); margin-top: 10px; padding-top: 10px; }
-.symset[hidden] { display: none; }
+.symset[hidden], .symset [hidden] { display: none !important; }
 .symset .fld { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); }
 .symset select, .symset input[type=text] { border: 1px solid var(--line); background: var(--surface-2); border-radius: 9px; padding: 6px 8px; font-size: 15px; width: 100%; color: var(--ink); }
 .symset .tcrow { align-items: start; }
@@ -404,8 +404,9 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     <h3>Style for new markups</h3>
     <div class="style" id="styleNew"></div>
     <div class="symset" id="symNew" hidden>
-      <label class="fld"><span>Symbol</span><select data-s="shape"><option value="circle">Circle</option><option value="square">Square</option><option value="diamond">Diamond</option><option value="hexagon">Hexagon</option><option value="triangle">Triangle</option></select></label>
-      <label class="fld range"><span>Size</span><input type="range" min="6" max="72" step="1" data-s="size"><output></output></label>
+      <label class="fld"><span>Symbol</span><select data-s="shape"><option value="circle">Circle</option><option value="oval">Oval</option><option value="square">Square</option><option value="rect">Rectangle</option><option value="roundrect">Rounded rectangle</option><option value="diamond">Diamond</option><option value="hexagon">Hexagon</option><option value="triangle">Triangle</option></select></label>
+      <label class="fld range"><span data-size-lbl>Size</span><input type="range" min="4" max="96" step="1" data-s="size"><output></output></label>
+      <label class="fld range" data-wide hidden><span>Height</span><input type="range" min="4" max="96" step="1" data-s="height"><output></output></label>
       <label class="fld" data-only="symbol"><span>Label</span><input type="text" data-s="label" maxlength="8" placeholder="e.g. A, L1"></label>
       <div class="fld tcrow"><span>Text</span><div class="tswatches" data-tc-row></div></div>
     </div>
@@ -575,8 +576,9 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     </div>
     <label class="fld" id="tNewSetRow" hidden>New palette name<input id="tNewSet" placeholder="e.g. My tools"></label>
     <div class="symset" id="tSym" hidden style="margin-top:0">
-      <label class="fld"><span>Symbol</span><select data-s="shape"><option value="circle">Circle</option><option value="square">Square</option><option value="diamond">Diamond</option><option value="hexagon">Hexagon</option><option value="triangle">Triangle</option></select></label>
-      <label class="fld range"><span>Size</span><input type="range" min="6" max="72" step="1" data-s="size"><output></output></label>
+      <label class="fld"><span>Symbol</span><select data-s="shape"><option value="circle">Circle</option><option value="oval">Oval</option><option value="square">Square</option><option value="rect">Rectangle</option><option value="roundrect">Rounded rectangle</option><option value="diamond">Diamond</option><option value="hexagon">Hexagon</option><option value="triangle">Triangle</option></select></label>
+      <label class="fld range"><span data-size-lbl>Size</span><input type="range" min="4" max="96" step="1" data-s="size"><output></output></label>
+      <label class="fld range" data-wide hidden><span>Height</span><input type="range" min="4" max="96" step="1" data-s="height"><output></output></label>
       <label class="fld" data-only="symbol"><span>Label</span><input type="text" data-s="label" maxlength="8" placeholder="e.g. A, L1"></label>
       <div class="fld tcrow"><span>Text</span><div class="tswatches" data-tc-row></div></div>
     </div>
@@ -769,7 +771,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
         var sym = null, pmd = ctx.lookup(dict.get(N('PMSymbol')));
         if (pmd instanceof L.PDFDict && (subtype === 'Circle' || subtype === 'Square' || subtype === 'Polygon')) {
           var nn = numOf(ctx.lookup(pmd.get(N('N'))), null);
-          sym = { shape: nameOf(pmd.get(N('Shape'))) || 'circle', size: numOf(ctx.lookup(pmd.get(N('Size'))), null),
+          sym = { shape: nameOf(pmd.get(N('Shape'))) || 'circle', size: numOf(ctx.lookup(pmd.get(N('Size'))), null), height: numOf(ctx.lookup(pmd.get(N('Height'))), null),
             label: textOf(ctx.lookup(pmd.get(N('Label')))), n: nn,
             textColor: (function () { var tc = numsOf(ctx, pmd.get(N('TextColor'))); return tc && tc.length === 3 ? rgbHex(tc) : null; })(),
             series: nn != null ? (textOf(ctx.lookup(pmd.get(N('Series')))) || 'default') : null,
@@ -858,7 +860,16 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
   }
 
   /* ---- fixed-size symbols (fixture counts, numbered series) ---- */
-  var SYM_SUB = { circle: 'Circle', square: 'Square', diamond: 'Polygon', triangle: 'Polygon', hexagon: 'Polygon' };
+  var SYM_SUB = { circle: 'Circle', oval: 'Circle', square: 'Square', rect: 'Square', roundrect: 'Polygon', diamond: 'Polygon', triangle: 'Polygon', hexagon: 'Polygon' };
+  // Shapes with their own height (the others are as tall as they are wide).
+  var SYM_WIDE = { oval: 1, rect: 1, roundrect: 1 };
+  function symKind(shape) { return shape === 'circle' || shape === 'oval' ? 'ellipse' : shape === 'square' || shape === 'rect' ? 'box' : 'poly'; }
+  function symDims(sym) { var w = +sym.size || 18; return SYM_WIDE[sym.shape] ? [w, +sym.height || Math.round(w * 0.6)] : [w, w]; }
+  function roundRectPts(x0, y0, x1, y1, r) {
+    var pts = [], n = 6, cs = [[x1 - r, y0 + r, -90], [x1 - r, y1 - r, 0], [x0 + r, y1 - r, 90], [x0 + r, y0 + r, 180]];
+    cs.forEach(function (c) { for (var i = 0; i <= n; i++) { var t = (c[2] + 90 * i / n) * Math.PI / 180; pts.push([c[0] + r * Math.cos(t), c[1] + r * Math.sin(t)]); } });
+    return pts;
+  }
   var SYM_UNIT = {
     diamond: [[0, 0.5], [0.5, 0], [0, -0.5], [-0.5, 0]],
     triangle: [[0, 0.5], [0.5, -0.45], [-0.5, -0.45]],
@@ -866,13 +877,18 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
   };
   function symCenter(a) { return [(a.rect[0] + a.rect[2]) / 2, (a.rect[1] + a.rect[3]) / 2]; }
   function symPoints(a, inset) {
+    if (a.sym.shape === 'roundrect') {
+      var i0 = inset || 0, rx0 = a.rect[0] + i0, ry0 = a.rect[1] + i0, rx1 = Math.max(rx0 + 1, a.rect[2] - i0), ry1 = Math.max(ry0 + 1, a.rect[3] - i0);
+      return roundRectPts(rx0, ry0, rx1, ry1, Math.min(rx1 - rx0, ry1 - ry0) * 0.3);
+    }
     var c = symCenter(a), s = Math.max(1, (a.rect[2] - a.rect[0]) - 2 * (inset || 0));
     return (SYM_UNIT[a.sym.shape] || SYM_UNIT.diamond).map(function (q) { return [c[0] + q[0] * s, c[1] + q[1] * s]; });
   }
   function symLabel(a) { if (!a.sym) return ''; return a.sym.n != null ? (a.sym.prefix || '') + a.sym.n : (a.sym.label || ''); }
   function symText(a) {
-    var s = a.rect[2] - a.rect[0], tri = a.sym.shape === 'triangle', label = symLabel(a);
-    var size = s * (tri ? 0.36 : 0.5), maxW = s * (tri ? 0.46 : a.sym.shape === 'diamond' ? 0.56 : 0.74);
+    var s = a.rect[2] - a.rect[0], hgt = a.rect[3] - a.rect[1], tri = a.sym.shape === 'triangle', label = symLabel(a);
+    var wide = !!SYM_WIDE[a.sym.shape], m = Math.min(s, hgt);
+    var size = m * (tri ? 0.36 : wide ? 0.58 : 0.5), maxW = s * (tri ? 0.46 : a.sym.shape === 'diamond' ? 0.56 : a.sym.shape === 'oval' ? 0.7 : wide ? 0.82 : 0.74);
     var w = textWidth(label, size); if (w > maxW) size *= maxW / w;
     var c = symCenter(a);
     return { text: label, size: size, x: c[0], y: c[1] + (tri ? -0.16 * s : 0), w: textWidth(label, size) };
@@ -893,8 +909,8 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     var parts = [], fonts = null;
     if (a.sym) {
       var hs = lw / 2, spath;
-      if (a.sym.shape === 'circle') spath = ellipsePath(x0 + hs, y0 + hs, Math.max(x1 - hs, x0 + hs + 0.01), Math.max(y1 - hs, y0 + hs + 0.01));
-      else if (a.sym.shape === 'square') spath = f(x0 + hs) + ' ' + f(y0 + hs) + ' ' + f(Math.max(0.01, x1 - x0 - lw)) + ' ' + f(Math.max(0.01, y1 - y0 - lw)) + ' re';
+      if (symKind(a.sym.shape) === 'ellipse') spath = ellipsePath(x0 + hs, y0 + hs, Math.max(x1 - hs, x0 + hs + 0.01), Math.max(y1 - hs, y0 + hs + 0.01));
+      else if (symKind(a.sym.shape) === 'box') spath = f(x0 + hs) + ' ' + f(y0 + hs) + ' ' + f(Math.max(0.01, x1 - x0 - lw)) + ' ' + f(Math.max(0.01, y1 - y0 - lw)) + ' re';
       else spath = vertexPath(symPoints(a, hs), true);
       if (a.fillColor) {
         gs.GSf = { Type: 'ExtGState', CA: fix(a.fillOpacity, 3), ca: fix(a.fillOpacity, 3), BM: a.highlight ? 'Multiply' : 'Normal' };
@@ -978,6 +994,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       if (a.sym) {
         if (a.subtype === 'Polygon') dict.set(N('Vertices'), flat(symPoints(a, 0)));
         var sd = { Shape: a.sym.shape, Size: fix(a.sym.size || (a.rect[2] - a.rect[0]), 2) };
+        if (SYM_WIDE[a.sym.shape]) sd.Height = fix(a.sym.height || (a.rect[3] - a.rect[1]), 2);
         if (a.sym.label) sd.Label = L.PDFHexString.fromText(a.sym.label);
         if (hexRgb(a.sym.textColor)) sd.TextColor = hexRgb(a.sym.textColor).map(function (v) { return fix(v, 4); });
         if (a.sym.n != null) { sd.N = a.sym.n; sd.Series = L.PDFString.of(a.sym.series || ''); sd.Prefix = L.PDFHexString.fromText(a.sym.prefix || ''); }
@@ -1100,7 +1117,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     return await doc.save({ useObjectStreams: false });
   }
 
-  root.MarkupIO = { SYM_SUB: SYM_SUB, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
+  root.MarkupIO = { SYM_SUB: SYM_SUB, SYM_WIDE: SYM_WIDE, symKind: symKind, symDims: symDims, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>
@@ -1311,7 +1328,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.6.1';
+var APP_VERSION = '1.7.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1343,7 +1360,7 @@ var state = {
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
   chestSets: [], chestTool: null, pendingSave: null,
   scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null,
-  sym: { shape: 'circle', size: 18, label: 'A', textColor: null }, series: { defs: {}, cur: null }
+  sym: { shape: 'circle', size: 18, height: 12, label: 'A', textColor: null }, series: { defs: {}, cur: null }
 };
 
 /* ---------- small helpers ---------- */
@@ -1763,9 +1780,7 @@ function shapeSVG(a, p, ghost) {
 }
 function symSVG(a, p, lw, stroke, so) {
   var z = state.zoom, vr = viewRect(p, a.rect), h = lw / 2, geo, out = '';
-  if (a.sym.shape === 'circle') geo = '<ellipse cx="' + (vr[0] + vr[2]) / 2 + '" cy="' + (vr[1] + vr[3]) / 2 + '" rx="' + Math.max(0.5, (vr[2] - vr[0]) / 2 - h) + '" ry="' + Math.max(0.5, (vr[3] - vr[1]) / 2 - h) + '"';
-  else if (a.sym.shape === 'square') geo = '<rect x="' + (vr[0] + h) + '" y="' + (vr[1] + h) + '" width="' + Math.max(0.5, vr[2] - vr[0] - lw) + '" height="' + Math.max(0.5, vr[3] - vr[1] - lw) + '"';
-  else geo = '<path d="' + MarkupIO.symPoints(a, (a.lineWidth || 0) / 2).map(function (q, i) { var v = toView(p, q[0], q[1]); return (i ? 'L' : 'M') + v[0].toFixed(1) + ' ' + v[1].toFixed(1); }).join(' ') + ' Z"';
+  geo = symShapeSVG(a, function (x, y) { return toView(p, x, y); }, (a.lineWidth || 0) / 2);
   if (a.fillColor) out += geo + ' fill="' + rgbToHex(a.fillColor) + '" fill-opacity="' + a.fillOpacity + '"' + (a.highlight ? ' class="hl"' : '') + ' stroke="none"/>';
   if (a.lineWidth > 0) out += geo + ' fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '" stroke-linejoin="round"/>';
   var t = MarkupIO.symText(a);
@@ -2098,7 +2113,7 @@ function newAnnot(tool, pageIndex, pt) {
   if (T.symbol) {
     var sy = state.sym, size = clamp(+sy.size || 18, 4, 144);
     a.subtype = MarkupIO.SYM_SUB[sy.shape] || 'Circle';
-    a.sym = { shape: sy.shape || 'circle', size: size, label: T.numbered ? '' : (sy.label || ''), textColor: sy.textColor || null, n: null, series: null, prefix: '' };
+    a.sym = { shape: sy.shape || 'circle', size: size, height: MarkupIO.SYM_WIDE[sy.shape] ? clamp(+sy.height || 12, 4, 144) : null, label: T.numbered ? '' : (sy.label || ''), textColor: sy.textColor || null, n: null, series: null, prefix: '' };
     if (!MarkupIO.FILLABLE.has(a.subtype)) a.fillColor = null;
     if (T.numbered) { var sid = ensureSeries(); a.sym.series = sid; a.sym.prefix = state.series.defs[sid].prefix || ''; a.sym.n = nextNumber(sid); }
     centerSym(a, pt);
@@ -2106,7 +2121,17 @@ function newAnnot(tool, pageIndex, pt) {
   if (a.vertices) updateGeom(a);
   return a;
 }
-function centerSym(a, pt) { var h = a.sym.size / 2; a.rect = [pt[0] - h, pt[1] - h, pt[0] + h, pt[1] + h]; }
+function centerSym(a, pt) { var d = MarkupIO.symDims(a.sym), hw = d[0] / 2, hh = d[1] / 2; a.rect = [pt[0] - hw, pt[1] - hh, pt[0] + hw, pt[1] + hh]; }
+function symSizeText(sym) { var d = MarkupIO.symDims(sym); return MarkupIO.SYM_WIDE[sym.shape] ? Math.round(d[0]) + ' \u00d7 ' + Math.round(d[1]) + ' pt' : Math.round(d[0]) + ' pt'; }
+/* SVG for a symbol's outline. map(x, y) turns the symbol's own units into SVG units; inset is in the symbol's units. */
+function symShapeSVG(a, map, inset) {
+  var kind = MarkupIO.symKind(a.sym.shape);
+  if (kind === 'poly') return '<path d="' + MarkupIO.symPoints(a, inset).map(function (q, i) { var v = map(q[0], q[1]); return (i ? 'L' : 'M') + v[0].toFixed(2) + ' ' + v[1].toFixed(2); }).join(' ') + ' Z"';
+  var r = a.rect, i = Math.min(inset, (r[2] - r[0]) / 2 - 0.1, (r[3] - r[1]) / 2 - 0.1);
+  var p0 = map(r[0] + i, r[1] + i), p1 = map(r[2] - i, r[3] - i);
+  var x = Math.min(p0[0], p1[0]), y = Math.min(p0[1], p1[1]), w = Math.max(0.5, Math.abs(p1[0] - p0[0])), h = Math.max(0.5, Math.abs(p1[1] - p0[1]));
+  return kind === 'ellipse' ? '<ellipse cx="' + (x + w / 2) + '" cy="' + (y + h / 2) + '" rx="' + w / 2 + '" ry="' + h / 2 + '"' : '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + h + '"';
+}
 function placeSymbol(g) {
   var a = g.a, p = g.p; p.temp = null;
   if (a.sym.n != null) {
@@ -2395,14 +2420,18 @@ function bindTextColorRow(root, pick) {
 function bindSymControls(root, get, set) {
   root.addEventListener('input', function (e) {
     var k = e.target.dataset.s; if (!k) return;
-    set(k, k === 'size' ? +e.target.value : e.target.value); sync();
+    set(k, k === 'size' || k === 'height' ? +e.target.value : e.target.value); sync();
   });
   bindTextColorRow(root, function (v) { set('textColor', v); sync(); });
   function sync(tool) {
     var s = get(); if (!s) return;
     syncTextSwatches(root, s.textColor);
+    if (!s.height) s.height = Math.round((+s.size || 18) * 0.6);
     root.querySelectorAll('[data-s]').forEach(function (el) { var k = el.dataset.s; if (document.activeElement !== el) el.value = s[k] == null ? '' : s[k]; if (el.type === 'range') { paintRange(el); el.nextElementSibling.value = s[k] + ' pt'; } });
     if (tool) root.querySelectorAll('[data-only]').forEach(function (el) { el.hidden = el.dataset.only !== tool; });
+    var wide = !!MarkupIO.SYM_WIDE[s.shape];
+    root.querySelectorAll('[data-wide]').forEach(function (el) { el.hidden = !wide; });
+    root.querySelectorAll('[data-size-lbl]').forEach(function (el) { el.textContent = wide ? 'Width' : 'Size'; });
   }
   return { sync: sync };
 }
@@ -2430,7 +2459,7 @@ function renderProps() {
   pm.hidden = !mk && !(s.length === 1 && a.sym);
   if (!mk && s.length === 1 && a.sym) {
     var ser = a.sym.n != null ? allSeries().filter(function (x) { return x.id === a.sym.series; })[0] : null;
-    pm.innerHTML = (a.sym.n != null ? 'Number <b>' + esc(MarkupIO.symLabel(a)) + '</b>' + (ser ? ' in ' + esc(seriesName(ser)) : '') : 'Symbol <b>' + esc(MarkupIO.symLabel(a) || a.sym.shape) + '</b>') + ' · ' + Math.round(a.sym.size) + ' pt';
+    pm.innerHTML = (a.sym.n != null ? 'Number <b>' + esc(MarkupIO.symLabel(a)) + '</b>' + (ser ? ' in ' + esc(seriesName(ser)) : '') : 'Symbol <b>' + esc(MarkupIO.symLabel(a) || a.sym.shape) + '</b>') + ' · ' + symSizeText(a.sym);
   }
   if (mk) pm.innerHTML = a.measure
     ? (mk === 'area' ? 'Area' : 'Length') + ': <b>' + esc(a.mtext || measureText(a)) + '</b> · scale ' + esc(scaleLabel(a.measure))
@@ -2601,11 +2630,10 @@ $('#btnSaveBarClose').addEventListener('click', function () { $('#saveBar').hidd
 function toolPreview(t) {
   if (t.icon) return '<img src="' + t.icon + '" alt="">';
   if (t.sym) {
-    var fake = { rect: [10, 0, 46, 36], sym: { shape: t.sym.shape, size: 36, label: t.sym.numbered ? '' : t.sym.label, textColor: t.sym.textColor || null, n: t.sym.numbered ? 1 : null, prefix: '' }, fillColor: t.fillColor, fillOpacity: t.fillOpacity, color: t.color };
-    var pts = t.sym.shape === 'circle' ? null : t.sym.shape === 'square' ? null : MarkupIO.symPoints(fake, 1.5);
+    var dm = MarkupIO.symDims(t.sym), ks = Math.min(52 / dm[0], 34 / dm[1]), fw = dm[0] * ks, fh = dm[1] * ks;
+    var fake = { rect: [28 - fw / 2, 18 - fh / 2, 28 + fw / 2, 18 + fh / 2], sym: { shape: t.sym.shape, size: fw, height: fh, label: t.sym.numbered ? '' : t.sym.label, textColor: t.sym.textColor || null, n: t.sym.numbered ? 1 : null, prefix: '' }, fillColor: t.fillColor, fillOpacity: t.fillOpacity, color: t.color };
     var fa = ' fill="' + (t.fillColor ? rgbToHex(t.fillColor) : 'none') + '" fill-opacity="' + (t.fillColor ? t.fillOpacity : 0) + '" stroke="' + rgbToHex(t.color || [0.3, 0.3, 0.3]) + '" stroke-width="' + Math.max(1, Math.min(3, t.lineWidth || 1)) + '"';
-    var g = t.sym.shape === 'circle' ? '<circle cx="28" cy="18" r="16.5"' + fa + '/>' : t.sym.shape === 'square' ? '<rect x="11.5" y="1.5" width="33" height="33"' + fa + '/>'
-      : '<path d="' + pts.map(function (q, i) { return (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + (36 - q[1]).toFixed(1); }).join(' ') + ' Z"' + fa + ' stroke-linejoin="round"/>';
+    var g = symShapeSVG(fake, function (x, y) { return [x, 36 - y]; }, 1.5) + fa + ' stroke-linejoin="round"/>';
     var tx = MarkupIO.symText(fake);
     return '<svg viewBox="0 0 56 36" xmlns="http://www.w3.org/2000/svg">' + g + (tx.text ? '<text x="' + tx.x + '" y="' + (36 - tx.y + tx.size * 0.36) + '" font-size="' + tx.size + '" font-weight="700" font-family="sans-serif" text-anchor="middle" fill="' + rgbToHex(MarkupIO.symTextColor(fake)) + '">' + esc(tx.text) + '</text>' : '') + '</svg>';
   }
@@ -2728,7 +2756,7 @@ function applyChestTool(set, t) {
     opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth == null ? 1 : t.lineWidth, 0, 12), highlight: !!t.highlight
   });
   // A numbered tool has no label of its own, so keep the plain Symbol tool's label.
-  if (t.sym) state.sym = { shape: t.sym.shape || 'circle', size: t.sym.size || 18, label: t.sym.numbered ? state.sym.label : (t.sym.label || ''), textColor: t.sym.textColor || null };
+  if (t.sym) state.sym = { shape: t.sym.shape || 'circle', size: t.sym.size || 18, height: t.sym.height || state.sym.height || 12, label: t.sym.numbered ? state.sym.label : (t.sym.label || ''), textColor: t.sym.textColor || null };
   savePrefs(); updateStyleChip(); styleNew.sync(); renderChest(); updateSeqBar();
   if (t.sym) { toast(t.title + ': tap to place' + (t.sym.numbered ? ' 1, 2, 3...' : '') + '.'); return; }
   toast(t.title + ': draw with the ' + (TOOLS[t.drawTool] ? TOOLS[t.drawTool].name : 'Circle') + ' tool');
@@ -2851,7 +2879,7 @@ function editorFields() {
   return {
     title: $('#tName').value.trim() || $('#tSubject').value.trim() || T.name,
     subtype: symSub || T.sub, intent: T.intent || '', drawTool: type, supported: true,
-    sym: T.symbol ? { shape: editor.sym.shape || 'circle', size: clamp(+editor.sym.size || 18, 4, 144), label: T.numbered ? '' : (editor.sym.label || ''), textColor: editor.sym.textColor || null, numbered: !!T.numbered } : null,
+    sym: T.symbol ? { shape: editor.sym.shape || 'circle', size: clamp(+editor.sym.size || 18, 4, 144), height: MarkupIO.SYM_WIDE[editor.sym.shape] ? clamp(+editor.sym.height || 12, 4, 144) : null, label: T.numbered ? '' : (editor.sym.label || ''), textColor: editor.sym.textColor || null, numbered: !!T.numbered } : null,
     color: hexToRgb(st.color), fillColor: st.fill && MarkupIO.FILLABLE.has(symSub || T.sub) ? hexToRgb(st.fillColor || st.color) : null,
     fillOpacity: st.fillOpacity, opacity: st.opacity, lineWidth: st.lineWidth, highlight: !!st.highlight,
     subject: $('#tSubject').value.trim(), contents: $('#tContents').value, fav: $('#tFav').checked, icon: null
@@ -2862,20 +2890,19 @@ function editorFields() {
 var PV_W = 320, PV_H = 140;
 function pvSymbol(f, cx, n) {
   // Shown 1.5x a printed point so small symbols stay readable; the caption gives the real size.
-  var k = 1.5, sz = clamp(f.sym.size * k, 12, 118), h = sz / 2, cyUp = PV_H / 2;
-  var a = { rect: [cx - h, cyUp - h, cx + h, cyUp + h], sym: { shape: f.sym.shape, size: sz, label: f.sym.label, textColor: f.sym.textColor, n: n, prefix: '' }, color: f.color, fillColor: f.fillColor, fillOpacity: f.fillOpacity };
+  var k = pvScale(f), dm = MarkupIO.symDims(f.sym), w = Math.max(10, dm[0] * k), hh = Math.max(10, dm[1] * k), cyUp = PV_H / 2;
+  var a = { rect: [cx - w / 2, cyUp - hh / 2, cx + w / 2, cyUp + hh / 2], sym: { shape: f.sym.shape, size: w, height: hh, label: f.sym.label, textColor: f.sym.textColor, n: n, prefix: '' }, color: f.color, fillColor: f.fillColor, fillOpacity: f.fillOpacity };
   var lw = (f.lineWidth || 0) * k, hl = lw / 2, flip = function (y) { return PV_H - y; };
-  var geo;
-  if (f.sym.shape === 'circle') geo = '<circle cx="' + cx + '" cy="' + flip(cyUp) + '" r="' + Math.max(0.5, h - hl) + '"';
-  else if (f.sym.shape === 'square') geo = '<rect x="' + (cx - h + hl) + '" y="' + (flip(cyUp) - h + hl) + '" width="' + Math.max(0.5, sz - lw) + '" height="' + Math.max(0.5, sz - lw) + '"';
-  else geo = '<path d="' + MarkupIO.symPoints(a, hl).map(function (q, i) { return (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + flip(q[1]).toFixed(1); }).join(' ') + ' Z"';
+  var geo = symShapeSVG(a, function (x, y) { return [x, flip(y)]; }, hl);
   var out = '';
   if (f.fillColor) out += geo + ' fill="' + rgbToHex(f.fillColor) + '" fill-opacity="' + f.fillOpacity + '"' + (f.highlight ? ' class="hl"' : '') + ' stroke="none"/>';
   if (lw > 0 && f.color) out += geo + ' fill="none" stroke="' + rgbToHex(f.color) + '" stroke-opacity="' + f.opacity + '" stroke-width="' + lw + '" stroke-linejoin="round"/>';
   var t = MarkupIO.symText(a);
   if (t.text) out += '<text x="' + t.x + '" y="' + (flip(t.y) + t.size * 0.36) + '" font-size="' + t.size + '" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + rgbToHex(MarkupIO.symTextColor(a)) + '">' + esc(t.text) + '</text>';
-  return { svg: out, w: sz };
+  return { svg: out, w: w };
 }
+// 1.5 preview units per point, reduced so big symbols (and three numbered ones) still fit.
+function pvScale(f) { var d = MarkupIO.symDims(f.sym), n = f.sym.numbered ? 3 : 1; return Math.min(1.5, 118 / d[1], (PV_W - 30 - 16 * (n - 1)) / n / d[0]); }
 function previewSVG(f) {
   var stroke = rgbToHex(f.color || [0, 0, 0]), lw = Math.max(f.lineWidth > 0 ? 0.75 : 0, (f.lineWidth || 0) * 1.5);
   var fillA = f.fillColor ? ' fill="' + rgbToHex(f.fillColor) + '" fill-opacity="' + f.fillOpacity + '"' + (f.highlight ? ' class="hl"' : '') : ' fill="none"';
@@ -2887,7 +2914,7 @@ function previewSVG(f) {
   switch (f.drawTool) {
     case 'symbol': body = pvSymbol(f, PV_W / 2, null).svg; break;
     case 'numbered': {
-      var gap = clamp(f.sym.size * 1.5, 12, 118) + 16;
+      var gap = Math.max(10, MarkupIO.symDims(f.sym)[0] * pvScale(f)) + 16;
       body = [1, 2, 3].map(function (n, i) { return pvSymbol(f, PV_W / 2 + (i - 1) * gap, n).svg; }).join('');
       break;
     }
@@ -2909,7 +2936,7 @@ function updateToolPreview() {
     pvQueued = false; if (!editor) return;
     var f = editorFields(), T = TOOLS[f.drawTool];
     $('#tPreviewArt').innerHTML = previewSVG(f);
-    var note = f.sym ? Math.round(f.sym.size) + ' pt on the sheet' : (T.measure ? 'example measurement' : T.name);
+    var note = f.sym ? symSizeText(f.sym) + ' on the sheet' : (T.measure ? 'example measurement' : T.name);
     $('#tPreviewCap').innerHTML = '<b>' + esc(f.title) + (f.subject && f.subject !== f.title ? ' · ' + esc(f.subject) : '') + '</b><span>' + esc(note) + '</span>';
   });
 }
