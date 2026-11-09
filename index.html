@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.5.1">
+<meta name="app-version" content="1.6.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -102,7 +102,11 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .spacer { flex: 1 1 0; }
 .zoom-val { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; }
 .style-chip { padding-left: 8px; }
-.style-chip .preview { width: 34px; height: 22px; border-radius: 50%; border: 2.5px solid var(--c, #e53935); background: color-mix(in srgb, var(--c, #e53935) 35%, transparent); }
+.style-chip .preview { width: 34px; height: 22px; border-radius: 50%; border: 2.5px solid var(--c, #e53935); background: color-mix(in srgb, var(--f, var(--c, #e53935)) 35%, transparent); }
+.style .sub { font-size: 13px; color: var(--ink-2); margin-bottom: -4px; }
+.style .fld.fcrow { grid-template-columns: 96px 1fr; align-items: start; }
+.style .fld.fcrow > span { padding-top: 4px; }
+.style .fld.fcrow.off { opacity: .5; }
 .style-chip.nofill .preview { background: transparent; }
 .toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 14px; padding: 0 6px; }
 .toggle input { width: 40px; height: 24px; appearance: none; -webkit-appearance: none; background: var(--line); border-radius: 12px; position: relative; margin: 0; cursor: pointer; }
@@ -1300,7 +1304,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.5.1';
+var APP_VERSION = '1.6.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2078,7 +2082,7 @@ function newAnnot(tool, pageIndex, pt) {
     subtype: sub, intent: T.intent || null, pageIndex: pageIndex, rect: [pt[0], pt[1], pt[0], pt[1]], inkList: sub === 'Ink' ? [[pt]] : null,
     vertices: T.poly ? [pt] : T.line ? [pt, pt] : null, measure: T.measure ? copyScale(scaleFor(pageIndex)) : null,
     lsize: null, mtext: '', lpos: null,
-    color: hexToRgb(T.calibrate ? '#2a5bd7' : st.color), fillColor: (st.fill && MarkupIO.FILLABLE.has(sub) && !T.calibrate) ? hexToRgb(st.color) : null,
+    color: hexToRgb(T.calibrate ? '#2a5bd7' : st.color), fillColor: (st.fill && MarkupIO.FILLABLE.has(sub) && !T.calibrate) ? hexToRgb(st.fillColor || st.color) : null,
     fillOpacity: st.fillOpacity, highlight: st.highlight, opacity: st.opacity, lineWidth: T.calibrate ? 1.5 : st.lineWidth,
     subject: chest ? (chest.subject || T.subj) : T.subj,
     contents: chest ? (chest.contents || '') : '',
@@ -2254,8 +2258,13 @@ function applyToSelection(patch, tag) {
   s.forEach(function (a) {
     Object.keys(patch).forEach(function (k) {
       var v = patch[k];
-      if (k === 'color') { a.color = hexToRgb(v); if (a.fillColor) a.fillColor = hexToRgb(v); if (!a.isNew) a.styleDirty = true; }
-      else if (k === 'fill') { if (MarkupIO.FILLABLE.has(a.subtype)) { a.fillColor = v ? (a.color || hexToRgb(state.style.color)) : null; if (!a.isNew) a.styleDirty = true; } }
+      if (k === 'color') {
+        // A fill that matched the line follows it; a fill with its own colour keeps it.
+        var follows = a.fillColor && a.color && rgbToHex(a.fillColor) === rgbToHex(a.color);
+        a.color = hexToRgb(v); if (follows) a.fillColor = hexToRgb(v); if (!a.isNew) a.styleDirty = true;
+      }
+      else if (k === 'fill') { if (MarkupIO.FILLABLE.has(a.subtype)) { a.fillColor = v ? (a.fillColor || a.color || hexToRgb(state.style.color)) : null; if (!a.isNew) a.styleDirty = true; } }
+      else if (k === 'fillColor') { if (MarkupIO.FILLABLE.has(a.subtype)) { a.fillColor = v ? hexToRgb(v) : (a.color || hexToRgb(state.style.color)); if (!a.isNew) a.styleDirty = true; } }
       else if (k === 'subject' || k === 'contents') { a[k] = v; }
       else { a[k] = v; if (!a.isNew) a.styleDirty = true; }
     });
@@ -2302,9 +2311,14 @@ function deleteSelection() {
 
 /* ---------- style controls ---------- */
 function buildStyleControls(root, get, set, open) {
+  var fillSw = '<button type="button" class="swatch auto" data-fc="" title="Fill with the line colour" aria-label="Fill same as line">Line</button>' +
+    ['#FFFFFF'].concat(PALETTE).map(function (c) { return '<button type="button" class="swatch" data-fc="' + c + '" style="--c:' + c + '" aria-label="Fill colour ' + c + '"></button>'; }).join('') +
+    '<label class="swatch custom" title="Custom fill colour"><input type="color" data-fc-custom aria-label="Custom fill colour"></label>';
   root.innerHTML =
+    '<div class="sub">Line colour</div>' +
     '<div class="swatches">' + PALETTE.map(function (c) { return '<button type="button" class="swatch" data-c="' + c + '" style="--c:' + c + '" aria-label="Color ' + c + '"></button>'; }).join('') +
     '<label class="swatch custom" title="Custom color"><input type="color" data-k="color" aria-label="Custom color"></label></div>' +
+    '<div class="fld fcrow"><span>Fill colour</span><div class="tswatches">' + fillSw + '</div></div>' +
     '<details class="more"' + (open ? ' open' : '') + '><summary>Fill, line and opacity</summary>' +
     '<label class="fld"><span>Fill inside</span><input type="checkbox" data-k="fill"></label>' +
     '<label class="fld"><span>Highlight (see through the fill)</span><input type="checkbox" data-k="highlight"></label>' +
@@ -2312,10 +2326,13 @@ function buildStyleControls(root, get, set, open) {
     '<label class="fld range"><span>Line width</span><input type="range" min="0" max="12" step="0.5" data-k="lineWidth"><output></output></label>' +
     '<label class="fld range"><span>Line opacity</span><input type="range" min="0.1" max="1" step="0.05" data-k="opacity"><output></output></label></details>';
   root.addEventListener('click', function (e) {
+    var f = e.target.closest ? e.target.closest('[data-fc]') : null;
+    if (f) { set({ fill: true, fillColor: f.dataset.fc || null }); sync(); return; }
     var b = e.target.closest ? e.target.closest('.swatch[data-c]') : null; if (!b) return;
     set({ color: b.dataset.c }); sync();
   });
   root.addEventListener('input', function (e) {
+    if (e.target.hasAttribute('data-fc-custom')) { set({ fill: true, fillColor: e.target.value.toUpperCase() }); sync(); return; }
     var k = e.target.dataset.k; if (!k) return;
     var v = e.target.type === 'checkbox' ? e.target.checked : e.target.type === 'range' ? +e.target.value : e.target.value;
     set({ [k]: v }); sync();
@@ -2325,6 +2342,10 @@ function buildStyleControls(root, get, set, open) {
     root.classList.toggle('disabled', !s);
     if (!s) return;
     root.querySelectorAll('.swatch[data-c]').forEach(function (b) { b.classList.toggle('on', b.dataset.c.toLowerCase() === String(s.color || '').toLowerCase()); });
+    var fc = String(s.fillColor || '').toUpperCase(), fcs = root.querySelectorAll('[data-fc]'), known = false;
+    fcs.forEach(function (b) { var on = s.fill && b.dataset.fc.toUpperCase() === fc; if (on) known = true; b.classList.toggle('on', on); });
+    var fcu = root.querySelector('[data-fc-custom]'); fcu.value = fc || String(s.color || '#000000'); fcu.parentNode.classList.toggle('on', !!s.fill && !!fc && !known);
+    root.querySelector('.fcrow').classList.toggle('off', !s.fill);
     root.querySelectorAll('[data-k]').forEach(function (el) {
       var k = el.dataset.k;
       if (el.type === 'checkbox') el.checked = !!s[k];
@@ -2339,7 +2360,8 @@ var styleNew = buildStyleControls($('#styleNew'), function () { return state.sty
 }, true);
 var styleSel = buildStyleControls($('#styleSel'), function () {
   var s = selected(); if (!s.length) return null; var a = s[0];
-  return { color: rgbToHex(a.color || [0, 0, 0]), fill: !!a.fillColor, highlight: !!a.highlight, fillOpacity: a.fillOpacity, lineWidth: a.lineWidth, opacity: a.opacity };
+  var lineHex = rgbToHex(a.color || [0, 0, 0]), fillHex = a.fillColor ? rgbToHex(a.fillColor) : null;
+  return { color: lineHex, fill: !!a.fillColor, fillColor: fillHex && fillHex.toUpperCase() !== lineHex.toUpperCase() ? fillHex.toUpperCase() : null, highlight: !!a.highlight, fillOpacity: a.fillOpacity, lineWidth: a.lineWidth, opacity: a.opacity };
 }, function (patch) { applyToSelection(patch, 'style:' + Object.keys(patch)[0]); }, false);
 var TEXT_COLORS = ['#FFFFFF', '#212121'].concat(PALETTE.filter(function (c) { return c !== '#212121'; }));
 function textSwatchesHTML() {
@@ -2374,7 +2396,7 @@ function bindSymControls(root, get, set) {
 }
 var symNew = bindSymControls($('#symNew'), function () { return state.sym; }, function (k, v) { state.sym[k] = v; savePrefs(); });
 function updateStyleChip() {
-  var chip = $('#btnStyle'); chip.style.setProperty('--c', state.style.color); chip.classList.toggle('nofill', !state.style.fill);
+  var chip = $('#btnStyle'); chip.style.setProperty('--c', state.style.color); chip.style.setProperty('--f', state.style.fillColor || state.style.color); chip.classList.toggle('nofill', !state.style.fill);
 }
 
 /* ---------- properties panel ---------- */
@@ -2684,11 +2706,13 @@ function importJSONText(text) {
   }
   return { sets: n, backup: j.kind === 'backup' };
 }
+/* A tool's fill colour as a style value: null when it is the same as the line colour. */
+function ownFill(t) { if (!t.fillColor) return null; var f = rgbToHex(t.fillColor).toUpperCase(); return f === rgbToHex(t.color || [0, 0, 0]).toUpperCase() ? null : f; }
 function applyChestTool(set, t) {
   state.chestTool = Object.assign({ setId: set.id }, t);
   setTool(t.drawTool);
   Object.assign(state.style, {
-    color: rgbToHex(t.color || [0, 0, 0]), fill: !!t.fillColor && MarkupIO.FILLABLE.has(t.subtype), fillOpacity: clamp(t.fillOpacity || 0.35, 0.05, 1),
+    color: rgbToHex(t.color || [0, 0, 0]), fill: !!t.fillColor && MarkupIO.FILLABLE.has(t.subtype), fillColor: ownFill(t), fillOpacity: clamp(t.fillOpacity || 0.35, 0.05, 1),
     opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth == null ? 1 : t.lineWidth, 0, 12), highlight: !!t.highlight
   });
   // A numbered tool has no label of its own, so keep the plain Symbol tool's label.
@@ -2767,7 +2791,7 @@ function syncEditorType() {
   $('#tSym').hidden = !isSym; if (isSym) symTool.sync(ty);
 }
 function styleFromTool(t) {
-  return { color: rgbToHex(t.color || [0, 0, 0]), fill: !!t.fillColor, fillOpacity: clamp(t.fillOpacity || 0.35, 0.05, 1), opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth == null ? 1 : t.lineWidth, 0, 12), highlight: !!t.highlight };
+  return { color: rgbToHex(t.color || [0, 0, 0]), fill: !!t.fillColor, fillColor: ownFill(t), fillOpacity: clamp(t.fillOpacity || 0.35, 0.05, 1), opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth == null ? 1 : t.lineWidth, 0, 12), highlight: !!t.highlight };
 }
 function fillSetOptions(selectedId) {
   var opts = state.chestSets.map(function (s) { return '<option value="' + esc(s.id) + '">' + esc(s.title) + (s.custom ? '' : ' (imported)') + '</option>'; });
@@ -2816,7 +2840,7 @@ function editorFields() {
     title: $('#tName').value.trim() || $('#tSubject').value.trim() || T.name,
     subtype: symSub || T.sub, intent: T.intent || '', drawTool: type, supported: true,
     sym: T.symbol ? { shape: editor.sym.shape || 'circle', size: clamp(+editor.sym.size || 18, 4, 144), label: T.numbered ? '' : (editor.sym.label || ''), textColor: editor.sym.textColor || null, numbered: !!T.numbered } : null,
-    color: hexToRgb(st.color), fillColor: st.fill && MarkupIO.FILLABLE.has(symSub || T.sub) ? hexToRgb(st.color) : null,
+    color: hexToRgb(st.color), fillColor: st.fill && MarkupIO.FILLABLE.has(symSub || T.sub) ? hexToRgb(st.fillColor || st.color) : null,
     fillOpacity: st.fillOpacity, opacity: st.opacity, lineWidth: st.lineWidth, highlight: !!st.highlight,
     subject: $('#tSubject').value.trim(), contents: $('#tContents').value, fav: $('#tFav').checked, icon: null
   };

@@ -1,5 +1,5 @@
 {
-  "version": "1.5.1",
+  "version": "1.6.0",
   "date": "2026-11-09",
-  "notes": "Tool editor: live preview of the tool at the top that updates as you change any setting."
+  "notes": "Line and fill colours are now independent for every tool: in the style menu, saved tools, and for markups already placed. Choose Line under Fill colour to fill with the line colour."
 }
