@@ -19,3 +19,20 @@ The page loads three libraries from cdnjs (pdf.js 3.11.174, pdf-lib 1.17.1, pako
 - *Save PDF* writes the markups into the file and offers the share sheet (or a download on a computer).
 
 Author name, style defaults and imported tool sets are remembered in the browser on that device.
+
+## Polygons and measurements
+
+- *Polygon*: tap each corner, then tap the first point (or *Finish*) to close it. *Undo point* and *Cancel* are in the bar that appears while drawing; on a keyboard, Enter finishes, Backspace removes the last point and Escape cancels.
+- *Scale*: set the drawing scale for the current page or all pages: pick a preset (architectural, engineering, metric), type a custom ratio, or *Calibrate* by drawing a line over a dimension you know and typing its real length. The button shows the current page's scale.
+- *Length* (drag), *Area* and *Perimeter* (tap points like the polygon) show their measurement live and in the markups list. Changing a page's scale updates its measurements.
+- Measurements are saved as standard PDF measurement annotations (Line, PolyLine and Polygon with a `/Measure` scale) and the page scale is saved in the page viewport, so Revu shows them as Length, Perimeter and Area measurements.
+- Select a polygon or measurement and drag its corner handles to adjust it.
+
+## Versions and updates
+
+The version number is in the toolbar (for example *v1.1.0*). The app checks `version.json` on the server when it opens, when you come back to it, and every 30 minutes. When a newer version is published, the chip turns into *Update*; tap it to see what changed and reload into the new version.
+
+To publish a new version, bump both together:
+
+1. `APP_VERSION` in `index.html` (and the `app-version` meta tag).
+2. `version` (and `notes`) in `version.json`.

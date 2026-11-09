@@ -4,7 +4,10 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
+<meta name="app-version" content="1.1.0">
 <title>Pencil Markup</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
@@ -44,7 +47,11 @@
 }
 *, *::before, *::after { box-sizing: inherit; }
 html, body { height: 100%; margin: 0; touch-action: pan-x pan-y; }
-html { scroll-padding-top: var(--safe-top); }
+/* The page canvas matches the bars, so any sliver iOS leaves around the app is not a grey strip. */
+html { scroll-padding-top: var(--safe-top); background: var(--surface); }
+/* Pin the app to the real window edges. A 100% height on iOS home-screen apps can come up
+   short of the screen, which showed as a grey bar at the bottom. */
+body { position: fixed; top: 0; right: 0; bottom: 0; left: 0; height: auto; }
 body {
   font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
   font-size: 15px; line-height: 1.35; color: var(--ink); background: var(--bg);
@@ -59,7 +66,8 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 /* Toolbar */
 .topbar {
   flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
-  padding: calc(8px + var(--safe-top)) 12px 8px; background: var(--surface);
+  padding: calc(8px + var(--safe-top)) calc(12px + env(safe-area-inset-right, 0px)) 8px calc(12px + env(safe-area-inset-left, 0px));
+  background: var(--surface);
   border-bottom: 1px solid var(--line); position: relative; z-index: 5;
 }
 .seg { display: inline-flex; background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 2px; }
@@ -77,7 +85,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .tb.unsaved .dot { display: inline-block; }
 .tb[disabled] { opacity: .4; pointer-events: none; }
 @media (max-width: 1500px) {
-  .topbar { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .topbar { gap: 6px; padding-left: calc(8px + env(safe-area-inset-left, 0px)); padding-right: calc(8px + env(safe-area-inset-right, 0px)); }
   .tb { padding: 0 9px; }
   .tb .lbl:not(.keep) { display: none; }
   .tb svg + .lbl { margin-left: 0; }
@@ -225,6 +233,47 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .busy { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.28); }
 .busy[hidden] { display: none; }
 .busy div { background: var(--surface); padding: 16px 22px; border-radius: 12px; box-shadow: var(--shadow); font-weight: 500; }
+/* Version chip and update popover */
+.tb.ver { color: var(--ink-2); font-size: 13px; font-variant-numeric: tabular-nums; padding: 0 10px; }
+.tb.ver.has-update { background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.tb.ver.has-update .dot { display: inline-block; background: var(--accent); }
+.pop.ver-pop { left: auto; right: 12px; width: min(320px, calc(100vw - 24px)); }
+.ver-pop p { margin: 0 0 8px; font-size: 14px; color: var(--ink-2); }
+.ver-pop p b { color: var(--ink); }
+.ver-pop .notes { font-size: 13px; white-space: pre-line; }
+.ver-pop .actions { margin-top: 10px; }
+.btn.primary { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+
+/* Scale button */
+.tb .scale-lbl { font-size: 13px; font-variant-numeric: tabular-nums; color: var(--ink-2); max-width: 150px; overflow: hidden; text-overflow: ellipsis; }
+.tb.noscale .scale-lbl { color: var(--danger); }
+
+/* Polygon / measurement drawing bar */
+.polybar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px 8px 8px 14px; box-shadow: var(--shadow); max-width: calc(100% - 24px); flex-wrap: wrap; justify-content: center; }
+.polybar[hidden] { display: none; }
+.polybar .info { font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.polybar .info b { color: var(--ink); font-weight: 600; }
+.props .measure { font-size: 14px; color: var(--ink-2); }
+.props .measure b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.props .measure[hidden] { display: none; }
+
+/* Scale dialog */
+.modal { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.32); display: flex; align-items: center; justify-content: center; padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom)); }
+.modal[hidden] { display: none; }
+.modal .sheet { background: var(--surface); border-radius: 16px; box-shadow: var(--shadow); width: min(440px, 100%); max-height: 100%; overflow: auto; padding: 18px; display: grid; gap: 12px; }
+.modal h2 { margin: 0; font-size: 18px; font-weight: 600; }
+.modal .sub { margin: -6px 0 0; color: var(--ink-2); font-size: 14px; }
+.modal .seg { justify-self: start; }
+.modal .seg .tb { min-height: 36px; }
+.modal label.fld { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); }
+.modal select, .modal input { border: 1px solid var(--line); background: var(--surface-2); border-radius: 9px; padding: 8px 10px; font-size: 16px; width: 100%; color: var(--ink); font: inherit; }
+.modal .ratio { display: grid; grid-template-columns: 1fr 84px auto 1.4fr; gap: 8px; align-items: center; }
+.modal .hint { margin: 0; font-size: 13px; color: var(--ink-2); }
+.modal .result { font-size: 14px; color: var(--ink); background: var(--surface-2); border-radius: 9px; padding: 8px 10px; font-variant-numeric: tabular-nums; }
+.modal .actions { align-items: center; }
+.modal .actions .spacer { flex: 1; }
+[data-mode-panel][hidden] { display: none; }
+
 .toast { position: fixed; left: 50%; bottom: calc(20px + var(--safe-bottom)); transform: translateX(-50%); z-index: 60; background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 10px; max-width: min(90vw, 480px); text-align: center; box-shadow: var(--shadow); }
 .toast[hidden] { display: none; }
 </style>
@@ -249,8 +298,26 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
     <button class="tb" type="button" data-tool="rect" title="Draw a rectangle" aria-label="Rectangle">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/></svg><span class="lbl">Rectangle</span>
     </button>
+    <button class="tb" type="button" data-tool="polygon" title="Polygon: tap each corner, tap the first point (or Finish) to close" aria-label="Polygon">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 19 3 9l8-6 9 5-2 11z"/></svg><span class="lbl">Polygon</span>
+    </button>
     <button class="tb" type="button" data-tool="pen" title="Freehand pen" aria-label="Pen">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 5-9 8-9s2 5 4 5 3-4 4-6"/></svg><span class="lbl">Pen</span>
+    </button>
+  </div>
+
+  <div class="seg" id="measureTools">
+    <button class="tb" type="button" data-tool="length" title="Measure a length (drag)" aria-label="Length">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 16 16 4l4 4L8 20z"/><path d="m8 12 2 2m1-5 2 2m1-5 2 2"/></svg><span class="lbl">Length</span>
+    </button>
+    <button class="tb" type="button" data-tool="area" title="Measure an area: tap each corner, tap the first point (or Finish) to close" aria-label="Area">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V8l7-5 9 6v11z"/><path d="M4 14 11 7m-7 13L18 6m-5 14 7-7"/></svg><span class="lbl">Area</span>
+    </button>
+    <button class="tb" type="button" data-tool="perimeter" title="Measure a perimeter: tap each point, tap the last point again (or Finish) to end" aria-label="Perimeter">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18 8 6l8 4 4 8"/><circle cx="4" cy="18" r="1.5"/><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="10" r="1.5"/><circle cx="20" cy="18" r="1.5"/></svg><span class="lbl">Perimeter</span>
+    </button>
+    <button class="tb" id="btnScale" type="button" title="Set the drawing scale for measurements" aria-label="Scale">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18M5 19v-4M9 19v-2M13 19v-2M17 19v-4"/><path d="M4 8h16M7 5 4 8l3 3M17 5l3 3-3 3"/></svg><span class="scale-lbl" id="scaleLbl">Scale</span>
     </button>
   </div>
 
@@ -290,9 +357,26 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
   <button class="tb" id="btnPanel" type="button" title="Show the markups list" aria-label="Markups list">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="lbl">Markups</span><span id="count">0</span>
   </button>
+  <button class="tb ver" id="btnVersion" type="button" title="App version and updates" aria-haspopup="true"><span id="verLbl">v</span><span class="dot"></span></button>
+  <div class="pop ver-pop" id="verPop" hidden>
+    <h3>Pencil Markup</h3>
+    <p>Installed: <b id="verInstalled"></b></p>
+    <p id="verLatest">Checking for updates…</p>
+    <p class="notes" id="verNotes" hidden></p>
+    <div class="actions">
+      <button class="btn primary" id="btnUpdate" type="button" hidden>Update now</button>
+      <button class="btn" id="btnCheck" type="button">Check again</button>
+    </div>
+  </div>
 </header>
 
 <div class="work">
+  <div class="polybar" id="polyBar" hidden>
+    <span class="info" id="polyInfo"></span>
+    <button class="btn" id="polyUndo" type="button">Undo point</button>
+    <button class="btn" id="polyCancel" type="button">Cancel</button>
+    <button class="btn primary" id="polyDone" type="button">Finish</button>
+  </div>
   <div class="viewer" id="viewer">
     <div class="pages" id="pages"></div>
     <div class="empty" id="empty">
@@ -300,6 +384,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
         <h1>Open a PDF to mark it up</h1>
         <p>Apple Pencil draws, a finger pans, pinch to zoom. Every markup gets a Subject, Comments and Color that Bluebeam Revu reads, and markups already in the file show up in the list.</p>
         <button class="btn" id="btnOpen2" type="button">Choose a PDF</button>
+        <p class="hint" id="emptyVer" style="margin:14px 0 0;font-size:12px"></p>
       </div>
     </div>
   </div>
@@ -314,6 +399,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
       <div class="title"><span id="propsTitle">1 markup</span><span class="meta" id="propsMeta"></span></div>
       <label class="fld">Subject<input class="fld-in" id="pSubject" list="subjects" placeholder="e.g. Ellipse, Issue, Verify"></label>
       <datalist id="subjects"><option value="Ellipse"><option value="Rectangle"><option value="Pen"><option value="Issue"><option value="Verify"><option value="RFI"><option value="Note"></datalist>
+      <div class="measure" id="pMeasure" hidden></div>
       <label class="fld">Comments<textarea class="fld-ta" id="pContents" rows="2" placeholder="Shows in the Comments column"></textarea></label>
       <div class="style" id="styleSel"></div>
       <div class="actions">
@@ -337,6 +423,46 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 </div>
 
 <div class="savebar" id="saveBar" hidden><span id="saveBarText">Markups written into the PDF.</span><button class="btn" id="btnSaveFile" type="button">Save file</button><button class="btn" id="btnSaveBarClose" type="button">Later</button></div>
+<div class="modal" id="scaleModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="scaleTitle">
+    <h2 id="scaleTitle">Scale</h2>
+    <p class="sub" id="scaleCurrent"></p>
+    <div class="seg" id="scaleModes">
+      <button class="tb" type="button" data-mode="preset">Preset</button>
+      <button class="tb" type="button" data-mode="custom">Custom</button>
+      <button class="tb" type="button" data-mode="calibrate">Calibrate</button>
+    </div>
+    <div data-mode-panel="preset">
+      <label class="fld">Drawing scale<select id="scPreset"></select></label>
+    </div>
+    <div data-mode-panel="custom">
+      <div class="ratio">
+        <input id="scPaper" inputmode="decimal" value="1" aria-label="Length on paper">
+        <select id="scPaperUnit" aria-label="Paper unit"><option value="in">in</option><option value="mm">mm</option><option value="cm">cm</option></select>
+        <span>=</span>
+        <input id="scReal" value="10'" aria-label="Real length">
+      </div>
+      <p class="hint">Length on the printed sheet = real length (in the units below, e.g. 10' or 12'-6" or 2.5).</p>
+    </div>
+    <div data-mode-panel="calibrate">
+      <p class="hint" id="scCalInfo">Draw a line along a dimension you know, then type its real length.</p>
+      <div class="actions"><button class="btn" id="scCalDraw" type="button">Draw line on page</button></div>
+      <label class="fld">Real length of the line<input id="scCalLen" placeholder="e.g. 12'-6&quot;"></label>
+    </div>
+    <label class="fld">Units<select id="scUnits">
+      <option value="ft-in">Feet and inches (12'-6")</option><option value="ft">Feet (decimal)</option><option value="in">Inches</option>
+      <option value="m">Meters</option><option value="cm">Centimeters</option><option value="mm">Millimeters</option>
+    </select></label>
+    <label class="fld">Apply to<select id="scApply"><option value="page">This page</option><option value="all">All pages</option></select></label>
+    <div class="result" id="scResult"></div>
+    <div class="actions">
+      <button class="btn danger" id="scRemove" type="button">Remove</button>
+      <span class="spacer"></span>
+      <button class="btn" id="scCancel" type="button">Cancel</button>
+      <button class="btn primary" id="scOk" type="button">Apply</button>
+    </div>
+  </div>
+</div>
 <div class="busy" id="busy" hidden><div id="busyText">Working…</div></div>
 <div class="toast" id="toast" hidden></div>
 <script>
@@ -344,10 +470,14 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
    Writes the standard keys Bluebeam Revu and Acrobat read:
    /Subj (Subject), /Contents (Comments), /T (Author), /C (Color), /IC (Fill),
    /CA (Opacity), /M and /CreationDate (Dates), /NM (unique id),
-   /RT /Group + /IRT (grouping). */
+   /RT /Group + /IRT (grouping).
+   Measurements are Line / PolyLine / Polygon annotations with /IT LineDimension,
+   PolyLineDimension or PolygonDimension and a /Measure dictionary; page scales go
+   in the page /VP (viewport) array. */
 (function (root) {
   'use strict';
-  var OWNED = new Set(['Circle', 'Square', 'Ink']);
+  var OWNED = new Set(['Circle', 'Square', 'Ink', 'Polygon', 'PolyLine', 'Line']);
+  var FILLABLE = new Set(['Circle', 'Square', 'Polygon']);
   var SKIP = new Set(['Popup', 'Link', 'Widget', 'Screen', 'PrinterMark', 'TrapNet', 'Watermark', '3D', 'RichMedia', 'Projection']);
 
   function lib() { var L = root.PDFLib; if (!L) throw new Error('pdf-lib is not loaded'); return L; }
@@ -398,9 +528,64 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
     return h(8) + '-' + h(4) + '-' + h(4) + '-' + h(4) + '-' + h(12);
   }
 
-  async function readMarkups(bytes) {
+  /* ---- scale / measure dictionaries ---- */
+  var UNIT_ALIAS = { ft: 'ft', feet: 'ft', foot: 'ft', "'": 'ft', 'in': 'in', inch: 'in', inches: 'in', '"': 'in',
+    m: 'm', meter: 'm', meters: 'm', metre: 'm', cm: 'cm', mm: 'mm', yd: 'yd', yard: 'yd', km: 'km', mi: 'mi' };
+  var UNIT_CONVERT = { yd: ['ft', 3], mi: ['ft', 5280], km: ['m', 1000] };
+  function readMeasure(ctx, m) {
+    var L = lib(), N = function (k) { return L.PDFName.of(k); };
+    try {
+      m = ctx.lookup(m);
+      if (!(m instanceof L.PDFDict)) return null;
+      var x = ctx.lookup(m.get(N('X')));
+      if (!(x instanceof L.PDFArray) || !x.size()) return null;
+      var f0 = ctx.lookup(x.get(0)); if (!(f0 instanceof L.PDFDict)) return null;
+      var c = numOf(ctx.lookup(f0.get(N('C'))), null); if (!c || !isFinite(c) || c <= 0) return null;
+      var u = textOf(ctx.lookup(f0.get(N('U')))).trim(), u2 = '';
+      if (x.size() > 1) { var f1 = ctx.lookup(x.get(1)); if (f1 instanceof L.PDFDict) u2 = textOf(ctx.lookup(f1.get(N('U')))).trim(); }
+      var unit = UNIT_ALIAS[u.toLowerCase()] || null, factor = c;
+      if (unit && UNIT_CONVERT[unit]) { factor = c * UNIT_CONVERT[unit][1]; unit = UNIT_CONVERT[unit][0]; }
+      var fmt = unit === 'ft' && UNIT_ALIAS[u2.toLowerCase()] === 'in' ? 'ft-in' : (unit || 'other');
+      return { factor: factor, unit: unit || 'other', fmt: fmt, label: unit ? '' : u, ratio: textOf(ctx.lookup(m.get(N('R')))) };
+    } catch (e) { return null; }
+  }
+  var AREA_LABEL = { ft: 'sf', 'in': 'sq in', m: 'm\u00b2', cm: 'cm\u00b2', mm: 'mm\u00b2' };
+  function measureDict(ctx, s) {
+    var L = lib(), S = function (t) { return L.PDFString.of(t); };
+    var nf = function (u, c, extra) { return Object.assign({ Type: 'NumberFormat', U: S(u), C: fix(c, 10), D: 100, F: 'D', RT: S(''), RD: S('.'), SS: S('') }, extra || {}); };
+    var unit = s.unit === 'other' ? (s.label || 'units') : s.unit;
+    var x = s.fmt === 'ft-in'
+      ? [nf('ft', s.factor, { F: 'T', D: 1, O: 'S', SS: S('') }), nf('in', 12, { F: 'F', D: 8 })]
+      : [nf(unit, s.factor)];
+    return ctx.obj({
+      Type: 'Measure', Subtype: 'RL', R: S(s.ratio || ''),
+      X: x, D: [nf(unit, 1)], A: [nf(AREA_LABEL[s.unit] || ('sq ' + unit), 1)], O: [0, 0]
+    });
+  }
+  function readScales(doc) {
+    var L = lib(), ctx = doc.context, N = function (k) { return L.PDFName.of(k); };
+    return doc.getPages().map(function (page) {
+      try {
+        var vp = ctx.lookup(page.node.get(N('VP')));
+        if (!(vp instanceof L.PDFArray)) return null;
+        for (var i = 0; i < vp.size(); i++) {
+          var d = ctx.lookup(vp.get(i)); if (!(d instanceof L.PDFDict)) continue;
+          var m = readMeasure(ctx, d.get(N('Measure'))); if (m) return m;
+        }
+      } catch (e) { /* no viewport scale */ }
+      return null;
+    });
+  }
+
+  async function readDocument(bytes) {
     var L = lib();
     var doc = await L.PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+    return { annots: readFromDoc(doc), scales: readScales(doc) };
+  }
+  async function readMarkups(bytes) { return (await readDocument(bytes)).annots; }
+
+  function readFromDoc(doc) {
+    var L = lib();
     var ctx = doc.context, pages = doc.getPages(), out = [];
     var N = function (k) { return L.PDFName.of(k); };
     pages.forEach(function (page, pageIndex) {
@@ -435,6 +620,19 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
             }
           }
         }
+        var intent = nameOf(dict.get(N('IT'))), vertices = null;
+        if (subtype === 'Polygon' || subtype === 'PolyLine') {
+          var vf = numsOf(ctx, dict.get(N('Vertices')));
+          if (vf && vf.length >= 4) { vertices = []; for (var vq = 0; vq + 1 < vf.length; vq += 2) vertices.push([vf[vq], vf[vq + 1]]); }
+        } else if (subtype === 'Line') {
+          var lf = numsOf(ctx, dict.get(N('L')));
+          if (lf && lf.length >= 4) vertices = [[lf[0], lf[1]], [lf[2], lf[3]]];
+        }
+        var be = ctx.lookup(dict.get(N('BE'))), cloudy = be instanceof L.PDFDict && nameOf(be.get(N('S'))) === 'C';
+        var editable = OWNED.has(subtype);
+        if (subtype === 'Polygon' || subtype === 'PolyLine') editable = !!vertices && !cloudy && intent !== 'PolygonCloud';
+        if (subtype === 'Line') editable = !!vertices && intent === 'LineDimension';
+        var measure = readMeasure(ctx, dict.get(N('Measure')));
         var fillOpacity = opacity, highlight = false;
         var fo = numOf(ctx.lookup(dict.get(N('FillOpacity'))), null);
         if (fo != null) fillOpacity = fo;
@@ -454,7 +652,8 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
         out.push({
           id: id, num: ref ? ref.objectNumber : null, gen: ref ? ref.generationNumber : 0, inline: !ref,
           isNew: false, deleted: false, dirty: false, geomDirty: false, styleDirty: false,
-          owned: !!ref && OWNED.has(subtype), subtype: subtype, pageIndex: pageIndex,
+          owned: !!ref && editable, subtype: subtype, intent: intent, pageIndex: pageIndex,
+          vertices: vertices, measure: measure, lsize: null, mtext: '', lpos: null,
           rect: [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])],
           inkList: inkList,
           color: colorOf(ctx, dict.get(N('C'))), fillColor: colorOf(ctx, dict.get(N('IC'))),
@@ -484,12 +683,43 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
     ].join('\n');
   }
 
+  // Approximate Helvetica advance widths (per 1pt of font size) for centering labels.
+  function charW(ch) {
+    if (/[0-9]/.test(ch)) return 0.556;
+    if (ch === ' ' || ch === '.' || ch === ',') return 0.278;
+    if (ch === "'") return 0.191;
+    if (ch === '"') return 0.355;
+    if (ch === '-' || ch === '/') return 0.333;
+    if (/[mw]/.test(ch)) return 0.833;
+    if (/[ijlft]/.test(ch)) return 0.28;
+    if (/[A-Z]/.test(ch)) return 0.667;
+    return 0.53;
+  }
+  function textWidth(s, size) { var w = 0; for (var i = 0; i < s.length; i++) w += charW(s[i]); return w * size; }
+  function pdfText(s) {
+    var out = '';
+    for (var i = 0; i < s.length; i++) {
+      var c = s.charCodeAt(i), ch = s[i];
+      if (ch === '(' || ch === ')' || ch === '\\') out += '\\' + ch;
+      else if (c < 32 || c > 255) out += '?';
+      else out += ch;
+    }
+    return '(' + out + ')';
+  }
+  function labelBox(a) {
+    var size = a.lsize || 10, tw = textWidth(a.mtext, size), w = tw + size * 0.7, h = size * 1.4;
+    return { x: a.lpos[0] - w / 2, y: a.lpos[1] - h / 2, w: w, h: h, tw: tw, size: size };
+  }
+  function vertexPath(v, closed) {
+    return v.map(function (p, i) { return fmt(p[0]) + ' ' + fmt(p[1]) + (i ? ' l' : ' m'); }).join('\n') + (closed ? '\nh' : '');
+  }
+
   function buildAppearance(ctx, a) {
     var x0 = a.rect[0], y0 = a.rect[1], x1 = a.rect[2], y1 = a.rect[3];
     var lw = Math.max(0, +a.lineWidth || 0), f = fmt;
     var col = function (c) { return c.map(f).join(' '); };
     var gs = { GSs: { Type: 'ExtGState', CA: fix(a.opacity, 3), ca: fix(a.opacity, 3) } };
-    var parts = [];
+    var parts = [], fonts = null;
     if (a.subtype === 'Circle' || a.subtype === 'Square') {
       var h = lw / 2, ix0 = x0 + h, iy0 = y0 + h, ix1 = Math.max(x1 - h, ix0 + 0.01), iy1 = Math.max(y1 - h, iy0 + 0.01);
       var path = a.subtype === 'Circle' ? ellipsePath(ix0, iy0, ix1, iy1)
@@ -504,11 +734,36 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
         return pts.map(function (p, i) { return f(p[0]) + ' ' + f(p[1]) + (i ? ' l' : ' m'); }).join('\n');
       }).join('\n');
       parts.push('q\n/GSs gs\n' + col(a.color || [0, 0, 0]) + ' RG\n' + f(lw || 1) + ' w\n1 J\n1 j\n' + d + '\nS\nQ');
+    } else if (a.vertices && a.vertices.length >= 2) {
+      var closed = a.subtype === 'Polygon', vp = vertexPath(a.vertices, closed);
+      if (closed && a.fillColor) {
+        gs.GSf = { Type: 'ExtGState', CA: fix(a.fillOpacity, 3), ca: fix(a.fillOpacity, 3), BM: a.highlight ? 'Multiply' : 'Normal' };
+        parts.push('q\n/GSf gs\n' + col(a.fillColor) + ' rg\n' + vp + '\nf\nQ');
+      }
+      var strokeW = lw || (a.color ? 1 : 0);
+      if (a.color && strokeW > 0) {
+        var ticks = '';
+        if (a.subtype === 'Line') {
+          var p0 = a.vertices[0], p1 = a.vertices[1], dx = p1[0] - p0[0], dy = p1[1] - p0[1], len = Math.hypot(dx, dy) || 1;
+          var t = Math.max(strokeW * 3, (a.lsize || 10) * 0.45), nx = -dy / len * t, ny = dx / len * t;
+          [p0, p1].forEach(function (q) { ticks += '\n' + f(q[0] - nx) + ' ' + f(q[1] - ny) + ' m\n' + f(q[0] + nx) + ' ' + f(q[1] + ny) + ' l'; });
+        }
+        parts.push('q\n/GSs gs\n' + col(a.color) + ' RG\n' + f(strokeW) + ' w\n1 J\n1 j\n' + vp + ticks + '\nS\nQ');
+      }
+      if (a.mtext && a.lpos) {
+        var b = labelBox(a);
+        gs.GSl = { Type: 'ExtGState', CA: 1, ca: 0.85 };
+        fonts = { Helv: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica', Encoding: 'WinAnsiEncoding' } };
+        parts.push('q\n/GSl gs\n1 1 1 rg\n' + f(b.x) + ' ' + f(b.y) + ' ' + f(b.w) + ' ' + f(b.h) + ' re\nf\nQ');
+        parts.push('q\nBT\n/Helv ' + f(b.size) + ' Tf\n' + col(a.color || [0, 0, 0]) + ' rg\n' + f(a.lpos[0] - b.tw / 2) + ' ' + f(a.lpos[1] - b.size * 0.35) + ' Td\n' + pdfText(a.mtext) + ' Tj\nET\nQ');
+      }
     }
+    var resources = { ExtGState: gs };
+    if (fonts) resources.Font = fonts;
     var stream = ctx.stream(parts.join('\n'), {
       Type: 'XObject', Subtype: 'Form', FormType: 1,
       BBox: [fix(x0), fix(y0), fix(x1), fix(y1)], Matrix: [1, 0, 0, 1, 0, 0],
-      Resources: { ExtGState: gs }
+      Resources: resources
     });
     return ctx.register(stream);
   }
@@ -528,6 +783,14 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
     var refOf = new Map();
     var setText = function (dict, key, text) { dict.set(N(key), L.PDFHexString.fromText(text == null ? '' : String(text))); };
     var colorArr = function (c) { return ctx.obj(c ? c.map(function (v) { return fix(v, 4); }) : []); };
+    var flat = function (v) { return ctx.obj(v.reduce(function (acc, p) { acc.push(fix(p[0]), fix(p[1])); return acc; }, [])); };
+    var contentsOut = function (a) { return a.mtext ? a.mtext + (a.contents ? '\n' + a.contents : '') : a.contents; };
+    var setGeometry = function (dict, a) {
+      if (!a.vertices) return;
+      if (a.subtype === 'Line') dict.set(N('L'), flat(a.vertices));
+      else if (a.subtype === 'Polygon' || a.subtype === 'PolyLine') dict.set(N('Vertices'), flat(a.vertices));
+      if (a.measure) dict.set(N('Measure'), measureDict(ctx, a.measure));
+    };
     var inkArr = function (a) { return ctx.obj((a.inkList || []).map(function (pts) { return pts.reduce(function (acc, p) { acc.push(fix(p[0]), fix(p[1])); return acc; }, []); })); };
 
     annots.forEach(function (a) { if (!a.isNew && a.num != null) refOf.set(a.id, L.PDFRef.of(a.num, a.gen || 0)); });
@@ -572,9 +835,11 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
       dict.set(N('CreationDate'), L.PDFString.fromDate(a.date ? new Date(a.date) : now));
       setText(dict, 'T', a.author || author);
       setText(dict, 'Subj', a.subject);
-      setText(dict, 'Contents', a.contents);
-      if (a.fillColor && a.subtype !== 'Ink') { dict.set(N('IC'), colorArr(a.fillColor)); dict.set(N('FillOpacity'), L.PDFNumber.of(fix(a.fillOpacity, 3))); }
+      setText(dict, 'Contents', contentsOut(a));
+      if (a.fillColor && FILLABLE.has(a.subtype)) { dict.set(N('IC'), colorArr(a.fillColor)); dict.set(N('FillOpacity'), L.PDFNumber.of(fix(a.fillOpacity, 3))); }
       if (a.subtype === 'Ink') dict.set(N('InkList'), inkArr(a));
+      if (a.intent) dict.set(N('IT'), N(a.intent));
+      setGeometry(dict, a);
       var ref = ctx.register(dict);
       page.node.addAnnot(ref);
       refOf.set(a.id, ref);
@@ -587,10 +852,10 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
       var dict; try { dict = ctx.lookup(ref); } catch (e) { return; }
       if (!(dict instanceof L.PDFDict)) return;
       setText(dict, 'Subj', a.subject);
-      setText(dict, 'Contents', a.contents);
+      setText(dict, 'Contents', contentsOut(a));
       dict.set(N('M'), L.PDFString.fromDate(now));
       dict.set(N('C'), colorArr(a.color));
-      if (a.subtype !== 'Ink') {
+      if (FILLABLE.has(a.subtype)) {
         if (a.fillColor) { dict.set(N('IC'), colorArr(a.fillColor)); dict.set(N('FillOpacity'), L.PDFNumber.of(fix(a.fillOpacity, 3))); }
         else { dict.delete(N('IC')); dict.delete(N('FillOpacity')); }
       }
@@ -601,6 +866,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
       if (a.owned && (a.geomDirty || a.styleDirty)) {
         dict.set(N('Rect'), ctx.obj(a.rect.map(function (v) { return fix(v); })));
         if (a.subtype === 'Ink') dict.set(N('InkList'), inkArr(a));
+        setGeometry(dict, a);
         dict.set(N('AP'), ctx.obj({ N: buildAppearance(ctx, a) }));
         dict.delete(N('RD'));
       }
@@ -619,10 +885,24 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
       } else if (curRT === 'Group') { dict.delete(N('IRT')); dict.delete(N('RT')); }
     });
 
+    // 5. Page scales (calibration) as a /VP viewport covering the page, the way Revu stores them
+    var scales = opts.scales || {};
+    Object.keys(scales).forEach(function (k) {
+      var page = pages[+k]; if (!page) return;
+      var sc = scales[k];
+      if (!sc) { page.node.delete(N('VP')); return; }
+      var mb = page.getMediaBox();
+      page.node.set(N('VP'), ctx.obj([{
+        Type: 'Viewport', Name: L.PDFString.of('Scale'),
+        BBox: [fix(mb.x), fix(mb.y), fix(mb.x + mb.width), fix(mb.y + mb.height)],
+        Measure: measureDict(ctx, sc)
+      }]));
+    });
+
     return await doc.save({ useObjectStreams: false });
   }
 
-  root.MarkupIO = { readMarkups: readMarkups, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED };
+  root.MarkupIO = { readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>
@@ -632,7 +912,14 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
    <</Subtype/Circle/C[1 0 0]/IC[1 0 0]/FillOpacity 0.35/Subj(Issue)...>>. */
 (function (root) {
   'use strict';
-  var SUPPORTED = { Circle: 'circle', Square: 'rect', Ink: 'pen' };
+  var SUPPORTED = { Circle: 'circle', Square: 'rect', Ink: 'pen', Polygon: 'polygon' };
+  // Which drawing tool a Revu tool maps to, using its subtype and intent (/IT).
+  function drawToolFor(subtype, it) {
+    if (subtype === 'Polygon') return it === 'PolygonDimension' ? 'area' : (it === 'PolygonCloud' ? null : 'polygon');
+    if (subtype === 'PolyLine') return it === 'PolyLineDimension' ? 'perimeter' : null;
+    if (subtype === 'Line') return it === 'LineDimension' ? 'length' : null;
+    return SUPPORTED[subtype] || null;
+  }
 
   function hexToBytes(h) {
     var out = new Uint8Array(h.length >> 1);
@@ -772,7 +1059,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
     return {
       id: 't' + index + '-' + (str(fields.Name) || Math.random().toString(36).slice(2)),
       title: label, subtype: subtype, intent: it, typeClass: typeClass, mode: str(fields.Mode),
-      supported: !!SUPPORTED[subtype], drawTool: SUPPORTED[subtype] || null,
+      supported: !!drawToolFor(subtype, it), drawTool: drawToolFor(subtype, it),
       color: color, fillColor: fill, opacity: opacity, fillOpacity: fillOpacity, lineWidth: lw, highlight: highlight,
       subject: subject, contents: str(dict.Contents), layer: str(dict.OC), icon: icon
     };
@@ -809,7 +1096,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
     return { id: 'set-' + Date.now().toString(36), title: title, tools: items };
   }
 
-  root.ToolChest = { parseBtx: parseBtx, parsePdfText: parsePdfText, decodeField: decodeField, SUPPORTED: SUPPORTED };
+  root.ToolChest = { parseBtx: parseBtx, parsePdfText: parsePdfText, decodeField: decodeField, SUPPORTED: SUPPORTED, drawToolFor: drawToolFor };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>
@@ -822,8 +1109,28 @@ pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs
 
 var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari on iPad inside its memory budget
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
-var SUBJECT_DEFAULT = { circle: 'Ellipse', rect: 'Rectangle', pen: 'Pen' };
-var SUBTYPE_OF = { circle: 'Circle', rect: 'Square', pen: 'Ink' };
+/* Bump APP_VERSION here and "version" in version.json together when you publish a change.
+   The app compares the two to tell you when a newer version is on the server. */
+var APP_VERSION = '1.1.0';
+
+/* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
+var TOOLS = {
+  circle: { sub: 'Circle', subj: 'Ellipse', name: 'Circle' },
+  rect: { sub: 'Square', subj: 'Rectangle', name: 'Rectangle' },
+  polygon: { sub: 'Polygon', subj: 'Polygon', name: 'Polygon', poly: true, closed: true },
+  pen: { sub: 'Ink', subj: 'Pen', name: 'Pen' },
+  length: { sub: 'Line', subj: 'Length Measurement', name: 'Length', intent: 'LineDimension', measure: true, line: true },
+  area: { sub: 'Polygon', subj: 'Area Measurement', name: 'Area', intent: 'PolygonDimension', measure: true, poly: true, closed: true },
+  perimeter: { sub: 'PolyLine', subj: 'Perimeter Measurement', name: 'Perimeter', intent: 'PolyLineDimension', measure: true, poly: true },
+  calibrate: { sub: 'Line', subj: '', name: 'Calibrate', line: true, calibrate: true }
+};
+var UNIT_M = { ft: 0.3048, 'in': 0.0254, m: 1, cm: 0.01, mm: 0.001 };
+var FMT_BASE = { 'ft-in': 'ft', ft: 'ft', 'in': 'in', m: 'm', cm: 'cm', mm: 'mm' };
+var SCALE_PRESETS = [
+  { group: 'Architectural', fmt: 'ft-in', items: [['1/16" = 1\'-0"', 1 / 16], ['3/32" = 1\'-0"', 3 / 32], ['1/8" = 1\'-0"', 1 / 8], ['3/16" = 1\'-0"', 3 / 16], ['1/4" = 1\'-0"', 1 / 4], ['3/8" = 1\'-0"', 3 / 8], ['1/2" = 1\'-0"', 1 / 2], ['3/4" = 1\'-0"', 3 / 4], ['1" = 1\'-0"', 1], ['1 1/2" = 1\'-0"', 1.5], ['3" = 1\'-0"', 3]].map(function (x) { return { label: x[0], mPerPt: 0.3048 / (x[1] * 72) }; }) },
+  { group: 'Engineering', fmt: 'ft', items: [10, 20, 30, 40, 50, 60, 100, 200].map(function (n) { return { label: '1" = ' + n + "'", mPerPt: n * 0.3048 / 72 }; }) },
+  { group: 'Metric', fmt: 'm', items: [1, 5, 10, 20, 25, 50, 100, 200, 250, 500, 1000].map(function (n) { return { label: '1:' + n, mPerPt: n * 0.0254 / 72 }; }) }
+];
 
 var state = {
   fileName: 'document.pdf', bytes: null, pdf: null, labels: null, pages: [], zoom: 1,
@@ -832,7 +1139,8 @@ var state = {
   style: { color: '#E53935', fill: true, fillOpacity: 0.35, opacity: 1, lineWidth: 2, highlight: true },
   annots: [], sel: new Set(), history: [], future: [], fingerDraw: false, author: '',
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
-  chestSets: [], chestTool: null, pendingSave: null
+  chestSets: [], chestTool: null, pendingSave: null,
+  scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null
 };
 
 /* ---------- small helpers ---------- */
@@ -867,7 +1175,8 @@ function fmtDate(iso) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 var TYPE_LABEL = { Circle: 'Ellipse', Square: 'Rectangle', Ink: 'Pen', FreeText: 'Text', Text: 'Note', Line: 'Line', Polygon: 'Polygon', PolyLine: 'Polyline', Highlight: 'Highlight', Underline: 'Underline', StrikeOut: 'Strikeout', Squiggly: 'Squiggly', Stamp: 'Stamp', FileAttachment: 'Attachment', Caret: 'Caret' };
-function typeLabel(sub) { return TYPE_LABEL[sub] || sub || 'Markup'; }
+var INTENT_LABEL = { LineDimension: 'Length', PolyLineDimension: 'Perimeter', PolygonDimension: 'Area', PolygonCloud: 'Cloud' };
+function typeLabel(sub, intent) { return INTENT_LABEL[intent] || TYPE_LABEL[sub] || sub || 'Markup'; }
 function pageLabel(i) { return (state.labels && state.labels[i]) ? state.labels[i] : String(i + 1); }
 function byId(id) { for (var i = 0; i < state.annots.length; i++) if (state.annots[i].id === id) return state.annots[i]; return null; }
 function live() { return state.annots.filter(function (a) { return !a.deleted; }); }
@@ -883,6 +1192,101 @@ function toast(msg, ms) {
 function setBusy(text) { $('#busy').hidden = !text; if (text) $('#busyText').textContent = text; }
 function nextFrame() { return new Promise(function (r) { requestAnimationFrame(function () { setTimeout(r, 0); }); }); }
 
+/* ---------- measurement ---------- */
+function isVertexShape(a) { return !!a.vertices && (a.subtype === 'Polygon' || a.subtype === 'PolyLine' || a.subtype === 'Line'); }
+function measureKind(a) {
+  if (a.intent === 'PolygonDimension') return 'area';
+  if (a.intent === 'LineDimension' || a.intent === 'PolyLineDimension') return 'length';
+  return null;
+}
+function polyLength(v) { var t = 0; for (var i = 1; i < v.length; i++) t += Math.hypot(v[i][0] - v[i - 1][0], v[i][1] - v[i - 1][1]); return t; }
+function polyArea(v) { var s = 0; for (var i = 0; i < v.length; i++) { var j = (i + 1) % v.length; s += v[i][0] * v[j][1] - v[j][0] * v[i][1]; } return Math.abs(s) / 2; }
+function centroid(v) {
+  var a = 0, cx = 0, cy = 0;
+  for (var i = 0; i < v.length; i++) { var j = (i + 1) % v.length, k = v[i][0] * v[j][1] - v[j][0] * v[i][1]; a += k; cx += (v[i][0] + v[j][0]) * k; cy += (v[i][1] + v[j][1]) * k; }
+  if (Math.abs(a) < 1e-6) { var sx = 0, sy = 0; v.forEach(function (q) { sx += q[0]; sy += q[1]; }); return [sx / v.length, sy / v.length]; }
+  return [cx / (3 * a), cy / (3 * a)];
+}
+function numFmt(v) { return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fmtFtIn(ft) {
+  var neg = ft < 0, t = Math.round(Math.abs(ft) * 96), f = Math.floor(t / 96), r = t - f * 96, inch = Math.floor(r / 8), e = r % 8, frac = '';
+  if (e) { var n = e, d = 8; while (n % 2 === 0) { n /= 2; d /= 2; } frac = ' ' + n + '/' + d; }
+  return (neg ? '-' : '') + f + "'-" + inch + frac + '"';
+}
+function unitText(sc) { return sc.unit === 'other' ? (sc.label || 'units') : sc.unit; }
+function fmtLength(v, sc) { return sc.fmt === 'ft-in' ? fmtFtIn(v) : numFmt(v) + ' ' + unitText(sc); }
+function fmtArea(v, sc) {
+  var lab = { ft: 'sf', 'in': 'sq in', m: 'm\u00b2', cm: 'cm\u00b2', mm: 'mm\u00b2' }[sc.unit] || ('sq ' + unitText(sc));
+  return numFmt(v) + ' ' + lab;
+}
+function measureText(a) {
+  var k = measureKind(a); if (!k || !a.vertices || !a.measure) return '';
+  if (k === 'area') return a.vertices.length < 3 ? '' : fmtArea(polyArea(a.vertices) * a.measure.factor * a.measure.factor, a.measure);
+  return fmtLength(polyLength(a.vertices) * a.measure.factor, a.measure);
+}
+function defaultLabelSize(pageIndex) {
+  var p = state.pages[pageIndex], v = p && p.page ? p.page.view : [0, 0, 612, 792];
+  return clamp(Math.round(Math.hypot(v[2] - v[0], v[3] - v[1]) / 140), 7, 28);
+}
+function labelPos(a) {
+  var v = a.vertices, s = a.lsize || 10;
+  if (a.subtype === 'Polygon' && v.length >= 3) return centroid(v);
+  var bi = 0, best = -1;
+  for (var i = 1; i < v.length; i++) { var d = Math.hypot(v[i][0] - v[i - 1][0], v[i][1] - v[i - 1][1]); if (d > best) { best = d; bi = i - 1; } }
+  var p0 = v[bi], p1 = v[bi + 1] || p0, dx = p1[0] - p0[0], dy = p1[1] - p0[1], len = Math.hypot(dx, dy) || 1;
+  var nx = -dy / len, ny = dx / len; if (ny < 0 || (ny === 0 && nx < 0)) { nx = -nx; ny = -ny; }
+  return [(p0[0] + p1[0]) / 2 + nx * s * 0.95, (p0[1] + p1[1]) / 2 + ny * s * 0.95];
+}
+/* Recompute a vertex shape's measurement text, label position and bounding rect. */
+function updateGeom(a) {
+  if (!isVertexShape(a)) return;
+  if (!a.lsize) a.lsize = defaultLabelSize(a.pageIndex);
+  a.mtext = measureText(a);
+  var v = a.vertices, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  v.forEach(function (q) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); });
+  var pad = (a.lineWidth || 1) / 2 + 1 + (a.subtype === 'Line' ? Math.max((a.lineWidth || 1) * 3, a.lsize * 0.45) : 0);
+  x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
+  a.lpos = a.mtext ? labelPos(a) : null;
+  if (a.lpos) { var b = MarkupIO.labelBox(a); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); }
+  a.rect = [x0, y0, x1, y1];
+}
+function copyScale(sc) { return sc ? { factor: sc.factor, unit: sc.unit, fmt: sc.fmt, label: sc.label || '', ratio: sc.ratio || '' } : null; }
+function scaleFor(pageIndex) { return state.scales[pageIndex] || null; }
+function fracParse(t) {
+  t = String(t).trim(); if (!t) return NaN;
+  var m = /^(\d+(?:\.\d+)?)?\s*(?:(\d+)\s*\/\s*(\d+))?$/.exec(t);
+  if (!m || (!m[1] && !m[2])) return NaN;
+  return (m[1] ? parseFloat(m[1]) : 0) + (m[2] ? +m[2] / +m[3] : 0);
+}
+/* Parse a typed length into the base unit of fmt (feet for ft-in and ft). Accepts 12'-6", 12' 6 1/2", 6", 12.5. */
+function parseLength(str, fmt) {
+  var t = String(str || '').trim().replace(/\u2019|\u2032/g, "'").replace(/\u201d|\u2033/g, '"').replace(/,/g, '.');
+  if (!t) return NaN;
+  if (fmt === 'ft-in' || fmt === 'ft' || fmt === 'in') {
+    var ft = 0, inch = 0, m;
+    if ((m = /^(.*?)'\s*-?\s*(.*?)(?:"|'')?\s*$/.exec(t)) && t.indexOf("'") >= 0) {
+      ft = m[1] ? fracParse(m[1]) : 0; inch = m[2] ? fracParse(m[2]) : 0;
+    } else if (/"\s*$/.test(t)) { inch = fracParse(t.replace(/"\s*$/, '')); }
+    else { var n = fracParse(t); if (fmt === 'in') inch = n; else ft = n; }
+    if (isNaN(ft) || isNaN(inch)) return NaN;
+    var totalFt = ft + inch / 12;
+    return fmt === 'in' ? totalFt * 12 : totalFt;
+  }
+  return fracParse(t.replace(/\s*(mm|cm|m)\s*$/i, ''));
+}
+function ratioLabelFor(sc) {
+  var mPerPt = sc.factor * (UNIT_M[sc.unit] || 1);
+  if (sc.fmt === 'ft-in' || sc.fmt === 'ft' || sc.fmt === 'in') return '1" = ' + fmtFtIn(mPerPt * 72 / 0.3048);
+  return '1:' + Math.round(mPerPt * 72 / 0.0254);
+}
+function makeScale(mPerPt, fmt, ratio) {
+  var unit = FMT_BASE[fmt] || 'ft';
+  var sc = { factor: mPerPt / UNIT_M[unit], unit: unit, fmt: fmt, label: '', ratio: '' };
+  sc.ratio = ratio || ratioLabelFor(sc);
+  return sc;
+}
+function scaleLabel(sc) { return sc ? (sc.ratio || ratioLabelFor(sc)) : ''; }
+
 /* ---------- preferences (per-device conveniences only) ---------- */
 function loadPrefs() {
   try {
@@ -890,13 +1294,16 @@ function loadPrefs() {
     if (p.author) state.author = p.author;
     if (p.style) state.style = Object.assign(state.style, p.style);
     if (typeof p.fingerDraw === 'boolean') state.fingerDraw = p.fingerDraw;
+    if (p.lastScale) state.lastScale = p.lastScale;
   } catch (e) { /* storage may be empty or blocked */ }
 }
 function savePrefs() {
-  try { localStorage.setItem('pencil-markup-prefs', JSON.stringify({ author: state.author, style: state.style, fingerDraw: state.fingerDraw })); } catch (e) { /* ignore */ }
+  try { localStorage.setItem('pencil-markup-prefs', JSON.stringify({ author: state.author, style: state.style, fingerDraw: state.fingerDraw, lastScale: state.lastScale })); } catch (e) { /* ignore */ }
 }
 function loadChest() {
   try { var s = JSON.parse(localStorage.getItem('pencil-markup-toolsets') || '[]'); if (Array.isArray(s)) state.chestSets = s; } catch (e) { state.chestSets = []; }
+  // Tool sets imported by older versions: re-map which tools can be drawn now.
+  state.chestSets.forEach(function (set) { (set.tools || []).forEach(function (t) { t.drawTool = ToolChest.drawToolFor(t.subtype, t.intent); t.supported = !!t.drawTool; }); });
 }
 function saveChest() {
   try {
@@ -930,7 +1337,7 @@ function undo() { if (!state.history.length) return; state.future.push(JSON.stri
 function redo() { if (!state.future.length) return; state.history.push(JSON.stringify(state.annots)); restore(state.future.pop()); lastTag = null; }
 function updateUndoButtons() { $('#btnUndo').disabled = !state.history.length; $('#btnRedo').disabled = !state.future.length; }
 function markUnsaved() {
-  state.unsaved = state.annots.some(function (a) { return a.isNew ? !a.deleted : (a.dirty || a.deleted); }) || groupsChanged();
+  state.unsaved = state.annots.some(function (a) { return a.isNew ? !a.deleted : (a.dirty || a.deleted); }) || groupsChanged() || state.scaleDirty.size > 0;
   $('#btnSave').classList.toggle('unsaved', state.unsaved);
 }
 var groupBaseline = '';
@@ -958,12 +1365,23 @@ async function loadPdf(bytes, name, opts) {
   var pdf = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
   state.pdf = pdf; state.bytes = bytes; state.fileName = name || state.fileName;
   try { state.labels = await pdf.getPageLabels(); } catch (e) { state.labels = null; }
-  try { state.annots = await MarkupIO.readMarkups(bytes); }
-  catch (e) { console.warn(e); state.annots = []; toast('Existing markups in this file could not be read. New markups still work.', 5000); }
+  var read = { annots: [], scales: [] };
+  try { read = await MarkupIO.readDocument(bytes); }
+  catch (e) { console.warn(e); toast('Existing markups in this file could not be read. New markups still work.', 5000); }
+  state.annots = read.annots; state.scales = read.scales || []; state.scaleDirty = new Set();
   state.sel = new Set(); state.history = []; state.future = []; state.nextId = 1;
+  if (state.draft) { state.draft = null; updatePolyBar(); }
   groupBaseline = groupKey(); markUnsaved(); updateUndoButtons();
   await buildPages(opts && opts.keepScroll);
-  renderList(); renderProps();
+  // Measurement text is written ahead of any comment in /Contents; split it back off on read.
+  state.annots.forEach(function (a) {
+    if (!measureKind(a)) return;
+    a.lsize = defaultLabelSize(a.pageIndex);
+    a.mtext = measureText(a);
+    var c = a.contents || '', nl = c.indexOf('\n'), first = (nl >= 0 ? c.slice(0, nl) : c).trim();
+    if (first && /^[-\d\s.,'"\/]+\s*(sf|sq ?ft|sq ?in|sq ?yd|sy|m\u00b2|m2|cm\u00b2|mm\u00b2|ft|in|yd|m|cm|mm)?$/i.test(first)) a.contents = nl >= 0 ? c.slice(nl + 1) : '';
+  });
+  renderList(); renderProps(); updateScaleButton();
 }
 
 async function buildPages(keepScroll) {
@@ -1036,6 +1454,7 @@ function renderVisible() {
       else if (far && (p.rendered || p.renderTask)) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; } p.rendered = false; p.canvas.width = 1; p.canvas.height = 1; dropDetail(p); }
     });
     scheduleDetail();
+    updateScaleButton();
   });
 }
 /* The base canvas is capped in pixels; when the page is zoomed past that, a second
@@ -1121,14 +1540,55 @@ function shapeSVG(a, p, ghost) {
   } else if (a.subtype === 'Ink') {
     var d = (a.inkList || []).map(function (l) { return l.map(function (q, i) { var v = toView(p, q[0], q[1]); return (i ? 'L' : 'M') + v[0].toFixed(1) + ' ' + v[1].toFixed(1); }).join(' '); }).join(' ');
     out += '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + a.opacity + '" stroke-width="' + lw + '" stroke-linecap="round" stroke-linejoin="round"/>';
+  } else if (isVertexShape(a) && a.vertices.length) {
+    out += vertexShapeSVG(a, p, lw, stroke, so);
   } else {
     out += '<rect x="' + vr[0] + '" y="' + vr[1] + '" width="' + (vr[2] - vr[0]) + '" height="' + (vr[3] - vr[1]) + '" fill="none" stroke="' + stroke + '" stroke-width="1" stroke-dasharray="3 3" opacity=".6"/>';
   }
   return ghost ? '<g opacity=".55">' + out + '</g>' : out;
 }
+function vertexShapeSVG(a, p, lw, stroke, so) {
+  var z = state.zoom, out = '';
+  var pts = a.vertices.map(function (q) { return toView(p, q[0], q[1]); });
+  var d = pts.map(function (v, i) { return (i ? 'L' : 'M') + v[0].toFixed(1) + ' ' + v[1].toFixed(1); }).join(' ');
+  var closed = a.subtype === 'Polygon' && !a.draft;
+  if (closed) d += ' Z';
+  if (a.subtype === 'Polygon' && a.fillColor && pts.length >= 3) out += '<path d="' + d + (closed ? '' : ' Z') + '" fill="' + rgbToHex(a.fillColor) + '" fill-opacity="' + a.fillOpacity + '"' + (a.highlight ? ' class="hl"' : '') + ' stroke="none"/>';
+  out += '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '" stroke-linecap="round" stroke-linejoin="round"/>';
+  if (a.draft && a.subtype === 'Polygon' && pts.length >= 3) {
+    var l = pts[pts.length - 1], f = pts[0];
+    out += '<path d="M' + l[0] + ' ' + l[1] + ' L' + f[0] + ' ' + f[1] + '" fill="none" stroke="' + stroke + '" stroke-opacity=".5" stroke-width="' + Math.max(1, lw) + '" stroke-dasharray="6 5"/>';
+  }
+  if (a.subtype === 'Line' && pts.length === 2) {
+    var dx = pts[1][0] - pts[0][0], dy = pts[1][1] - pts[0][1], len = Math.hypot(dx, dy) || 1;
+    var t = Math.max((a.lineWidth || 1) * 3, (a.lsize || 10) * 0.45) * z, nx = -dy / len * t, ny = dx / len * t;
+    pts.forEach(function (q) { out += '<path d="M' + (q[0] - nx) + ' ' + (q[1] - ny) + ' L' + (q[0] + nx) + ' ' + (q[1] + ny) + '" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '" stroke-linecap="round"/>'; });
+  }
+  if (a.draft) {
+    var n = a.draftCommitted || pts.length;
+    pts.forEach(function (q, i) {
+      if (i >= n) return;
+      var first = i === 0 && a.subtype === 'Polygon' && n >= 3;
+      out += '<circle cx="' + q[0] + '" cy="' + q[1] + '" r="' + (first ? 8 : 4) + '" fill="' + (first ? 'rgba(42,91,215,.18)' : '#fff') + '" stroke="#2a5bd7" stroke-width="1.5"/>';
+    });
+  }
+  var text = a.mtext, lp = a.lpos;
+  if (!text && measureKind(a) && !a.measure && a.vertices.length >= 2) { text = 'No scale set'; lp = labelPos(a); }
+  if (text && lp) {
+    var size = (a.lsize || 10), tw = MarkupIO.textWidth(text, size), c = toView(p, lp[0], lp[1]);
+    var fs = size * z, w = (tw + size * 0.7) * z, h = size * 1.4 * z;
+    out += '<rect x="' + (c[0] - w / 2) + '" y="' + (c[1] - h / 2) + '" width="' + w + '" height="' + h + '" fill="#fff" fill-opacity=".85"/>';
+    out += '<text x="' + c[0] + '" y="' + (c[1] + fs * 0.35) + '" font-size="' + fs + '" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + (a.measure ? stroke : '#c62828') + '">' + esc(text) + '</text>';
+  }
+  return out;
+}
 function selectionSVG(a, p, withHandles) {
   var vr = viewRect(p, a.rect), m = 4;
   var out = '<rect x="' + (vr[0] - m) + '" y="' + (vr[1] - m) + '" width="' + (vr[2] - vr[0] + 2 * m) + '" height="' + (vr[3] - vr[1] + 2 * m) + '" fill="none" stroke="#2a5bd7" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>';
+  if (withHandles && isVertexShape(a)) {
+    a.vertices.forEach(function (q) { var v = toView(p, q[0], q[1]); out += '<circle cx="' + v[0] + '" cy="' + v[1] + '" r="7" fill="#fff" stroke="#2a5bd7" stroke-width="1.5"/>'; });
+    return out;
+  }
   if (withHandles) {
     [[vr[0], vr[1]], [vr[2], vr[1]], [vr[0], vr[3]], [vr[2], vr[3]]].forEach(function (c) {
       out += '<rect x="' + (c[0] - 7) + '" y="' + (c[1] - 7) + '" width="14" height="14" rx="3" fill="#fff" stroke="#2a5bd7" stroke-width="1.5"/>';
@@ -1151,7 +1611,7 @@ function drawOverlay(p) {
 }
 function singleResizable() {
   var s = selected();
-  return (s.length === 1 && s[0].owned && (s[0].subtype === 'Circle' || s[0].subtype === 'Square')) ? s[0] : null;
+  return (s.length === 1 && s[0].owned && (s[0].subtype === 'Circle' || s[0].subtype === 'Square' || isVertexShape(s[0]))) ? s[0] : null;
 }
 
 /* ---------- selection and hit testing ---------- */
@@ -1169,6 +1629,10 @@ function hitTest(p, pt) {
 function handleAt(a, p, clientX, clientY) {
   var r = p.el.getBoundingClientRect(), s = r.width / p.vp.width || 1;
   var vx = (clientX - r.left) / s, vy = (clientY - r.top) / s, vr = viewRect(p, a.rect);
+  if (isVertexShape(a)) {
+    for (var k = a.vertices.length - 1; k >= 0; k--) { var v = toView(p, a.vertices[k][0], a.vertices[k][1]); if (Math.hypot(vx - v[0], vy - v[1]) <= 14) return 'v' + k; }
+    return null;
+  }
   var hs = [['nw', vr[0], vr[1]], ['ne', vr[2], vr[1]], ['sw', vr[0], vr[3]], ['se', vr[2], vr[3]]];
   for (var i = 0; i < hs.length; i++) if (Math.abs(vx - hs[i][1]) <= 12 && Math.abs(vy - hs[i][2]) <= 12) return hs[i][0];
   return null;
@@ -1224,7 +1688,11 @@ function onDown(e) {
   try { viewer.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
   if (isTouch) {
     var touches = Array.from(ptrs.values()).filter(function (q) { return q.type === 'touch'; }).length;
-    if (touches >= 2) { if (gesture && gesture.mode === 'draw') { gesture.p.temp = null; drawOverlay(gesture.p); } startPinch(); return; }
+    if (touches >= 2) {
+      if (gesture && gesture.mode === 'draw') { gesture.p.temp = null; drawOverlay(gesture.p); }
+      if (gesture && gesture.mode === 'poly' && state.draft) { if (gesture.first) cancelDraft(); else { state.draft.live = null; refreshDraft(); } }
+      startPinch(); return;
+    }
     if (!state.fingerDraw) { gesture = { mode: 'pan', id: e.pointerId, lastX: e.clientX, lastY: e.clientY }; return; }
   }
   if (gesture && gesture.mode !== 'pan') return;
@@ -1232,14 +1700,25 @@ function onDown(e) {
   var pageEl = e.target.closest ? e.target.closest('.page') : null;
   if (!pageEl) { if (state.tool === 'select' && !isMulti()) clearSel(); gesture = { mode: 'tap', id: e.pointerId }; return; }
   var p = state.pages[+pageEl.dataset.index], pt = toPdf(p, e.clientX, e.clientY);
+  var T = TOOLS[state.tool];
+  if (T && T.poly) {
+    var dft = state.draft;
+    if (dft && dft.p !== p) { toast('Finish the shape on page ' + pageLabel(dft.p.index) + ' first, or Cancel it.'); gesture = { mode: 'tap', id: e.pointerId }; return; }
+    if (!dft) dft = startDraft(state.tool, p, pt);
+    else { dft.live = pt; refreshDraft(); }
+    gesture = { mode: 'poly', id: e.pointerId, p: p, down: pt, first: dft.committed.length === 1 && !dft.started };
+    dft.started = true;
+    return;
+  }
   if (state.tool === 'select') {
     var single = singleResizable(), h = single && single.pageIndex === p.index ? handleAt(single, p, e.clientX, e.clientY) : null;
     if (h) { pushHistory(); gesture = { mode: 'resize', id: e.pointerId, a: single, handle: h, p: p, vr0: viewRect(p, single.rect) }; return; }
+
     var hit = hitTest(p, pt);
     if (hit) {
       if (!state.sel.has(hit.id)) selectAnnot(hit, isMulti());
       var items = selected().filter(function (a) { return a.owned && a.pageIndex === p.index; }).map(function (a) {
-        return { a: a, rect0: a.rect.slice(), ink0: a.inkList ? a.inkList.map(function (l) { return l.map(function (q) { return q.slice(); }); }) : null };
+        return { a: a, rect0: a.rect.slice(), ink0: a.inkList ? a.inkList.map(function (l) { return l.map(function (q) { return q.slice(); }); }) : null, v0: a.vertices ? a.vertices.map(function (q) { return q.slice(); }) : null };
       });
       gesture = { mode: 'move', id: e.pointerId, p: p, start: pt, items: items, moved: false };
     } else { if (!isMulti()) clearSel(); gesture = { mode: 'tap', id: e.pointerId }; }
@@ -1250,7 +1729,15 @@ function onDown(e) {
   }
 }
 function onMove(e) {
-  var pr = ptrs.get(e.pointerId); if (!pr) return;
+  var pr = ptrs.get(e.pointerId);
+  if (!pr) {
+    // Pencil hover or a mouse: show where the next corner of a polygon would go.
+    if (state.draft && !gesture && e.pointerType !== 'touch') {
+      var pe = e.target.closest ? e.target.closest('.page') : null;
+      if (pe && state.pages[+pe.dataset.index] === state.draft.p) { state.draft.live = toPdf(state.draft.p, e.clientX, e.clientY); refreshDraft(); }
+    }
+    return;
+  }
   pr.x = e.clientX; pr.y = e.clientY;
   if (!gesture) return;
   if (gesture.mode === 'pan') {
@@ -1273,11 +1760,18 @@ function onMove(e) {
       var minD = 0.75 / state.zoom, path = an.inkList[0];
       evs.forEach(function (ev) { var q = toPdf(p, ev.clientX, ev.clientY); var l = path[path.length - 1]; if (Math.hypot(q[0] - l[0], q[1] - l[1]) >= minD) path.push(q); });
       an.rect = inkBounds(an);
+    } else if (an.subtype === 'Line') {
+      an.vertices = [gesture.start, toPdf(p, e.clientX, e.clientY)];
+      updateGeom(an);
     } else {
       var q2 = toPdf(p, e.clientX, e.clientY), s = gesture.start;
       an.rect = [Math.min(s[0], q2[0]), Math.min(s[1], q2[1]), Math.max(s[0], q2[0]), Math.max(s[1], q2[1])];
     }
     drawOverlay(p);
+  } else if (gesture.mode === 'poly') {
+    var dq = toPdf(p, e.clientX, e.clientY);
+    if (gesture.first && Math.hypot(dq[0] - gesture.down[0], dq[1] - gesture.down[1]) * state.zoom < 8) return;
+    state.draft.live = dq; refreshDraft();
   } else if (gesture.mode === 'move') {
     var q3 = toPdf(p, e.clientX, e.clientY), dx = q3[0] - gesture.start[0], dy = q3[1] - gesture.start[1];
     if (!gesture.moved && Math.hypot(dx, dy) * state.zoom > 3) { gesture.moved = true; pushHistory(); }
@@ -1285,8 +1779,14 @@ function onMove(e) {
     gesture.items.forEach(function (it) {
       it.a.rect = [it.rect0[0] + dx, it.rect0[1] + dy, it.rect0[2] + dx, it.rect0[3] + dy];
       if (it.ink0) it.a.inkList = it.ink0.map(function (l) { return l.map(function (q) { return [q[0] + dx, q[1] + dy]; }); });
+      if (it.v0) { it.a.vertices = it.v0.map(function (q) { return [q[0] + dx, q[1] + dy]; }); updateGeom(it.a); }
       if (!it.a.isNew) { it.a.geomDirty = true; it.a.dirty = true; }
     });
+    drawOverlay(p);
+  } else if (gesture.mode === 'resize' && gesture.handle.charAt(0) === 'v') {
+    var vi = +gesture.handle.slice(1), av = gesture.a;
+    av.vertices[vi] = toPdf(p, e.clientX, e.clientY); updateGeom(av);
+    if (!av.isNew) { av.geomDirty = true; av.dirty = true; }
     drawOverlay(p);
   } else if (gesture.mode === 'resize') {
     var r = p.el.getBoundingClientRect(), sc = r.width / p.vp.width || 1;
@@ -1310,32 +1810,107 @@ function onUp(e) {
   }
   if (gesture.id !== e.pointerId) return;
   var g2 = gesture; gesture = null;
+  if (g2.mode === 'poly') { polyPointUp(g2, toPdf(g2.p, e.clientX, e.clientY)); return; }
   if (g2.mode === 'draw') finishDraw(g2);
-  else if (g2.mode === 'move' || g2.mode === 'resize') { if (g2.mode === 'resize' || g2.moved) { markUnsaved(); renderList(); } }
+  else if (g2.mode === 'move' || g2.mode === 'resize') { if (g2.mode === 'resize' || g2.moved) { markUnsaved(); renderList(); renderProps(); } }
 }
 function newAnnot(tool, pageIndex, pt) {
-  var st = state.style, sub = SUBTYPE_OF[tool];
-  return {
+  var st = state.style, T = TOOLS[tool], sub = T.sub;
+  var chest = state.chestTool && state.chestTool.drawTool === tool ? state.chestTool : null;
+  var a = {
     id: 'n' + (state.nextId++), isNew: true, deleted: false, dirty: true, geomDirty: false, styleDirty: false, owned: true,
-    subtype: sub, pageIndex: pageIndex, rect: [pt[0], pt[1], pt[0], pt[1]], inkList: sub === 'Ink' ? [[pt]] : null,
-    color: hexToRgb(st.color), fillColor: (st.fill && sub !== 'Ink') ? hexToRgb(st.color) : null,
-    fillOpacity: st.fillOpacity, highlight: st.highlight, opacity: st.opacity, lineWidth: st.lineWidth,
-    subject: state.chestTool && state.chestTool.drawTool === tool ? (state.chestTool.subject || SUBJECT_DEFAULT[tool]) : SUBJECT_DEFAULT[tool],
-    contents: state.chestTool && state.chestTool.drawTool === tool ? (state.chestTool.contents || '') : '',
+    subtype: sub, intent: T.intent || null, pageIndex: pageIndex, rect: [pt[0], pt[1], pt[0], pt[1]], inkList: sub === 'Ink' ? [[pt]] : null,
+    vertices: T.poly ? [pt] : T.line ? [pt, pt] : null, measure: T.measure ? copyScale(scaleFor(pageIndex)) : null,
+    lsize: null, mtext: '', lpos: null,
+    color: hexToRgb(T.calibrate ? '#2a5bd7' : st.color), fillColor: (st.fill && MarkupIO.FILLABLE.has(sub) && !T.calibrate) ? hexToRgb(st.color) : null,
+    fillOpacity: st.fillOpacity, highlight: st.highlight, opacity: st.opacity, lineWidth: T.calibrate ? 1.5 : st.lineWidth,
+    subject: chest ? (chest.subject || T.subj) : T.subj,
+    contents: chest ? (chest.contents || '') : '',
     author: state.author, date: new Date().toISOString(), parentId: null, nm: MarkupIO.makeNM()
   };
+  if (a.vertices) updateGeom(a);
+  return a;
 }
 function finishDraw(g) {
   var a = g.a, p = g.p; p.temp = null;
   var min = 6 / state.zoom, ok;
   if (a.subtype === 'Ink') { ok = a.inkList[0].length >= 2 && (a.rect[2] - a.rect[0] > min || a.rect[3] - a.rect[1] > min); }
+  else if (a.subtype === 'Line') ok = polyLength(a.vertices) > min;
   else ok = (a.rect[2] - a.rect[0]) > min && (a.rect[3] - a.rect[1]) > min;
   if (!ok) { drawOverlay(p); return; }
+  if (TOOLS[state.tool] && TOOLS[state.tool].calibrate) { drawOverlay(p); finishCalibrateLine(p, polyLength(a.vertices)); return; }
+  commitNew(a);
+}
+function commitNew(a) {
   pushHistory();
   state.annots.push(a);
   state.sel = new Set([a.id]);
   markUnsaved(); renderList(); afterSelectionChange();
+  if (measureKind(a) && !a.measure) {
+    toast('This page has no scale yet. Set one to see the measurement.', 4500);
+    openScale(a.pageIndex);
+  }
 }
+
+/* ---------- polygon / polyline drafting ---------- */
+function startDraft(tool, p, pt) {
+  var a = newAnnot(tool, p.index, pt);
+  a.draft = true;
+  state.draft = { tool: tool, p: p, a: a, committed: [pt], live: null, started: false, lastUp: 0 };
+  p.temp = a; refreshDraft();
+  return state.draft;
+}
+function refreshDraft() {
+  var d = state.draft; if (!d) return;
+  d.a.vertices = d.live ? d.committed.concat([d.live]) : d.committed.slice();
+  d.a.draftCommitted = d.committed.length;
+  updateGeom(d.a);
+  d.p.temp = d.a; drawOverlay(d.p); updatePolyBar();
+}
+function polyPointUp(g, q) {
+  var d = state.draft; if (!d) return;
+  var T = TOOLS[d.tool], c = d.committed, tol = 14 / state.zoom, now = Date.now();
+  var near = function (a, b) { return Math.hypot(a[0] - b[0], a[1] - b[1]) <= tol; };
+  d.live = null;
+  if (g.first) {
+    // The first press places a corner; dragging before lifting also places the second one.
+    if (Math.hypot(q[0] - g.down[0], q[1] - g.down[1]) * state.zoom >= 8) c.push(q);
+  } else if (T.closed && c.length >= 3 && near(q, c[0])) { finishDraft(); return; }
+  else if (c.length >= (T.closed ? 3 : 2) && near(q, c[c.length - 1]) && now - d.lastUp < 600) { finishDraft(); return; }
+  else if (!near(q, c[c.length - 1])) c.push(q);
+  d.lastUp = now;
+  refreshDraft();
+}
+function finishDraft() {
+  var d = state.draft; if (!d) return;
+  var T = TOOLS[d.tool], a = d.a, need = T.closed ? 3 : 2;
+  state.draft = null; d.p.temp = null;
+  if (d.committed.length < need) { drawOverlay(d.p); updatePolyBar(); toast((T.closed ? 'A ' + T.name.toLowerCase() + ' needs at least 3 points.' : 'A perimeter needs at least 2 points.')); return; }
+  delete a.draft; delete a.draftCommitted;
+  a.vertices = d.committed.slice(); updateGeom(a);
+  updatePolyBar();
+  commitNew(a);
+}
+function cancelDraft() {
+  var d = state.draft; if (!d) return;
+  state.draft = null; d.p.temp = null; drawOverlay(d.p); updatePolyBar();
+}
+function undoDraftPoint() {
+  var d = state.draft; if (!d) return;
+  if (d.committed.length <= 1) { cancelDraft(); return; }
+  d.committed.pop(); d.live = null; refreshDraft();
+}
+function updatePolyBar() {
+  var d = state.draft, bar = $('#polyBar');
+  bar.hidden = !d; if (!d) return;
+  var T = TOOLS[d.tool], n = d.committed.length;
+  $('#polyInfo').innerHTML = '<b>' + esc(T.name) + '</b> · ' + n + (n === 1 ? ' point' : ' points') + (d.a.mtext ? ' · <b>' + esc(d.a.mtext) + '</b>' : '');
+  $('#polyDone').disabled = n < (T.closed ? 3 : 2);
+  $('#polyUndo').disabled = n < 1;
+}
+$('#polyDone').addEventListener('click', finishDraft);
+$('#polyCancel').addEventListener('click', cancelDraft);
+$('#polyUndo').addEventListener('click', undoDraftPoint);
 
 /* ---------- editing ---------- */
 function applyToSelection(patch, tag) {
@@ -1345,10 +1920,11 @@ function applyToSelection(patch, tag) {
     Object.keys(patch).forEach(function (k) {
       var v = patch[k];
       if (k === 'color') { a.color = hexToRgb(v); if (a.fillColor) a.fillColor = hexToRgb(v); if (!a.isNew) a.styleDirty = true; }
-      else if (k === 'fill') { if (a.subtype !== 'Ink') { a.fillColor = v ? (a.color || hexToRgb(state.style.color)) : null; if (!a.isNew) a.styleDirty = true; } }
+      else if (k === 'fill') { if (MarkupIO.FILLABLE.has(a.subtype)) { a.fillColor = v ? (a.color || hexToRgb(state.style.color)) : null; if (!a.isNew) a.styleDirty = true; } }
       else if (k === 'subject' || k === 'contents') { a[k] = v; }
       else { a[k] = v; if (!a.isNew) a.styleDirty = true; }
     });
+    if (a.vertices && a.owned) updateGeom(a);
     if (!a.isNew) a.dirty = true;
   });
   var pages = new Set(s.map(function (a) { return a.pageIndex; }));
@@ -1440,12 +2016,17 @@ function renderProps() {
   box.hidden = !s.length;
   if (!s.length) return;
   var a = s[0], same = function (k) { return s.every(function (x) { return x[k] === a[k]; }); };
-  $('#propsTitle').textContent = s.length === 1 ? typeLabel(a.subtype) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
+  $('#propsTitle').textContent = s.length === 1 ? typeLabel(a.subtype, a.intent) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
   $('#propsMeta').textContent = s.length === 1 ? ((a.author ? a.author + ', ' : '') + (fmtDate(a.date) || 'new')) : (new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length ? 'one group' : '');
   var sub = $('#pSubject'), con = $('#pContents');
   if (document.activeElement !== sub) { sub.value = same('subject') ? (a.subject || '') : ''; sub.placeholder = same('subject') ? 'e.g. Ellipse, Issue, Verify' : 'Mixed'; }
   if (document.activeElement !== con) { con.value = same('contents') ? (a.contents || '') : ''; con.placeholder = same('contents') ? 'Shows in the Comments column' : 'Mixed'; }
   styleSel.sync();
+  var pm = $('#pMeasure'), mk = s.length === 1 ? measureKind(a) : null;
+  pm.hidden = !mk;
+  if (mk) pm.innerHTML = a.measure
+    ? (mk === 'area' ? 'Area' : 'Length') + ': <b>' + esc(a.mtext || measureText(a)) + '</b> · scale ' + esc(scaleLabel(a.measure))
+    : 'No scale on this page. <button class="btn" type="button" id="pSetScale">Set scale</button>';
   $('#btnGroup').disabled = s.length < 2;
   $('#btnUngroup').disabled = !s.some(function (x) { return x.parentId || live().some(function (y) { return y.parentId === x.id; }); });
 }
@@ -1454,6 +2035,7 @@ $('#pContents').addEventListener('input', function (e) { applyToSelection({ cont
 $('#btnGroup').addEventListener('click', groupSelection);
 $('#btnUngroup').addEventListener('click', ungroupSelection);
 $('#btnDelete').addEventListener('click', deleteSelection);
+$('#pMeasure').addEventListener('click', function (e) { if (e.target.id === 'pSetScale') { var s = selected(); openScale(s.length ? s[0].pageIndex : currentPageIndex()); } });
 
 /* ---------- markups list ---------- */
 function sortVal(a, key) {
@@ -1469,7 +2051,7 @@ function sortVal(a, key) {
 }
 function matchesFilter(a) {
   var f = state.filter.trim().toLowerCase(); if (!f) return true;
-  return [a.subject, a.contents, a.author, pageLabel(a.pageIndex)].some(function (v) { return String(v || '').toLowerCase().indexOf(f) >= 0; });
+  return [a.subject, a.contents, a.mtext, a.author, pageLabel(a.pageIndex)].some(function (v) { return String(v || '').toLowerCase().indexOf(f) >= 0; });
 }
 function renderList() {
   var all = live(), rowsEl = $('#rows');
@@ -1486,9 +2068,9 @@ function renderList() {
     var meta = [a.author || '', fmtDay(a.date)].filter(Boolean).join(', ');
     return '<div class="row ' + cls + (state.sel.has(a.id) ? ' sel' : '') + '" data-id="' + esc(a.id) + '">' +
       '<span class="sw" style="--c:' + rgbToHex(a.color || [0.5, 0.5, 0.5]) + '"></span>' +
-      '<span class="subj">' + (a.subject ? esc(a.subject) : '<span class="muted">' + esc(typeLabel(a.subtype)) + '</span>') + '</span>' +
+      '<span class="subj">' + (a.subject ? esc(a.subject) : '<span class="muted">' + esc(typeLabel(a.subtype, a.intent)) + '</span>') + '</span>' +
       '<span class="pg">p. ' + esc(pageLabel(a.pageIndex)) + '</span>' +
-      '<span class="comm">' + esc(a.contents || '') + '</span>' +
+      '<span class="comm">' + (a.mtext ? '<b>' + esc(a.mtext) + '</b>' + (a.contents ? ' · ' : '') : '') + esc(a.contents || '') + '</span>' +
       '<span class="meta">' + esc(meta) + '</span></div>';
   };
   groups.forEach(function (g) {
@@ -1537,7 +2119,11 @@ async function savePdf() {
   setBusy('Writing markups into the PDF…'); await nextFrame();
   var out;
   try {
-    out = await MarkupIO.applyMarkups(state.bytes, state.annots, { author: state.author || '' });
+    if (state.draft) finishDraft();
+    var scales = {};
+    state.scaleDirty.forEach(function (i) { scales[i] = state.scales[i] || null; });
+    state.annots.forEach(function (a) { if (a.vertices && !a.deleted && (a.isNew || a.geomDirty || a.styleDirty)) updateGeom(a); });
+    out = await MarkupIO.applyMarkups(state.bytes, state.annots, { author: state.author || '', scales: scales });
     await loadPdf(out, state.fileName, { keepScroll: true });
   } catch (e) {
     console.error(e); setBusy(null);
@@ -1588,6 +2174,7 @@ function toolPreview(t) {
   if (t.icon) return '<img src="' + t.icon + '" alt="">';
   var stroke = rgbToHex(t.color || [0.4, 0.4, 0.4]), fill = t.fillColor ? rgbToHex(t.fillColor) : 'none';
   var lw = Math.max(1, Math.min(4, t.lineWidth || 1)), fo = t.fillColor ? t.fillOpacity : 0;
+  if (t.subtype === 'Polygon' && t.intent === 'PolygonDimension') return '<svg viewBox="0 0 56 36" xmlns="http://www.w3.org/2000/svg"><path d="M8 30 L12 6 L44 6 L50 30 Z" fill="' + (t.fillColor ? rgbToHex(t.fillColor) : 'none') + '" fill-opacity="' + fo + '" stroke="' + rgbToHex(t.color || [0.4, 0.4, 0.4]) + '" stroke-width="' + lw + '"/><text x="29" y="23" text-anchor="middle" font-size="10" font-family="sans-serif" fill="' + rgbToHex(t.color || [0.3, 0.3, 0.3]) + '">sf</text></svg>';
   var fillAttr = ' fill="' + fill + '" fill-opacity="' + fo + '"' + (t.highlight ? ' class="hl"' : '');
   var strokeAttr = ' stroke="' + stroke + '" stroke-opacity="' + (t.opacity || 1) + '" stroke-width="' + lw + '"';
   var body;
@@ -1607,7 +2194,7 @@ function toolPreview(t) {
 function renderChest() {
   var box = $('#chestSets');
   if (!state.chestSets.length) {
-    box.innerHTML = '<p class="chest-empty">Import a tool set exported from Revu (Tool Chest, tool set settings, Export). Circle, rectangle and pen tools become drawable here with their subject, color, fill, opacity and line width. Other tool types are listed but cannot be drawn in this app.</p>';
+    box.innerHTML = '<p class="chest-empty">Import a tool set exported from Revu (Tool Chest, tool set settings, Export). Circle, rectangle, polygon, pen, length, area and perimeter tools become drawable here with their subject, color, fill, opacity and line width. Other tool types are listed but cannot be drawn in this app.</p>';
     return;
   }
   box.innerHTML = state.chestSets.map(function (s) {
@@ -1628,7 +2215,7 @@ function applyChestTool(set, t) {
     opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth || 1, 0, 12), highlight: !!t.highlight
   });
   savePrefs(); updateStyleChip(); styleNew.sync(); renderChest();
-  toast(t.title + ': draw with the ' + (t.drawTool === 'rect' ? 'Rectangle' : t.drawTool === 'pen' ? 'Pen' : 'Circle') + ' tool');
+  toast(t.title + ': draw with the ' + (TOOLS[t.drawTool] ? TOOLS[t.drawTool].name : 'Circle') + ' tool');
 }
 async function importBtx(files) {
   var added = 0, failed = [];
@@ -1645,7 +2232,7 @@ async function importBtx(files) {
   if (failed.length) toast('Could not read ' + failed.join(', ') + '. Export the tool set from Revu again and retry.', 6000);
   else if (added) toast(added === 1 ? 'Tool set imported.' : added + ' tool sets imported.');
 }
-$('#btnChest').addEventListener('click', function (e) { e.stopPropagation(); var pop = $('#chestPop'); pop.hidden = !pop.hidden; $('#stylePop').hidden = true; if (!pop.hidden) renderChest(); });
+$('#btnChest').addEventListener('click', function (e) { e.stopPropagation(); var pop = $('#chestPop'); pop.hidden = !pop.hidden; $('#stylePop').hidden = true; $('#verPop').hidden = true; if (!pop.hidden) renderChest(); });
 $('#btnImportBtx').addEventListener('click', function () { $('#btxFile').click(); });
 $('#btxFile').addEventListener('change', function (e) { importBtx(Array.from(e.target.files)); e.target.value = ''; });
 $('#chestSets').addEventListener('click', function (e) {
@@ -1659,22 +2246,223 @@ $('#chestSets').addEventListener('click', function (e) {
   applyChestTool(set, tool);
 });
 
+/* ---------- scale (calibration) ---------- */
+function currentPageIndex() {
+  if (!state.pages.length) return 0;
+  var v = $('#viewer'), mid = v.scrollTop + v.clientHeight / 2, best = 0, bestD = Infinity;
+  state.pages.forEach(function (p) {
+    var t = p.el.offsetTop, b = t + p.el.offsetHeight;
+    var d = mid < t ? t - mid : mid > b ? mid - b : 0;
+    if (d < bestD) { bestD = d; best = p.index; }
+  });
+  return best;
+}
+function updateScaleButton() {
+  var i = currentPageIndex(), sc = state.pdf ? scaleFor(i) : null;
+  $('#scaleLbl').textContent = sc ? scaleLabel(sc) : 'Scale';
+  $('#btnScale').title = sc ? 'Scale on page ' + pageLabel(i) + ': ' + scaleLabel(sc) + ' (tap to change)' : 'Set the drawing scale for measurements';
+}
+var scaleUI = { page: 0, mode: 'preset', returnTool: 'select' };
+(function fillPresets() {
+  $('#scPreset').innerHTML = SCALE_PRESETS.map(function (g, gi) {
+    return '<optgroup label="' + esc(g.group) + '">' + g.items.map(function (it, ii) { return '<option value="' + gi + ':' + ii + '">' + esc(it.label) + '</option>'; }).join('') + '</optgroup>';
+  }).join('');
+  $('#scPreset').value = '0:4';
+})();
+function presetAt(v) { var k = String(v).split(':'), g = SCALE_PRESETS[+k[0]]; return g ? { group: g, item: g.items[+k[1]] } : null; }
+function findPreset(label) {
+  for (var gi = 0; gi < SCALE_PRESETS.length; gi++) for (var ii = 0; ii < SCALE_PRESETS[gi].items.length; ii++) if (SCALE_PRESETS[gi].items[ii].label === label) return gi + ':' + ii;
+  return null;
+}
+function setScaleMode(mode) {
+  scaleUI.mode = mode;
+  $$('#scaleModes .tb').forEach(function (b) { b.classList.toggle('on', b.dataset.mode === mode); });
+  $$('[data-mode-panel]').forEach(function (el) { el.hidden = el.dataset.modePanel !== mode; });
+  updateScaleResult();
+}
+function openScale(pageIndex, mode) {
+  if (!state.pdf) { toast('Open a PDF first.'); return; }
+  var pg = pageIndex == null ? currentPageIndex() : pageIndex;
+  scaleUI.page = pg;
+  var cur = scaleFor(pg), sc = cur || state.lastScale;
+  $('#scaleCurrent').textContent = 'Page ' + pageLabel(pg) + ': ' + (cur ? scaleLabel(cur) : 'no scale set yet');
+  $('#scApply').options[0].textContent = 'This page (' + pageLabel(pg) + ')';
+  $('#scApply').options[1].textContent = 'All ' + state.pages.length + ' pages';
+  var pick = mode;
+  if (sc) {
+    $('#scUnits').value = FMT_BASE[sc.fmt] ? sc.fmt : 'ft-in';
+    var pv = findPreset(sc.ratio);
+    if (pv) { $('#scPreset').value = pv; pick = pick || 'preset'; }
+    else if (sc.unit !== 'other') {
+      $('#scPaper').value = '1'; $('#scPaperUnit').value = 'in';
+      var realPerInch = sc.factor * 72;
+      $('#scReal').value = sc.fmt === 'ft-in' ? fmtFtIn(realPerInch) : String(+realPerInch.toFixed(4));
+      pick = pick || 'custom';
+    }
+  }
+  var cal = state.calib && state.calib.page === pg ? state.calib : null;
+  $('#scCalInfo').textContent = cal
+    ? 'Your line is ' + (cal.pts / 72).toFixed(3) + ' in (' + (cal.pts / 72 * 25.4).toFixed(1) + ' mm) long on the sheet. Type the real length it represents, or draw it again.'
+    : 'Draw a line along a dimension you know (a dimension string, a door width, a grid spacing), then type its real length.';
+  $('#scCalDraw').textContent = cal ? 'Draw again' : 'Draw line on page';
+  $('#scRemove').hidden = !cur;
+  setScaleMode(pick || 'preset');
+  $('#scaleModal').hidden = false;
+  if (pick === 'calibrate' && cal) setTimeout(function () { $('#scCalLen').focus(); }, 50);
+}
+function closeScale() { $('#scaleModal').hidden = true; }
+function computeScale() {
+  var fmt = $('#scUnits').value, base = FMT_BASE[fmt];
+  if (scaleUI.mode === 'preset') {
+    var pr = presetAt($('#scPreset').value); if (!pr) return { error: 'Pick a scale.' };
+    return { sc: makeScale(pr.item.mPerPt, fmt, pr.item.label) };
+  }
+  if (scaleUI.mode === 'custom') {
+    var paper = fracParse($('#scPaper').value), pu = $('#scPaperUnit').value;
+    var real = parseLength($('#scReal').value, fmt);
+    if (!(paper > 0)) return { error: 'Type the length on paper, e.g. 1.' };
+    if (!(real > 0)) return { error: 'Type the real length, e.g. ' + (fmt === 'ft-in' ? '10\' or 12\'-6"' : '2.5') + '.' };
+    var paperPts = paper * UNIT_M[pu] / 0.0254 * 72;
+    var sc = { factor: real / paperPts, unit: base, fmt: fmt, label: '', ratio: '' };
+    sc.ratio = $('#scPaper').value.trim() + (pu === 'in' ? '"' : ' ' + pu) + ' = ' + (fmt === 'ft-in' ? fmtFtIn(real) : $('#scReal').value.trim() + (/[a-z'"]$/i.test($('#scReal').value.trim()) ? '' : ' ' + base));
+    return { sc: sc };
+  }
+  var cal = state.calib && state.calib.page === scaleUI.page ? state.calib : null;
+  if (!cal) return { error: 'Draw a line on the page first.' };
+  var len = parseLength($('#scCalLen').value, fmt);
+  if (!(len > 0)) return { error: 'Type the real length of your line, e.g. ' + (fmt === 'ft-in' ? '12\'-6"' : '3.2') + '.' };
+  var sc2 = { factor: len / cal.pts, unit: base, fmt: fmt, label: '', ratio: '' };
+  sc2.ratio = ratioLabelFor(sc2);
+  return { sc: sc2 };
+}
+function updateScaleResult() {
+  var r = computeScale(), el = $('#scResult');
+  if (r.error) { el.textContent = r.error; $('#scOk').disabled = true; return; }
+  $('#scOk').disabled = false;
+  var sc = r.sc;
+  el.textContent = 'Equivalent: ' + ratioLabelFor(sc) + '. A 1" line on the sheet measures ' + fmtLength(sc.factor * 72, sc) + '.';
+}
+function applyScaleFromDialog() {
+  var r = computeScale(); if (r.error) { toast(r.error); return; }
+  var sc = r.sc, all = $('#scApply').value === 'all';
+  var pages = all ? state.pages.map(function (p) { return p.index; }) : [scaleUI.page];
+  var on = new Set(pages);
+  pushHistory();
+  pages.forEach(function (i) { state.scales[i] = copyScale(sc); state.scaleDirty.add(i); });
+  var touched = 0;
+  state.annots.forEach(function (a) {
+    if (a.deleted || !a.owned || !measureKind(a) || !on.has(a.pageIndex)) return;
+    a.measure = copyScale(sc); updateGeom(a); touched++;
+    if (!a.isNew) { a.dirty = true; a.geomDirty = true; }
+  });
+  state.lastScale = copyScale(sc); savePrefs();
+  closeScale();
+  state.pages.forEach(function (p) { if (on.has(p.index)) drawOverlay(p); });
+  markUnsaved(); renderList(); renderProps(); updateScaleButton();
+  toast('Scale ' + scaleLabel(sc) + ' set on ' + (all ? 'all pages' : 'page ' + pageLabel(scaleUI.page)) + (touched ? '; ' + touched + ' measurement' + (touched === 1 ? '' : 's') + ' updated' : '') + '.');
+}
+function removeScale() {
+  var all = $('#scApply').value === 'all';
+  (all ? state.pages.map(function (p) { return p.index; }) : [scaleUI.page]).forEach(function (i) { if (state.scales[i]) { state.scales[i] = null; state.scaleDirty.add(i); } });
+  closeScale(); markUnsaved(); updateScaleButton();
+  toast('Scale removed. Existing measurements keep the scale they were made with.');
+}
+function finishCalibrateLine(p, pts) {
+  state.calib = { page: p.index, pts: pts };
+  setTool(scaleUI.returnTool || 'select');
+  openScale(p.index, 'calibrate');
+}
+$('#btnScale').addEventListener('click', function () { openScale(currentPageIndex()); });
+$$('#scaleModes .tb').forEach(function (b) { b.addEventListener('click', function () { setScaleMode(b.dataset.mode); }); });
+$('#scPreset').addEventListener('change', function () { var pr = presetAt($('#scPreset').value); if (pr) $('#scUnits').value = pr.group.fmt; updateScaleResult(); });
+['#scPaper', '#scPaperUnit', '#scReal', '#scCalLen', '#scUnits'].forEach(function (id) { $(id).addEventListener('input', updateScaleResult); $(id).addEventListener('change', updateScaleResult); });
+$('#scOk').addEventListener('click', applyScaleFromDialog);
+$('#scCancel').addEventListener('click', closeScale);
+$('#scRemove').addEventListener('click', removeScale);
+$('#scaleModal').addEventListener('pointerdown', function (e) { if (e.target === $('#scaleModal')) closeScale(); });
+$('#scCalDraw').addEventListener('click', function () {
+  closeScale();
+  scaleUI.returnTool = state.tool === 'calibrate' ? scaleUI.returnTool : state.tool;
+  setTool('calibrate');
+  toast('Drag along a dimension you know. You can zoom in first for accuracy.', 5000);
+});
+
+/* ---------- version and updates ---------- */
+var update = { latest: null, notes: '', checked: null, error: null, checking: false };
+function cmpVer(a, b) {
+  var x = String(a).replace(/^v/, '').split('.'), y = String(b).replace(/^v/, '').split('.');
+  for (var i = 0; i < Math.max(x.length, y.length); i++) { var d = (parseInt(x[i], 10) || 0) - (parseInt(y[i], 10) || 0); if (d) return d > 0 ? 1 : -1; }
+  return 0;
+}
+function hasUpdate() { return !!update.latest && cmpVer(update.latest, APP_VERSION) > 0; }
+function renderVersion() {
+  var up = hasUpdate(), b = $('#btnVersion');
+  $('#verLbl').textContent = up ? 'Update' : 'v' + APP_VERSION;
+  b.classList.toggle('has-update', up);
+  b.title = up ? 'Version ' + update.latest + ' is available' : 'Pencil Markup version ' + APP_VERSION;
+  $('#verInstalled').textContent = 'v' + APP_VERSION;
+  var when = update.checked ? ' (checked ' + update.checked.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) + ')' : '';
+  $('#verLatest').innerHTML = update.checking ? 'Checking for updates…'
+    : update.error ? esc(update.error)
+    : !update.latest ? 'Not checked yet.'
+    : up ? 'New version available: <b>v' + esc(update.latest) + '</b>'
+    : 'You have the latest version' + esc(when) + '.';
+  var notes = $('#verNotes'); notes.hidden = !(up && update.notes); notes.textContent = update.notes || '';
+  $('#btnUpdate').hidden = !up;
+  $('#emptyVer').textContent = 'Version ' + APP_VERSION + (up ? ' · v' + update.latest + ' available' : '');
+}
+async function checkForUpdate(manual) {
+  if (location.protocol === 'file:') { update.error = 'Update checks work when the app is opened from its web address.'; renderVersion(); return; }
+  update.checking = true; renderVersion();
+  try {
+    var r = await fetch(new URL('version.json', location.href).href + '?t=' + Date.now(), { cache: 'no-store' });
+    if (!r.ok) throw new Error('HTTP ' + r.status);
+    var j = await r.json();
+    update.latest = String(j.version || ''); update.notes = j.notes || ''; update.checked = new Date(); update.error = null;
+  } catch (e) {
+    update.error = "Couldn't reach the server to check for updates.";
+  }
+  update.checking = false; renderVersion();
+  if (manual && !update.error && !hasUpdate()) toast('You have the latest version (v' + APP_VERSION + ').');
+  if (!manual && hasUpdate()) toast('Version ' + update.latest + ' is available. Tap Update in the toolbar.', 5000);
+}
+function applyUpdate() {
+  if (state.unsaved && !confirm('You have markups that are not saved into a PDF yet. Updating reloads the app and they will be lost. Update anyway?')) return;
+  reloadingForUpdate = true;
+  // A new query string skips any cached copy of the page.
+  location.replace(location.pathname + '?v=' + encodeURIComponent(update.latest) + location.hash);
+}
+var lastUpdateCheck = 0;
+function maybeCheck() { if (Date.now() - lastUpdateCheck > 5 * 60 * 1000) { lastUpdateCheck = Date.now(); checkForUpdate(false); } }
+$('#btnVersion').addEventListener('click', function (e) {
+  e.stopPropagation(); var pop = $('#verPop'); pop.hidden = !pop.hidden;
+  $('#stylePop').hidden = true; $('#chestPop').hidden = true;
+  if (!pop.hidden) renderVersion();
+});
+$('#btnUpdate').addEventListener('click', applyUpdate);
+$('#btnCheck').addEventListener('click', function () { lastUpdateCheck = Date.now(); checkForUpdate(true); });
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') maybeCheck(); });
+setInterval(maybeCheck, 30 * 60 * 1000);
+
 /* ---------- toolbar wiring ---------- */
 $('#btnOpen').addEventListener('click', function () { $('#file').click(); });
 $('#btnOpen2').addEventListener('click', function () { $('#file').click(); });
 $('#file').addEventListener('change', function (e) { openFile(e.target.files[0]); e.target.value = ''; });
 $('#btnSave').addEventListener('click', savePdf);
 function setTool(tool) {
+  if (state.draft && state.draft.tool !== tool) finishDraft();
   state.tool = tool;
-  $$('#tools .tb').forEach(function (x) { x.classList.toggle('on', x.dataset.tool === tool); });
+  $$('.topbar [data-tool]').forEach(function (x) { x.classList.toggle('on', x.dataset.tool === tool); });
+  if (TOOLS[tool] && TOOLS[tool].measure && state.pdf && !scaleFor(currentPageIndex())) toast('No scale on this page yet. Tap Scale to set one (measurements update when you do).', 4500);
 }
-$$('#tools .tb').forEach(function (b) {
+$$('.topbar [data-tool]').forEach(function (b) {
   b.addEventListener('click', function () { setTool(b.dataset.tool); state.chestTool = null; renderChest(); });
 });
 $('#btnStyle').addEventListener('click', function (e) { e.stopPropagation(); var pop = $('#stylePop'); pop.hidden = !pop.hidden; if (!pop.hidden) styleNew.sync(); });
 document.addEventListener('pointerdown', function (e) {
   var pop = $('#stylePop'); if (!pop.hidden && !pop.contains(e.target) && !$('#btnStyle').contains(e.target)) pop.hidden = true;
   var cp = $('#chestPop'); if (!cp.hidden && !cp.contains(e.target) && !$('#btnChest').contains(e.target)) cp.hidden = true;
+  var vp = $('#verPop'); if (!vp.hidden && !vp.contains(e.target) && !$('#btnVersion').contains(e.target)) vp.hidden = true;
 });
 $('#fingerDraw').addEventListener('change', function (e) { state.fingerDraw = e.target.checked; savePrefs(); });
 $('#multiSel').addEventListener('change', function (e) { state.multiToggle = e.target.checked; });
@@ -1687,18 +2475,23 @@ $('#btnPanel').addEventListener('click', function () { var p = $('#panel'); p.hi
 $('#btnClosePanel').addEventListener('click', function () { $('#panel').hidden = true; renderVisible(); });
 $('#author').addEventListener('input', function (e) { state.author = e.target.value; savePrefs(); });
 
+var KEY_TOOL = { v: 'select', c: 'circle', r: 'rect', g: 'polygon', p: 'pen', l: 'length', a: 'area', e: 'perimeter' };
 document.addEventListener('keydown', function (e) {
   var tag = (e.target.tagName || '').toLowerCase();
   state.multi = e.shiftKey || e.metaKey || e.ctrlKey;
+  if (!$('#scaleModal').hidden) { if (e.key === 'Escape') closeScale(); else if (e.key === 'Enter' && tag !== 'select') { e.preventDefault(); applyScaleFromDialog(); } return; }
   if (tag === 'input' || tag === 'textarea') return;
+  if (state.draft) {
+    if (e.key === 'Enter') { e.preventDefault(); finishDraft(); return; }
+    if (e.key === 'Escape') { cancelDraft(); return; }
+    if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); undoDraftPoint(); return; }
+  }
+  var plain = !e.metaKey && !e.ctrlKey && !e.altKey;
   if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel.size) { e.preventDefault(); deleteSelection(); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSelection(); else groupSelection(); }
-  else if (e.key === 'Escape') { clearSel(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; }
-  else if (e.key === 'v') $$('#tools .tb')[0].click();
-  else if (e.key === 'c') $$('#tools .tb')[1].click();
-  else if (e.key === 'r') $$('#tools .tb')[2].click();
-  else if (e.key === 'p') $$('#tools .tb')[3].click();
+  else if (e.key === 'Escape') { clearSel(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; }
+  else if (plain && KEY_TOOL[e.key]) { var tb = document.querySelector('.topbar [data-tool="' + KEY_TOOL[e.key] + '"]'); if (tb) tb.click(); }
 });
 document.addEventListener('keyup', function (e) { state.multi = e.shiftKey || e.metaKey || e.ctrlKey; });
 
@@ -1712,7 +2505,8 @@ document.addEventListener('drop', function (e) {
   if (pdf) openFile(pdf);
 });
 
-window.addEventListener('beforeunload', function (e) { if (state.unsaved) { e.preventDefault(); e.returnValue = ''; } });
+var reloadingForUpdate = false;
+window.addEventListener('beforeunload', function (e) { if (state.unsaved && !reloadingForUpdate) { e.preventDefault(); e.returnValue = ''; } });
 /* iOS scrolls the whole app when the keyboard opens; put it back when the field closes. */
 function resetWindowScroll() { if (window.scrollX || window.scrollY) window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; }
 document.addEventListener('focusout', function () { setTimeout(resetWindowScroll, 60); setTimeout(resetWindowScroll, 400); });
@@ -1726,6 +2520,7 @@ loadPrefs(); loadChest();
 $('#author').value = state.author;
 $('#fingerDraw').checked = state.fingerDraw;
 updateStyleChip(); styleNew.sync();
+renderVersion(); setTimeout(maybeCheck, 1500);
 if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) $('#panel').hidden = false;
 renderList();
 })();
