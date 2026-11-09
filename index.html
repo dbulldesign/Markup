@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.4.0">
+<meta name="app-version" content="1.4.1">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -189,6 +189,11 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .symset .fld { display: grid; grid-template-columns: 96px 1fr; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); }
 .symset .fld.range { grid-template-columns: 96px 1fr 50px; }
 .symset select, .symset input[type=text] { border: 1px solid var(--line); background: var(--surface-2); border-radius: 9px; padding: 6px 8px; font-size: 15px; width: 100%; color: var(--ink); }
+.symset .tcrow { align-items: start; }
+.symset .tcrow > span { padding-top: 4px; }
+.tswatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.tswatches .swatch { width: 28px; height: 28px; }
+.tswatches .swatch.auto { background: var(--surface-2); color: var(--ink-2); font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; justify-content: center; }
 .symset output { text-align: right; font-size: 13px; font-variant-numeric: tabular-nums; }
 .seqbar select, .seqbar input { border: 1px solid var(--line); background: var(--surface-2); border-radius: 9px; padding: 6px 8px; font-size: 15px; color: var(--ink); }
 .seqbar input { width: 64px; }
@@ -385,6 +390,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
       <label class="fld"><span>Symbol</span><select data-s="shape"><option value="circle">Circle</option><option value="square">Square</option><option value="diamond">Diamond</option><option value="hexagon">Hexagon</option><option value="triangle">Triangle</option></select></label>
       <label class="fld range"><span>Size</span><input type="range" min="6" max="72" step="1" data-s="size"><output></output></label>
       <label class="fld" data-only="symbol"><span>Label</span><input type="text" data-s="label" maxlength="8" placeholder="e.g. A, L1"></label>
+      <div class="fld tcrow"><span>Text</span><div class="tswatches" data-tc-row></div></div>
     </div>
     <button class="btn style-save" id="btnSaveTool" type="button">Save as a tool…</button>
   </div>
@@ -475,6 +481,9 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
       <datalist id="subjects"><option value="Ellipse"><option value="Rectangle"><option value="Pen"><option value="Issue"><option value="Verify"><option value="RFI"><option value="Note"></datalist>
       <div class="measure" id="pMeasure" hidden></div>
       <label class="fld">Comments<textarea class="fld-ta" id="pContents" rows="2" placeholder="Shows in the Comments column"></textarea></label>
+      <div class="symset" id="pSymText" hidden style="margin-top:0;border-top:0;padding-top:0">
+      <div class="fld tcrow"><span>Text</span><div class="tswatches" data-tc-row></div></div>
+      </div>
       <div class="style" id="styleSel"></div>
       <div class="actions">
         <button class="btn" id="btnGroup" type="button">Group</button>
@@ -551,6 +560,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
       <label class="fld"><span>Symbol</span><select data-s="shape"><option value="circle">Circle</option><option value="square">Square</option><option value="diamond">Diamond</option><option value="hexagon">Hexagon</option><option value="triangle">Triangle</option></select></label>
       <label class="fld range"><span>Size</span><input type="range" min="6" max="72" step="1" data-s="size"><output></output></label>
       <label class="fld" data-only="symbol"><span>Label</span><input type="text" data-s="label" maxlength="8" placeholder="e.g. A, L1"></label>
+      <div class="fld tcrow"><span>Text</span><div class="tswatches" data-tc-row></div></div>
     </div>
     <label class="fld">Subject<input id="tSubject" list="subjects" placeholder="Shows as Subject in Revu"></label>
     <label class="fld">Comments<input id="tContents" placeholder="Optional default comment"></label>
@@ -743,6 +753,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
           var nn = numOf(ctx.lookup(pmd.get(N('N'))), null);
           sym = { shape: nameOf(pmd.get(N('Shape'))) || 'circle', size: numOf(ctx.lookup(pmd.get(N('Size'))), null),
             label: textOf(ctx.lookup(pmd.get(N('Label')))), n: nn,
+            textColor: (function () { var tc = numsOf(ctx, pmd.get(N('TextColor'))); return tc && tc.length === 3 ? rgbHex(tc) : null; })(),
             series: nn != null ? (textOf(ctx.lookup(pmd.get(N('Series')))) || 'default') : null,
             prefix: nn != null ? textOf(ctx.lookup(pmd.get(N('Prefix')))) : '' };
           vertices = null; editable = true;
@@ -848,7 +859,13 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
     var c = symCenter(a);
     return { text: label, size: size, x: c[0], y: c[1] + (tri ? -0.16 * s : 0), w: textWidth(label, size) };
   }
-  function symTextColor(a) { return a.fillColor && a.fillOpacity >= 0.6 ? [1, 1, 1] : (a.color || [0, 0, 0]); }
+  function hexRgb(h) { var m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return null; var n = parseInt(m[1], 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; }
+  function rgbHex(c) { return '#' + c.map(function (v) { var x = Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16); return x.length < 2 ? '0' + x : x; }).join('').toUpperCase(); }
+  // Text colour: the symbol's own text colour if set, otherwise automatic (white on a strong fill, else the line colour).
+  function symTextColor(a) {
+    var own = a.sym && hexRgb(a.sym.textColor); if (own) return own;
+    return a.fillColor && a.fillOpacity >= 0.6 ? [1, 1, 1] : (a.color || [0, 0, 0]);
+  }
 
   function buildAppearance(ctx, a) {
     var x0 = a.rect[0], y0 = a.rect[1], x1 = a.rect[2], y1 = a.rect[3];
@@ -944,6 +961,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
         if (a.subtype === 'Polygon') dict.set(N('Vertices'), flat(symPoints(a, 0)));
         var sd = { Shape: a.sym.shape, Size: fix(a.sym.size || (a.rect[2] - a.rect[0]), 2) };
         if (a.sym.label) sd.Label = L.PDFHexString.fromText(a.sym.label);
+        if (hexRgb(a.sym.textColor)) sd.TextColor = hexRgb(a.sym.textColor).map(function (v) { return fix(v, 4); });
         if (a.sym.n != null) { sd.N = a.sym.n; sd.Series = L.PDFString.of(a.sym.series || ''); sd.Prefix = L.PDFHexString.fromText(a.sym.prefix || ''); }
         dict.set(N('PMSymbol'), ctx.obj(sd));
         return;
@@ -1275,7 +1293,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.4.0';
+var APP_VERSION = '1.4.1';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1307,7 +1325,7 @@ var state = {
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
   chestSets: [], chestTool: null, pendingSave: null,
   scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null,
-  sym: { shape: 'circle', size: 18, label: 'A' }, series: { defs: {}, cur: null }
+  sym: { shape: 'circle', size: 18, label: 'A', textColor: null }, series: { defs: {}, cur: null }
 };
 
 /* ---------- small helpers ---------- */
@@ -2028,7 +2046,7 @@ function newAnnot(tool, pageIndex, pt) {
   if (T.symbol) {
     var sy = state.sym, size = clamp(+sy.size || 18, 4, 144);
     a.subtype = MarkupIO.SYM_SUB[sy.shape] || 'Circle';
-    a.sym = { shape: sy.shape || 'circle', size: size, label: T.numbered ? '' : (sy.label || ''), n: null, series: null, prefix: '' };
+    a.sym = { shape: sy.shape || 'circle', size: size, label: T.numbered ? '' : (sy.label || ''), textColor: sy.textColor || null, n: null, series: null, prefix: '' };
     if (!MarkupIO.FILLABLE.has(a.subtype)) a.fillColor = null;
     if (T.numbered) { var sid = ensureSeries(); a.sym.series = sid; a.sym.prefix = state.series.defs[sid].prefix || ''; a.sym.n = nextNumber(sid); }
     centerSym(a, pt);
@@ -2282,13 +2300,32 @@ var styleSel = buildStyleControls($('#styleSel'), function () {
   var s = selected(); if (!s.length) return null; var a = s[0];
   return { color: rgbToHex(a.color || [0, 0, 0]), fill: !!a.fillColor, highlight: !!a.highlight, fillOpacity: a.fillOpacity, lineWidth: a.lineWidth, opacity: a.opacity };
 }, function (patch) { applyToSelection(patch, 'style:' + Object.keys(patch)[0]); }, false);
+var TEXT_COLORS = ['#FFFFFF', '#212121'].concat(PALETTE.filter(function (c) { return c !== '#212121'; }));
+function textSwatchesHTML() {
+  return '<button type="button" class="swatch auto" data-tc="" title="Automatic: white on a strong fill, otherwise the line colour" aria-label="Automatic text colour">Auto</button>' +
+    TEXT_COLORS.map(function (c) { return '<button type="button" class="swatch" data-tc="' + c + '" style="--c:' + c + '" aria-label="Text colour ' + c + '"></button>'; }).join('') +
+    '<label class="swatch custom" title="Custom text colour"><input type="color" data-tc-custom aria-label="Custom text colour"></label>';
+}
+$$('[data-tc-row]').forEach(function (el) { el.innerHTML = textSwatchesHTML(); });
+function syncTextSwatches(root, value) {
+  var v = String(value || '').toUpperCase();
+  root.querySelectorAll('[data-tc]').forEach(function (b) { b.classList.toggle('on', b.dataset.tc.toUpperCase() === v); });
+  var cu = root.querySelector('[data-tc-custom]'); if (cu) { cu.value = v || '#000000'; cu.parentNode.classList.toggle('on', !!v && TEXT_COLORS.indexOf(v) < 0); }
+}
+/* Wires a text colour row: calls pick(hex or null) when a swatch or the custom picker is used. */
+function bindTextColorRow(root, pick) {
+  root.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('[data-tc]') : null; if (b) pick(b.dataset.tc || null); });
+  root.addEventListener('input', function (e) { if (e.target.hasAttribute('data-tc-custom')) pick(e.target.value.toUpperCase()); });
+}
 function bindSymControls(root, get, set) {
   root.addEventListener('input', function (e) {
     var k = e.target.dataset.s; if (!k) return;
     set(k, k === 'size' ? +e.target.value : e.target.value); sync();
   });
+  bindTextColorRow(root, function (v) { set('textColor', v); sync(); });
   function sync(tool) {
     var s = get(); if (!s) return;
+    syncTextSwatches(root, s.textColor);
     root.querySelectorAll('[data-s]').forEach(function (el) { var k = el.dataset.s; if (document.activeElement !== el) el.value = s[k] == null ? '' : s[k]; if (el.type === 'range') el.nextElementSibling.value = s[k] + ' pt'; });
     if (tool) root.querySelectorAll('[data-only]').forEach(function (el) { el.hidden = el.dataset.only !== tool; });
   }
@@ -2311,6 +2348,9 @@ function renderProps() {
   if (document.activeElement !== sub) { sub.value = same('subject') ? (a.subject || '') : ''; sub.placeholder = same('subject') ? 'e.g. Ellipse, Issue, Verify' : 'Mixed'; }
   if (document.activeElement !== con) { con.value = same('contents') ? (a.contents || '') : ''; con.placeholder = same('contents') ? 'Shows in the Comments column' : 'Mixed'; }
   styleSel.sync();
+  var syms = s.filter(function (x) { return x.sym && x.owned; }), pst = $('#pSymText');
+  pst.hidden = !syms.length;
+  if (syms.length) syncTextSwatches(pst, syms.every(function (x) { return (x.sym.textColor || '') === (syms[0].sym.textColor || ''); }) ? syms[0].sym.textColor : 'mixed');
   var pm = $('#pMeasure'), mk = s.length === 1 ? measureKind(a) : null;
   pm.hidden = !mk && !(s.length === 1 && a.sym);
   if (!mk && s.length === 1 && a.sym) {
@@ -2323,6 +2363,13 @@ function renderProps() {
   $('#btnGroup').disabled = s.length < 2;
   $('#btnUngroup').disabled = !s.some(function (x) { return x.parentId || live().some(function (y) { return y.parentId === x.id; }); });
 }
+bindTextColorRow($('#pSymText'), function (v) {
+  var syms = selected().filter(function (x) { return x.sym && x.owned; }); if (!syms.length) return;
+  pushHistory('symtext');
+  syms.forEach(function (a) { a.sym = Object.assign({}, a.sym, { textColor: v }); if (!a.isNew) { a.styleDirty = true; a.dirty = true; } });
+  new Set(syms.map(function (a) { return a.pageIndex; })).forEach(function (i) { drawOverlay(state.pages[i]); });
+  markUnsaved(); renderList(); renderProps();
+});
 $('#pSubject').addEventListener('input', function (e) { applyToSelection({ subject: e.target.value }, 'subject'); });
 $('#pContents').addEventListener('input', function (e) { applyToSelection({ contents: e.target.value }, 'contents'); });
 $('#btnGroup').addEventListener('click', groupSelection);
@@ -2479,7 +2526,7 @@ $('#btnSaveBarClose').addEventListener('click', function () { $('#saveBar').hidd
 function toolPreview(t) {
   if (t.icon) return '<img src="' + t.icon + '" alt="">';
   if (t.sym) {
-    var fake = { rect: [10, 0, 46, 36], sym: { shape: t.sym.shape, size: 36, label: t.sym.numbered ? '' : t.sym.label, n: t.sym.numbered ? 1 : null, prefix: '' }, fillColor: t.fillColor, fillOpacity: t.fillOpacity, color: t.color };
+    var fake = { rect: [10, 0, 46, 36], sym: { shape: t.sym.shape, size: 36, label: t.sym.numbered ? '' : t.sym.label, textColor: t.sym.textColor || null, n: t.sym.numbered ? 1 : null, prefix: '' }, fillColor: t.fillColor, fillOpacity: t.fillOpacity, color: t.color };
     var pts = t.sym.shape === 'circle' ? null : t.sym.shape === 'square' ? null : MarkupIO.symPoints(fake, 1.5);
     var fa = ' fill="' + (t.fillColor ? rgbToHex(t.fillColor) : 'none') + '" fill-opacity="' + (t.fillColor ? t.fillOpacity : 0) + '" stroke="' + rgbToHex(t.color || [0.3, 0.3, 0.3]) + '" stroke-width="' + Math.max(1, Math.min(3, t.lineWidth || 1)) + '"';
     var g = t.sym.shape === 'circle' ? '<circle cx="28" cy="18" r="16.5"' + fa + '/>' : t.sym.shape === 'square' ? '<rect x="11.5" y="1.5" width="33" height="33"' + fa + '/>'
@@ -2603,7 +2650,8 @@ function applyChestTool(set, t) {
     color: rgbToHex(t.color || [0, 0, 0]), fill: !!t.fillColor && MarkupIO.FILLABLE.has(t.subtype), fillOpacity: clamp(t.fillOpacity || 0.35, 0.05, 1),
     opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth == null ? 1 : t.lineWidth, 0, 12), highlight: !!t.highlight
   });
-  if (t.sym) state.sym = { shape: t.sym.shape || 'circle', size: t.sym.size || 18, label: t.sym.label || '' };
+  // A numbered tool has no label of its own, so keep the plain Symbol tool's label.
+  if (t.sym) state.sym = { shape: t.sym.shape || 'circle', size: t.sym.size || 18, label: t.sym.numbered ? state.sym.label : (t.sym.label || ''), textColor: t.sym.textColor || null };
   savePrefs(); updateStyleChip(); styleNew.sync(); renderChest(); updateSeqBar();
   if (t.sym) { toast(t.title + ': tap to place' + (t.sym.numbered ? ' 1, 2, 3...' : '') + '.'); return; }
   toast(t.title + ': draw with the ' + (TOOLS[t.drawTool] ? TOOLS[t.drawTool].name : 'Circle') + ' tool');
@@ -2690,7 +2738,7 @@ function fillSetOptions(selectedId) {
 function openToolEditor(set, tool) {
   var cur = DRAWABLE.indexOf(state.tool) >= 0 ? state.tool : 'circle';
   if (tool) {
-    editor = { set: set, tool: tool, style: styleFromTool(tool), sym: Object.assign({}, state.sym, tool.sym || {}) };
+    editor = { set: set, tool: tool, style: styleFromTool(tool), sym: Object.assign({}, state.sym, { textColor: null }, tool.sym || {}) };
     $('#toolTitle').textContent = 'Edit tool';
     $('#tName').value = tool.title || '';
     $('#tType').value = tool.drawTool || ToolChest.drawToolFor(tool.subtype, tool.intent) || 'circle';
@@ -2732,7 +2780,7 @@ function saveToolFromEditor() {
   var fields = {
     title: $('#tName').value.trim() || $('#tSubject').value.trim() || T.name,
     subtype: symSub || T.sub, intent: T.intent || '', drawTool: type, supported: true,
-    sym: T.symbol ? { shape: editor.sym.shape || 'circle', size: clamp(+editor.sym.size || 18, 4, 144), label: T.numbered ? '' : (editor.sym.label || ''), numbered: !!T.numbered } : null,
+    sym: T.symbol ? { shape: editor.sym.shape || 'circle', size: clamp(+editor.sym.size || 18, 4, 144), label: T.numbered ? '' : (editor.sym.label || ''), textColor: editor.sym.textColor || null, numbered: !!T.numbered } : null,
     color: hexToRgb(st.color), fillColor: st.fill && MarkupIO.FILLABLE.has(symSub || T.sub) ? hexToRgb(st.color) : null,
     fillOpacity: st.fillOpacity, opacity: st.opacity, lineWidth: st.lineWidth, highlight: !!st.highlight,
     subject: $('#tSubject').value.trim(), contents: $('#tContents').value, fav: $('#tFav').checked, icon: null

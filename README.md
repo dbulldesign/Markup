@@ -33,6 +33,7 @@ Tools and settings are kept in the browser on that device, so back them up befor
 ## Symbols and numbered counts
 
 - *Symbol* places a fixed-size symbol with each tap (drag before lifting to position it). Every symbol from a tool is the same size on the drawing whatever the zoom, which suits fixture counts. Set the shape (circle, square, diamond, hexagon, triangle), size in points and a short label such as `L1` in the style menu, then *Save as a tool…* to keep it (for example one tool per fixture type, starred into the toolbar).
+- *Text* colour for the label or number is set separately from the line and fill (in the style menu, the tool editor, or the properties panel for symbols already placed). *Auto* uses white on a strong fill, otherwise the line colour.
 - *Numbered* places 1, 2, 3… with each tap. The bar at the top of the page picks the series: choose an earlier series to continue it, tap *New series* to start again at 1 (with an optional prefix such as `A` for A1, A2…), or type a *Next* number to jump.
 - The markups panel shows *Counts* by subject (tap one to list just those). Symbols are saved as standard Circle, Square or Polygon markups with the label in the drawing and in Comments, so Revu lists and totals them by Subject. Their settings are also stored in the PDF, so series continue when you reopen the file here.
 
