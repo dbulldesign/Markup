@@ -4,11 +4,11 @@ A single-file web app for marking up PDFs on an iPad with Apple Pencil. Markups 
 
 ## Host it on GitHub Pages
 
-1. Create a repository and add `pencil-markup.html` (rename it to `index.html` if you want it at the root URL).
+1. Create a repository and add `index.html`, `version.json` and the `vendor/` folder.
 2. Settings, Pages, Source: *Deploy from a branch*, branch `main`, folder `/ (root)`.
 3. Open `https://<you>.github.io/<repo>/` in Safari on the iPad. Use Share, *Add to Home Screen* to run it full-screen.
 
-The page loads three libraries from cdnjs (pdf.js 3.11.174, pdf-lib 1.17.1, pako 2.1.0), so it needs internet access the first time it opens. Everything else runs on the device; no file ever leaves it.
+The three libraries it uses (pdf.js 3.11.174, pdf-lib 1.17.1, pako 2.1.0) are in the `vendor/` folder and load from the same site as the page, so keep that folder next to `index.html`. Everything runs on the device; no file ever leaves it.
 
 ## Using it
 

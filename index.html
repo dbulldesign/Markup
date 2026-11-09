@@ -7,11 +7,11 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.2.0">
+<meta name="app-version" content="1.2.1">
 <title>Pencil Markup</title>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<script src="vendor/pdf.min.js?v=3.11.174"></script>
+<script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
+<script src="vendor/pako.min.js?v=2.1.0"></script>
 <style>
 :root {
   --bg: #d6d9d3;
@@ -1159,13 +1159,15 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 var $ = function (s) { return document.querySelector(s); };
 var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
 
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+/* The libraries are served from this site's vendor/ folder (same origin), so the pdf.js worker
+   always loads, also where a CDN is blocked or unreachable. */
+pdfjsLib.GlobalWorkerOptions.workerSrc = new URL('vendor/pdf.worker.min.js?v=3.11.174', document.baseURI).href;
 
 var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari on iPad inside its memory budget
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.2.0';
+var APP_VERSION = '1.2.1';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {

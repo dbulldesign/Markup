@@ -1,5 +1,5 @@
 {
-  "version": "1.2.0",
+  "version": "1.2.1",
   "date": "2026-11-09",
-  "notes": "Favourite tools (one tap from the toolbar). Make your own palettes and save any tool with its style, subject and comment. Export palettes, and back up or restore all your tools and settings to a file."
+  "notes": "Fixes \"That file could not be opened as a PDF\" (pdf.js worker failed to load): the PDF libraries now load from this site instead of a CDN."
 }
