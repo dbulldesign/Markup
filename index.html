@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="2.2.0">
+<meta name="app-version" content="2.3.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -416,6 +416,15 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     <button class="tb" type="button" data-tool="perimeter" title="Measure a perimeter: tap each point, tap the last point again (or Finish) to end" aria-label="Perimeter">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18 8 6l8 4 4 8"/><circle cx="4" cy="18" r="1.5"/><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="10" r="1.5"/><circle cx="20" cy="18" r="1.5"/></svg><span class="lbl">Perimeter</span>
     </button>
+    <button class="tb" type="button" data-tool="angle" title="Measure an angle: tap one end, the corner, then the other end" aria-label="Angle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 19H4L15 5"/><path d="M9 19a6 6 0 0 0-1.6-4.2"/></svg><span class="lbl">Angle</span>
+    </button>
+    <button class="tb" type="button" data-tool="radius" title="Measure a radius: press at the centre and drag to the edge" aria-label="Radius">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 12h8"/><circle cx="12" cy="12" r="1.2" fill="currentColor"/></svg><span class="lbl">Radius</span>
+    </button>
+    <button class="tb" type="button" data-tool="diameter" title="Measure a diameter: press at the centre and drag to the edge" aria-label="Diameter">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M4 12h16"/></svg><span class="lbl">Diameter</span>
+    </button>
     <button class="tb" id="btnScale" type="button" title="Set the drawing scale for measurements" aria-label="Scale">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 19h18M5 19v-4M9 19v-2M13 19v-2M17 19v-4"/><path d="M4 8h16M7 5 4 8l3 3M17 5l3 3-3 3"/></svg><span class="scale-lbl" id="scaleLbl">Scale</span>
     </button>
@@ -478,6 +487,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
   <div class="seg favs" id="favBar" hidden></div>
 
   <label class="toggle" title="Let a finger draw as well as the Pencil"><input type="checkbox" id="fingerDraw"><span class="lbl keep">Finger draws</span></label>
+  <label class="toggle" title="Snap to corners, ends and centres of markups, and straighten nearly level lines"><input type="checkbox" id="snapToggle"><span class="lbl keep">Snap</span></label>
   <label class="toggle" title="Tap markups (or drag boxes) to add them to the selection, then Group"><input type="checkbox" id="multiSel"><span class="lbl keep">Multi-select</span></label>
 
   <span class="spacer"></span>
@@ -617,6 +627,14 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <option value="ft-in">Feet and inches (12'-6")</option><option value="ft">Feet (decimal)</option><option value="in">Inches</option>
       <option value="m">Meters</option><option value="cm">Centimeters</option><option value="mm">Millimeters</option>
     </select></label>
+    <div class="two">
+      <label class="fld">Feet-inch rounding<select id="msFtin"><option value="2">1/2"</option><option value="4">1/4"</option><option value="8">1/8"</option><option value="16">1/16"</option></select></label>
+      <label class="fld">Decimal places<select id="msDec"><option value="0">0</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label>
+    </div>
+    <div class="two">
+      <label class="fld">Area units<select id="msArea"><option value="auto">sf / m&#xB2;</option><option value="sy">Square yards</option><option value="acre">Acres</option><option value="ha">Hectares</option></select></label>
+      <label class="fld">Angle decimals<select id="msAdec"><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></label>
+    </div>
     <label class="fld">Apply to<select id="scApply"><option value="page">This page</option><option value="all">All pages</option></select></label>
     <div class="result" id="scResult"></div>
     <div class="actions">
@@ -869,6 +887,15 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
           }
         }
         var measure = readMeasure(ctx, dict.get(N('Measure')));
+        // Angle, radius/diameter and area cut-outs made by this app: /PMMeasure.
+        var mkind = null, mctr = null, mrad = null, holes = null, pmm = ctx.lookup(dict.get(N('PMMeasure')));
+        if (pmm instanceof L.PDFDict) {
+          mkind = nameOf(pmm.get(N('Kind')));
+          var cc0 = numsOf(ctx, pmm.get(N('C'))); if (cc0 && cc0.length >= 2) mctr = [cc0[0], cc0[1]];
+          mrad = numOf(ctx.lookup(pmm.get(N('R'))), null);
+          var hs0 = ctx.lookup(pmm.get(N('Holes')));
+          if (hs0 instanceof L.PDFArray) { holes = []; for (var hi = 0; hi < hs0.size(); hi++) { var hv = numsOf(ctx, hs0.get(hi)) || [], hp = []; for (var hq = 0; hq + 1 < hv.length; hq += 2) hp.push([hv[hq], hv[hq + 1]]); if (hp.length >= 3) holes.push(hp); } }
+        }
         // Symbols placed by this app carry their settings in /PMSymbol so they stay editable here.
         var sym = null, pmd = ctx.lookup(dict.get(N('PMSymbol')));
         if (pmd instanceof L.PDFDict && (subtype === 'Circle' || subtype === 'Square' || subtype === 'Polygon' || subtype === 'Stamp')) {
@@ -907,6 +934,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
           vertices: vertices, measure: measure, lsize: null, mtext: '', lpos: null, sym: sym,
           le: le, cloud: subtype === 'Polygon' && (cloudy || intent === 'PolygonCloud'), cr: null,
           box: ftBox, tip: ftTip, fs: ftFs, textColor: ftTc, fields: fields,
+          mkind: mkind === 'area' ? null : mkind, ctr: mctr, rad: mrad, holes: holes,
           rect: [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])],
           inkList: inkList,
           color: colorOf(ctx, dict.get(N('C'))), fillColor: colorOf(ctx, dict.get(N('IC'))),
@@ -988,6 +1016,13 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
   function stampDims(text, h) { return [textWidth(String(text || ''), h * 0.58) / 0.82 + h * 0.5, h]; }
 
   /* ---- arrows, clouds, text boxes ---- */
+  // A small arc at the corner of an angle measurement.
+  function angleArc(a) {
+    var v = a.vertices, c = v[1], r = (a.lsize || 10) * 1.3, t0 = Math.atan2(v[0][1] - c[1], v[0][0] - c[0]), t1 = Math.atan2(v[2][1] - c[1], v[2][0] - c[0]);
+    var d = t1 - t0; while (d > Math.PI) d -= 2 * Math.PI; while (d < -Math.PI) d += 2 * Math.PI;
+    var pts = []; for (var i = 0; i <= 16; i++) { var t = t0 + d * i / 16; pts.push([c[0] + r * Math.cos(t), c[1] + r * Math.sin(t)]); }
+    return pts;
+  }
   function arrowSize(a) { return Math.max(((+a.lineWidth) || 1) * 4, 7); }
   // An open arrowhead at tip, pointing away from 'from': [wing, tip, wing].
   function arrowHead(tip, from, size) {
@@ -1130,6 +1165,17 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
         fonts = { HelvB: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica-Bold', Encoding: 'WinAnsiEncoding' } };
         parts.push(textOps(a, 'HelvB', st.size, col(symTextColor(a)), st.x, st.y, st.w, st.size * 0.36, st.text, st.ang));
       }
+    } else if (a.subtype === 'Circle' && a.mkind && a.ctr && a.rad) {
+      var cx0 = a.ctr[0], cy0 = a.ctr[1], rr = a.rad, cpath = ellipsePath(cx0 - rr, cy0 - rr, cx0 + rr, cy0 + rr);
+      if (a.fillColor) { gs.GSf = { Type: 'ExtGState', CA: fix(a.fillOpacity, 3), ca: fix(a.fillOpacity, 3), BM: a.highlight ? 'Multiply' : 'Normal' }; parts.push('q\n/GSf gs\n' + col(a.fillColor) + ' rg\n' + cpath + '\nf\nQ'); }
+      var rline = a.mkind === 'diameter' ? f(cx0 - rr) + ' ' + f(cy0) + ' m\n' + f(cx0 + rr) + ' ' + f(cy0) + ' l' : f(cx0) + ' ' + f(cy0) + ' m\n' + f(cx0 + rr) + ' ' + f(cy0) + ' l';
+      if (a.color) parts.push('q\n/GSs gs\n' + col(a.color) + ' RG\n' + f(lw || 1) + ' w\n1 J\n' + cpath + '\n' + rline + '\nS\nQ');
+      if (a.mtext && a.lpos) {
+        var lb = labelBox(a); gs.GSl = { Type: 'ExtGState', CA: 1, ca: 0.85 };
+        fonts = { Helv: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica', Encoding: 'WinAnsiEncoding' } };
+        parts.push('q\n/GSl gs\n1 1 1 rg\n' + f(lb.x) + ' ' + f(lb.y) + ' ' + f(lb.w) + ' ' + f(lb.h) + ' re\nf\nQ');
+        parts.push(textOps(a, 'Helv', lb.size, col(a.color || [0, 0, 0]), a.lpos[0], a.lpos[1], lb.tw, lb.size * 0.35, a.mtext));
+      }
     } else if (a.subtype === 'Circle' || a.subtype === 'Square') {
       var h = lw / 2, ix0 = x0 + h, iy0 = y0 + h, ix1 = Math.max(x1 - h, ix0 + 0.01), iy1 = Math.max(y1 - h, iy0 + 0.01);
       var path = a.subtype === 'Circle' ? ellipsePath(ix0, iy0, ix1, iy1)
@@ -1160,9 +1206,12 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       });
     } else if (a.vertices && a.vertices.length >= 2) {
       var closed = a.subtype === 'Polygon', vp = a.cloud && closed && a.vertices.length >= 3 ? cloudPdfPath(cloudCurves(a.vertices, a.cr || 8)) : vertexPath(a.vertices, closed);
+      // Cut-outs are extra rings inside the area; even-odd filling leaves them empty.
+      if (closed && a.holes && a.holes.length) vp += '\n' + a.holes.map(function (hh) { return vertexPath(hh, true); }).join('\n');
+      if (a.mkind === 'angle' && a.vertices.length === 3) vp += '\n' + vertexPath(angleArc(a), false);
       if (closed && a.fillColor) {
         gs.GSf = { Type: 'ExtGState', CA: fix(a.fillOpacity, 3), ca: fix(a.fillOpacity, 3), BM: a.highlight ? 'Multiply' : 'Normal' };
-        parts.push('q\n/GSf gs\n' + col(a.fillColor) + ' rg\n' + vp + '\nf\nQ');
+        parts.push('q\n/GSf gs\n' + col(a.fillColor) + ' rg\n' + vp + '\n' + (a.holes && a.holes.length ? 'f*' : 'f') + '\nQ');
       }
       var strokeW = lw || (a.color ? 1 : 0);
       if (a.color && strokeW > 0) {
@@ -1228,7 +1277,16 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       var arr = []; keys.forEach(function (k) { arr.push(L.PDFHexString.fromText(k), L.PDFHexString.fromText(String(a.fields[k] == null ? '' : a.fields[k]))); });
       dict.set(N('PMFields'), ctx.obj(arr));
     };
+    var setMeasureExtra = function (dict, a) {
+      if (!a.mkind && !(a.holes && a.holes.length)) { dict.delete(N('PMMeasure')); return; }
+      var pm = { Kind: a.mkind || 'area' };
+      if (a.ctr) pm.C = [fix(a.ctr[0]), fix(a.ctr[1])];
+      if (a.rad != null) pm.R = fix(a.rad);
+      if (a.holes && a.holes.length) pm.Holes = a.holes.map(function (h) { return h.reduce(function (acc, q) { acc.push(fix(q[0]), fix(q[1])); return acc; }, []); });
+      dict.set(N('PMMeasure'), ctx.obj(pm));
+    };
     var setGeometry = function (dict, a) {
+      if (a.subtype === 'Circle' && a.mkind) { if (a.measure) dict.set(N('Measure'), measureDict(ctx, a.measure)); setMeasureExtra(dict, a); }
       if (a.sym) {
         if (a.subtype === 'Polygon') dict.set(N('Vertices'), flat(symPoints(a, 0)));
         var sd = { Shape: a.sym.shape, Size: fix(a.sym.size || (a.rect[2] - a.rect[0]), 2) };
@@ -1257,6 +1315,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       if (a.subtype === 'Line') dict.set(N('L'), flat(a.vertices));
       else if (a.subtype === 'Polygon' || a.subtype === 'PolyLine') dict.set(N('Vertices'), flat(a.vertices));
       if (a.measure) dict.set(N('Measure'), measureDict(ctx, a.measure));
+      setMeasureExtra(dict, a);
     };
     var inkArr = function (a) { return ctx.obj((a.inkList || []).map(function (pts) { return pts.reduce(function (acc, p) { acc.push(fix(p[0]), fix(p[1])); return acc; }, []); })); };
 
@@ -1369,7 +1428,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     return await doc.save({ useObjectStreams: false });
   }
 
-  root.MarkupIO = { symBBox: symBBox, symNative: symNative, symAng: symAng, stampDims: stampDims, arrowSize: arrowSize, arrowHead: arrowHead, cloudCurves: cloudCurves, ftLayout: ftLayout, ftAttach: ftAttach, ftBounds: ftBounds, SYM_SUB: SYM_SUB, SYM_WIDE: SYM_WIDE, symKind: symKind, symDims: symDims, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
+  root.MarkupIO = { angleArc: angleArc, symBBox: symBBox, symNative: symNative, symAng: symAng, stampDims: stampDims, arrowSize: arrowSize, arrowHead: arrowHead, cloudCurves: cloudCurves, ftLayout: ftLayout, ftAttach: ftAttach, ftBounds: ftBounds, SYM_SUB: SYM_SUB, SYM_WIDE: SYM_WIDE, symKind: symKind, symDims: symDims, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>
@@ -1581,7 +1640,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '2.2.0';
+var APP_VERSION = '2.3.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1602,7 +1661,11 @@ var TOOLS = {
   text: { sub: 'FreeText', subj: 'Text Box', name: 'Text box', text: true },
   callout: { sub: 'FreeText', subj: 'Callout', name: 'Callout', text: true, callout: true },
   stamp: { sub: 'Stamp', subj: 'Stamp', name: 'Stamp', symbol: true, stamp: true },
-  eraser: { name: 'Eraser', eraser: true }
+  eraser: { name: 'Eraser', eraser: true },
+  angle: { sub: 'PolyLine', subj: 'Angle Measurement', name: 'Angle', poly: true, maxPts: 3, mkind: 'angle' },
+  radius: { sub: 'Circle', subj: 'Radius Measurement', name: 'Radius', measure: true, mkind: 'radius', centerDrag: true },
+  diameter: { sub: 'Circle', subj: 'Diameter Measurement', name: 'Diameter', measure: true, mkind: 'diameter', centerDrag: true },
+  cutout: { sub: 'Polygon', subj: '', name: 'Cut-out', poly: true, closed: true, cutout: true }
 };
 var STAMPS = ['APPROVED', 'APPROVED AS NOTED', 'REVISE AND RESUBMIT', 'REJECTED', 'FOR REVIEW', 'VERIFY IN FIELD', 'NOT IN SCOPE', 'DRAFT', 'VOID'];
 var UNIT_M = { ft: 0.3048, 'in': 0.0254, m: 1, cm: 0.01, mm: 0.001 };
@@ -1622,7 +1685,7 @@ var state = {
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
   chestSets: [], chestTool: null, pendingSave: null,
   scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null, docId: null, expanded: new Set(),
-  sym: { shape: 'circle', size: 18, height: 12, angle: 0, label: 'A', textColor: null, stampText: 'APPROVED', stampSize: 20 }, textSize: 12, editing: null, series: { defs: {}, cur: null }
+  sym: { shape: 'circle', size: 18, height: 12, angle: 0, label: 'A', textColor: null, stampText: 'APPROVED', stampSize: 20 }, textSize: 12, editing: null, snap: true, mset: null, cutFor: null, series: { defs: {}, cur: null }
 };
 
 /* ---------- small helpers ---------- */
@@ -1677,6 +1740,7 @@ function nextFrame() { return new Promise(function (r) { requestAnimationFrame(f
 /* ---------- measurement ---------- */
 function isVertexShape(a) { return !!a.vertices && (a.subtype === 'Polygon' || a.subtype === 'PolyLine' || a.subtype === 'Line'); }
 function measureKind(a) {
+  if (a.mkind) return a.mkind;
   if (a.intent === 'PolygonDimension') return 'area';
   if (a.intent === 'LineDimension' || a.intent === 'PolyLineDimension') return 'length';
   return null;
@@ -1689,21 +1753,36 @@ function centroid(v) {
   if (Math.abs(a) < 1e-6) { var sx = 0, sy = 0; v.forEach(function (q) { sx += q[0]; sy += q[1]; }); return [sx / v.length, sy / v.length]; }
   return [cx / (3 * a), cy / (3 * a)];
 }
-function numFmt(v) { return v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+/* Measurement display settings: feet-and-inches rounding, decimal places, area and angle units. */
+function mset() { return state.mset || (state.mset = { ftin: 8, dec: 2, area: 'auto', adec: 1 }); }
+function numFmt(v, dec) { var d = dec == null ? mset().dec : dec; return v.toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d }); }
 function fmtFtIn(ft) {
-  var neg = ft < 0, t = Math.round(Math.abs(ft) * 96), f = Math.floor(t / 96), r = t - f * 96, inch = Math.floor(r / 8), e = r % 8, frac = '';
-  if (e) { var n = e, d = 8; while (n % 2 === 0) { n /= 2; d /= 2; } frac = ' ' + n + '/' + d; }
+  var den = +mset().ftin || 8, per = 12 * den;
+  var neg = ft < 0, t = Math.round(Math.abs(ft) * per), f = Math.floor(t / per), r = t - f * per, inch = Math.floor(r / den), e = r % den, frac = '';
+  if (e) { var n = e, d = den; while (n % 2 === 0) { n /= 2; d /= 2; } frac = ' ' + n + '/' + d; }
   return (neg ? '-' : '') + f + "'-" + inch + frac + '"';
 }
 function unitText(sc) { return sc.unit === 'other' ? (sc.label || 'units') : sc.unit; }
 function fmtLength(v, sc) { return sc.fmt === 'ft-in' ? fmtFtIn(v) : numFmt(v) + ' ' + unitText(sc); }
 function fmtArea(v, sc) {
+  var au = mset().area;
+  if (sc.unit === 'ft' && au === 'sy') return numFmt(v / 9) + ' sy';
+  if (sc.unit === 'ft' && au === 'acre') return numFmt(v / 43560, Math.max(2, mset().dec)) + ' ac';
+  if (sc.unit === 'm' && au === 'ha') return numFmt(v / 10000, Math.max(2, mset().dec)) + ' ha';
   var lab = { ft: 'sf', 'in': 'sq in', m: 'm\u00b2', cm: 'cm\u00b2', mm: 'mm\u00b2' }[sc.unit] || ('sq ' + unitText(sc));
   return numFmt(v) + ' ' + lab;
 }
+function angleAt(v) {
+  var c = v[1], a0 = Math.atan2(v[0][1] - c[1], v[0][0] - c[0]), a1 = Math.atan2(v[2][1] - c[1], v[2][0] - c[0]), d = Math.abs(a1 - a0) * 180 / Math.PI;
+  return d > 180 ? 360 - d : d;
+}
+function netArea(a) { var s0 = polyArea(a.vertices); (a.holes || []).forEach(function (h) { s0 -= polyArea(h); }); return Math.max(0, s0); }
 function measureText(a) {
-  var k = measureKind(a); if (!k || !a.vertices || !a.measure) return '';
-  if (k === 'area') return a.vertices.length < 3 ? '' : fmtArea(polyArea(a.vertices) * a.measure.factor * a.measure.factor, a.measure);
+  var k = measureKind(a); if (!k) return '';
+  if (k === 'angle') return a.vertices && a.vertices.length === 3 ? numFmt(angleAt(a.vertices), +mset().adec) + '\u00b0' : '';
+  if (k === 'radius' || k === 'diameter') return a.measure && a.rad ? (k === 'radius' ? 'R ' : 'Dia ') + fmtLength(a.rad * (k === 'radius' ? 1 : 2) * a.measure.factor, a.measure) : '';
+  if (!a.vertices || !a.measure) return '';
+  if (k === 'area') return a.vertices.length < 3 ? '' : fmtArea(netArea(a) * a.measure.factor * a.measure.factor, a.measure);
   return fmtLength(polyLength(a.vertices) * a.measure.factor, a.measure);
 }
 function defaultLabelSize(pageIndex) {
@@ -1712,6 +1791,13 @@ function defaultLabelSize(pageIndex) {
 }
 function labelPos(a) {
   var v = a.vertices, s = a.lsize || 10;
+  if (a.mkind === 'angle' && v.length === 3) {
+    // Outside the arc, along the line that halves the angle.
+    var c = v[1], u0 = [v[0][0] - c[0], v[0][1] - c[1]], u2 = [v[2][0] - c[0], v[2][1] - c[1]], l0 = Math.hypot(u0[0], u0[1]) || 1, l2 = Math.hypot(u2[0], u2[1]) || 1;
+    var bx = u0[0] / l0 + u2[0] / l2, by = u0[1] / l0 + u2[1] / l2, bl = Math.hypot(bx, by);
+    if (bl < 1e-6) { bx = -u0[1] / l0; by = u0[0] / l0; bl = 1; }
+    return [c[0] + bx / bl * s * 2.6, c[1] + by / bl * s * 2.6];
+  }
   if (a.subtype === 'Polygon' && v.length >= 3) return centroid(v);
   var bi = 0, best = -1;
   for (var i = 1; i < v.length; i++) { var d = Math.hypot(v[i][0] - v[i - 1][0], v[i][1] - v[i - 1][1]); if (d > best) { best = d; bi = i - 1; } }
@@ -1721,6 +1807,16 @@ function labelPos(a) {
 }
 /* Recompute a vertex shape's measurement text, label position and bounding rect. */
 function updateGeom(a) {
+  if (a.subtype === 'Circle' && a.mkind && a.ctr) {
+    // Radius or diameter: circle from centre and radius, label above the line.
+    if (!a.lsize) a.lsize = defaultLabelSize(a.pageIndex);
+    a.mtext = measureText(a);
+    var r0 = a.rad || 0, pad0 = (a.lineWidth || 1) / 2 + 1;
+    var bb = [a.ctr[0] - r0 - pad0, a.ctr[1] - r0 - pad0, a.ctr[0] + r0 + pad0, a.ctr[1] + r0 + pad0];
+    a.lpos = a.mtext ? [a.ctr[0] + (a.mkind === 'radius' ? r0 / 2 : 0), a.ctr[1] + a.lsize * 0.95] : null;
+    if (a.lpos) { var lb = MarkupIO.labelBox(a); bb = [Math.min(bb[0], lb.x), Math.min(bb[1], lb.y), Math.max(bb[2], lb.x + lb.w), Math.max(bb[3], lb.y + lb.h)]; }
+    a.rect = bb; return;
+  }
   if (!isVertexShape(a)) return;
   if (!a.lsize) a.lsize = defaultLabelSize(a.pageIndex);
   a.mtext = measureText(a);
@@ -1730,6 +1826,7 @@ function updateGeom(a) {
   x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
   a.lpos = a.mtext ? labelPos(a) : null;
   if (a.lpos) { var b = MarkupIO.labelBox(a); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); }
+  if (a.mkind === 'angle' && v.length === 3) { var ar = (a.lsize || 10) * 1.3; x0 = Math.min(x0, v[1][0] - ar); y0 = Math.min(y0, v[1][1] - ar); x1 = Math.max(x1, v[1][0] + ar); y1 = Math.max(y1, v[1][1] + ar); }
   a.rect = [x0, y0, x1, y1];
 }
 function copyScale(sc) { return sc ? { factor: sc.factor, unit: sc.unit, fmt: sc.fmt, label: sc.label || '', ratio: sc.ratio || '' } : null; }
@@ -1780,10 +1877,12 @@ function loadPrefs() {
     if (p.lastPalette) state.lastPalette = p.lastPalette;
     if (p.sym) state.sym = Object.assign(state.sym, p.sym);
     if (p.textSize) state.textSize = p.textSize;
+    if (typeof p.snap === 'boolean') state.snap = p.snap;
+    if (p.mset) state.mset = Object.assign(mset(), p.mset);
   } catch (e) { /* storage may be empty or blocked */ }
 }
 function savePrefs() {
-  try { localStorage.setItem('pencil-markup-prefs', JSON.stringify({ author: state.author, style: state.style, fingerDraw: state.fingerDraw, lastScale: state.lastScale, lastPalette: state.lastPalette, sym: state.sym, textSize: state.textSize })); } catch (e) { /* ignore */ }
+  try { localStorage.setItem('pencil-markup-prefs', JSON.stringify({ author: state.author, style: state.style, fingerDraw: state.fingerDraw, lastScale: state.lastScale, lastPalette: state.lastPalette, sym: state.sym, textSize: state.textSize, snap: state.snap, mset: mset() })); } catch (e) { /* ignore */ }
 }
 function loadChest() {
   try { var s = JSON.parse(localStorage.getItem('pencil-markup-toolsets') || '[]'); if (Array.isArray(s)) state.chestSets = s; } catch (e) { state.chestSets = []; }
@@ -2156,6 +2255,12 @@ function shapeSVG(a, p, ghost) {
   var so = a.color ? a.opacity : 0;
   if (a.sym) {
     out += symSVG(a, p, lw, stroke, so);
+  } else if (a.subtype === 'Circle' && a.mkind && a.ctr) {
+    var cv = toView(p, a.ctr[0], a.ctr[1]), rv = (a.rad || 0) * z;
+    out += '<circle cx="' + cv[0] + '" cy="' + cv[1] + '" r="' + rv + '"' + (a.fillColor ? ' fill="' + rgbToHex(a.fillColor) + '" fill-opacity="' + a.fillOpacity + '"' : ' fill="none"') + ' stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '"/>';
+    var e0 = a.mkind === 'diameter' ? toView(p, a.ctr[0] - a.rad, a.ctr[1]) : cv, e1 = toView(p, a.ctr[0] + (a.rad || 0), a.ctr[1]);
+    out += '<path d="M' + e0[0] + ' ' + e0[1] + 'L' + e1[0] + ' ' + e1[1] + '" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '" stroke-linecap="round"/>';
+    out += labelSVG(a, p, stroke);
   } else if (a.subtype === 'Circle' || a.subtype === 'Square') {
     var h = lw / 2, x = vr[0] + h, y = vr[1] + h, w = Math.max(0.5, vr[2] - vr[0] - lw), hh = Math.max(0.5, vr[3] - vr[1] - lw);
     var geo = a.subtype === 'Circle'
@@ -2184,6 +2289,13 @@ function symSVG(a, p, lw, stroke, so) {
   if (t.text) { var c = toView(p, t.x, t.y), ang = +a.sym.angle || 0; out += '<text x="' + c[0] + '" y="' + (c[1] + t.size * z * 0.36) + '"' + (ang ? ' transform="rotate(' + (-ang) + ' ' + c[0] + ' ' + c[1] + ')"' : '') + ' font-size="' + (t.size * z) + '" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + rgbToHex(MarkupIO.symTextColor(a)) + '">' + esc(t.text) + '</text>'; }
   return out;
 }
+function labelSVG(a, p, stroke) {
+  if (!a.mtext || !a.lpos) return '';
+  var z = state.zoom, size = (a.lsize || 10), tw = MarkupIO.textWidth(a.mtext, size), c = toView(p, a.lpos[0], a.lpos[1]);
+  var fs = size * z, w = (tw + size * 0.7) * z, h = size * 1.4 * z;
+  return '<rect x="' + (c[0] - w / 2) + '" y="' + (c[1] - h / 2) + '" width="' + w + '" height="' + h + '" fill="#fff" fill-opacity=".85"/>' +
+    '<text x="' + c[0] + '" y="' + (c[1] + fs * 0.35) + '" font-size="' + fs + '" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + stroke + '">' + esc(a.mtext) + '</text>';
+}
 function textBoxSVG(a, p, lw, stroke, so) {
   var z = state.zoom, vb = viewRect(p, a.box), out = '', L0 = MarkupIO.ftLayout(a);
   var g = '<rect x="' + vb[0] + '" y="' + vb[1] + '" width="' + Math.max(0.5, vb[2] - vb[0]) + '" height="' + Math.max(0.5, vb[3] - vb[1]) + '"';
@@ -2211,7 +2323,9 @@ function vertexShapeSVG(a, p, lw, stroke, so) {
     d = cc.length ? 'M' + mp(cc[0][0]) + cc.map(function (q) { return 'C' + mp(q[1]) + ' ' + mp(q[2]) + ' ' + mp(q[3]); }).join('') : d;
   }
   if (closed) d += ' Z';
-  if (a.subtype === 'Polygon' && a.fillColor && pts.length >= 3) out += '<path d="' + d + (closed ? '' : ' Z') + '" fill="' + rgbToHex(a.fillColor) + '" fill-opacity="' + a.fillOpacity + '"' + (a.highlight ? ' class="hl"' : '') + ' stroke="none"/>';
+  if (closed && a.holes && a.holes.length) d += a.holes.map(function (hh) { return hh.map(function (q, i) { var v = toView(p, q[0], q[1]); return (i ? 'L' : 'M') + v[0].toFixed(1) + ' ' + v[1].toFixed(1); }).join(' ') + ' Z'; }).join(' ');
+  if (a.mkind === 'angle' && a.vertices.length === 3) d += ' ' + MarkupIO.angleArc(a).map(function (q, i) { var v = toView(p, q[0], q[1]); return (i ? 'L' : 'M') + v[0].toFixed(1) + ' ' + v[1].toFixed(1); }).join(' ');
+  if (a.subtype === 'Polygon' && a.fillColor && pts.length >= 3) out += '<path d="' + d + (closed ? '' : ' Z') + '" fill="' + rgbToHex(a.fillColor) + '" fill-opacity="' + a.fillOpacity + '"' + (a.highlight ? ' class="hl"' : '') + ' fill-rule="evenodd" stroke="none"/>';
   out += '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '" stroke-linecap="round" stroke-linejoin="round"/>';
   if (a.draft && a.subtype === 'Polygon' && pts.length >= 3) {
     var l = pts[pts.length - 1], f = pts[0];
@@ -2278,6 +2392,7 @@ function drawOverlay(p) {
     html += selectionSVG(a, p, single === a);
   });
   if (p.temp) html += shapeSVG(p.temp, p, false);
+  if (p.snapMark) { var sv = toView(p, p.snapMark[0], p.snapMark[1]); html += '<rect x="' + (sv[0] - 6) + '" y="' + (sv[1] - 6) + '" width="12" height="12" fill="none" stroke="#e65100" stroke-width="2"/>'; }
   if (p.eraser) { var ev = toView(p, p.eraser[0], p.eraser[1]); html += '<circle cx="' + ev[0] + '" cy="' + ev[1] + '" r="10" fill="rgba(198,40,40,.08)" stroke="#c62828" stroke-width="1.5" stroke-dasharray="3 3"/>'; }
   if (p.marquee) {
     var m0 = toView(p, p.marquee.a[0], p.marquee.a[1]), m1 = toView(p, p.marquee.b[0], p.marquee.b[1]), cross = m1[0] < m0[0];
@@ -2287,7 +2402,7 @@ function drawOverlay(p) {
 }
 function singleResizable() {
   var s = selected();
-  return (s.length === 1 && s[0].owned && !s[0].sym && (s[0].subtype === 'Circle' || s[0].subtype === 'Square' || isVertexShape(s[0]) || (s[0].subtype === 'FreeText' && s[0].box))) ? s[0] : null;
+  return (s.length === 1 && s[0].owned && !s[0].sym && !(s[0].subtype === 'Circle' && s[0].mkind) && (s[0].subtype === 'Circle' || s[0].subtype === 'Square' || isVertexShape(s[0]) || (s[0].subtype === 'FreeText' && s[0].box))) ? s[0] : null;
 }
 
 /* ---------- selection and hit testing ---------- */
@@ -2428,6 +2543,7 @@ function onDown(e) {
   if (T && T.poly) {
     var dft = state.draft;
     if (dft && dft.p !== p) { toast('Finish the shape on page ' + pageLabel(dft.p.index) + ' first, or Cancel it.'); gesture = { mode: 'tap', id: e.pointerId }; return; }
+    pt = snapPt(p, pt, dft ? { from: dft.committed[dft.committed.length - 1] } : null);
     if (!dft) dft = startDraft(state.tool, p, pt);
     else { dft.live = pt; refreshDraft(); }
     gesture = { mode: 'poly', id: e.pointerId, p: p, down: pt, first: dft.committed.length === 1 && !dft.started };
@@ -2444,7 +2560,7 @@ function onDown(e) {
       var wasSel = state.sel.has(hit.id);
       if (!state.sel.has(hit.id)) selectAnnot(hit, isMulti());
       var items = selected().filter(function (a) { return a.owned && a.pageIndex === p.index; }).map(function (a) {
-        return { a: a, rect0: a.rect.slice(), ink0: a.inkList ? a.inkList.map(function (l) { return l.map(function (q) { return q.slice(); }); }) : null, v0: a.vertices ? a.vertices.map(function (q) { return q.slice(); }) : null, box0: a.box ? a.box.slice() : null, tip0: a.tip ? a.tip.slice() : null };
+        return { a: a, rect0: a.rect.slice(), ink0: a.inkList ? a.inkList.map(function (l) { return l.map(function (q) { return q.slice(); }); }) : null, v0: a.vertices ? a.vertices.map(function (q) { return q.slice(); }) : null, box0: a.box ? a.box.slice() : null, tip0: a.tip ? a.tip.slice() : null, ctr0: a.ctr ? a.ctr.slice() : null, holes0: a.holes ? JSON.parse(JSON.stringify(a.holes)) : null };
       });
       var editTxt = hit.subtype === 'FreeText' && hit.owned && hit.box && state.sel.size === 1 && state.sel.has(hit.id) && wasSel;
       gesture = { mode: 'move', id: e.pointerId, p: p, start: pt, items: items, moved: false, drill: drill ? hit : null, editText: editTxt ? hit : null };
@@ -2454,6 +2570,7 @@ function onDown(e) {
       gesture = { mode: 'marquee', id: e.pointerId, start: contentPt(e), cur: contentPt(e), moved: false, add: isMulti() };
     }
   } else {
+    if (!(T && (T.highlighter || TOOLS[state.tool].sub === 'Ink'))) pt = snapPt(p, pt);
     var a = newAnnot(state.tool, p.index, pt);
     p.temp = a; gesture = { mode: 'draw', id: e.pointerId, p: p, start: pt, a: a, last: pt };
     drawOverlay(p);
@@ -2492,15 +2609,17 @@ function onMove(e) {
       evs.forEach(function (ev) { var q = toPdf(p, ev.clientX, ev.clientY); var l = path[path.length - 1]; if (Math.hypot(q[0] - l[0], q[1] - l[1]) >= minD) path.push(q); });
       an.rect = inkBounds(an);
     } else if (an.subtype === 'Line') {
-      an.vertices = [gesture.start, toPdf(p, e.clientX, e.clientY)];
+      an.vertices = [gesture.start, snapPt(p, toPdf(p, e.clientX, e.clientY), { from: gesture.start, exclude: an })];
       updateGeom(an);
     } else if (an.subtype === 'FreeText') {
       var qt = toPdf(p, e.clientX, e.clientY), st0 = gesture.start;
       if (an.tip) { var dw = defaultTextBox(an); an.box = [qt[0], qt[1] - dw[1], qt[0] + dw[0], qt[1]]; }
       else an.box = [Math.min(st0[0], qt[0]), Math.min(st0[1], qt[1]), Math.max(st0[0], qt[0]), Math.max(st0[1], qt[1])];
       an.rect = MarkupIO.ftBounds(an);
+    } else if (an.mkind && an.ctr) {
+      var qr = snapPt(p, toPdf(p, e.clientX, e.clientY), { from: gesture.start }); an.rad = Math.hypot(qr[0] - an.ctr[0], qr[1] - an.ctr[1]); updateGeom(an);
     } else {
-      var q2 = toPdf(p, e.clientX, e.clientY), s = gesture.start;
+      var q2 = snapPt(p, toPdf(p, e.clientX, e.clientY)), s = gesture.start;
       an.rect = [Math.min(s[0], q2[0]), Math.min(s[1], q2[1]), Math.max(s[0], q2[0]), Math.max(s[1], q2[1])];
     }
     drawOverlay(p);
@@ -2518,7 +2637,7 @@ function onMove(e) {
   } else if (gesture.mode === 'place') {
     centerSym(gesture.a, toPdf(p, e.clientX, e.clientY)); drawOverlay(p);
   } else if (gesture.mode === 'poly') {
-    var dq = toPdf(p, e.clientX, e.clientY);
+    var dq = snapPt(p, toPdf(p, e.clientX, e.clientY), { from: state.draft.committed[state.draft.committed.length - 1] });
     if (gesture.first && Math.hypot(dq[0] - gesture.down[0], dq[1] - gesture.down[1]) * state.zoom < 8) return;
     state.draft.live = dq; refreshDraft();
   } else if (gesture.mode === 'move') {
@@ -2531,13 +2650,15 @@ function onMove(e) {
       if (it.v0) { it.a.vertices = it.v0.map(function (q) { return [q[0] + dx, q[1] + dy]; }); updateGeom(it.a); }
       if (it.box0) it.a.box = [it.box0[0] + dx, it.box0[1] + dy, it.box0[2] + dx, it.box0[3] + dy];
       if (it.tip0) it.a.tip = [it.tip0[0] + dx, it.tip0[1] + dy];
+      if (it.ctr0) { it.a.ctr = [it.ctr0[0] + dx, it.ctr0[1] + dy]; updateGeom(it.a); }
+      if (it.holes0) it.a.holes = it.holes0.map(function (h) { return h.map(function (q) { return [q[0] + dx, q[1] + dy]; }); });
       if (!it.a.isNew) { it.a.geomDirty = true; it.a.dirty = true; }
     });
     if (!gesture.synced) { gesture.synced = true; syncCanvasHidden(); }
     drawOverlay(p);
   } else if (gesture.mode === 'resize' && gesture.handle.charAt(0) === 'v') {
     var vi = +gesture.handle.slice(1), av = gesture.a;
-    av.vertices[vi] = toPdf(p, e.clientX, e.clientY); updateGeom(av);
+    av.vertices[vi] = snapPt(p, toPdf(p, e.clientX, e.clientY), { exclude: av }); updateGeom(av);
     if (!av.isNew) { av.geomDirty = true; av.dirty = true; }
     drawOverlay(p);
   } else if (gesture.mode === 'resize' && gesture.handle === 'tip') {
@@ -2567,11 +2688,11 @@ function onUp(e) {
   }
   if (gesture.id !== e.pointerId) return;
   var g2 = gesture; gesture = null;
-  if (g2.mode === 'poly') { polyPointUp(g2, toPdf(g2.p, e.clientX, e.clientY)); return; }
+  if (g2.mode === 'poly') { var dd0 = state.draft; polyPointUp(g2, snapPt(g2.p, toPdf(g2.p, e.clientX, e.clientY), dd0 ? { from: dd0.committed[dd0.committed.length - 1] } : null)); clearSnapMark(g2.p); return; }
   if (g2.mode === 'place') { placeSymbol(g2); return; }
   if (g2.mode === 'erase') { g2.p.eraser = null; drawOverlay(g2.p); if (g2.n) { markUnsaved(); renderList(); renderProps(); } return; }
   if (g2.mode === 'marquee') { finishMarquee(g2); return; }
-  if (g2.mode === 'draw') finishDraw(g2);
+  if (g2.mode === 'draw') { clearSnapMark(g2.p); finishDraw(g2); }
   else if (g2.mode === 'move' && !g2.moved && g2.editText) openTextEditor(g2.editText);
   else if (g2.mode === 'move' && !g2.moved && g2.drill) {
     // Tapping a markup in a group that is already selected picks just that one markup.
@@ -2595,6 +2716,7 @@ function newAnnot(tool, pageIndex, pt) {
     author: state.author, date: new Date().toISOString(), parentId: null, nm: MarkupIO.makeNM()
   };
   a.le = T.le ? T.le.slice() : null;
+  if (T.mkind) { a.mkind = T.mkind; if (T.centerDrag) { a.ctr = pt.slice(); a.rad = 0; a.fillColor = null; } }
   if (T.cloud) { a.cloud = true; a.cr = clamp(defaultLabelSize(pageIndex) * 0.9, 5, 24); }
   if (T.highlighter) { a.highlight = true; a.opacity = Math.min(st.opacity, 0.45); a.lineWidth = Math.max(st.lineWidth, 8); }
   if (T.text) {
@@ -2708,6 +2830,7 @@ function finishDraw(g) {
   var min = 6 / state.zoom, ok;
   if (a.subtype === 'Ink') { ok = a.inkList[0].length >= 2 && (a.rect[2] - a.rect[0] > min || a.rect[3] - a.rect[1] > min); }
   else if (a.subtype === 'Line') ok = polyLength(a.vertices) > min;
+  else if (a.mkind && a.ctr) ok = a.rad > min;
   else if (a.subtype === 'FreeText') {
     // A tap makes a box of the default size; a callout without a drag puts the box up and to the right.
     var dw = defaultTextBox(a), bx = a.box;
@@ -2790,12 +2913,63 @@ function eraseAt(g, q) {
   if (hit) syncCanvasHidden();
 }
 
+/* ---------- snapping: to corners, ends and centres of markups on the page, and to straight lines ---------- */
+function snapTargets(p, exclude) {
+  var pts = [];
+  live().forEach(function (a) {
+    if (a.pageIndex !== p.index || a === exclude || a.draft) return;
+    if (a.vertices) a.vertices.forEach(function (q) { pts.push(q); });
+    if (a.holes) a.holes.forEach(function (h) { h.forEach(function (q) { pts.push(q); }); });
+    if (a.inkList) a.inkList.forEach(function (l) { if (l.length) { pts.push(l[0]); pts.push(l[l.length - 1]); } });
+    if (a.ctr) pts.push(a.ctr);
+    else if (a.sym) pts.push(symCentre(a));
+    else if (a.box) { var b = a.box; pts.push([b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]); }
+    else if (a.subtype === 'Square' || a.subtype === 'Circle') { var r = a.rect; pts.push([r[0], r[1]], [r[2], r[1]], [r[0], r[3]], [r[2], r[3]], [(r[0] + r[2]) / 2, (r[1] + r[3]) / 2]); }
+  });
+  return pts;
+}
+function snapPt(p, pt, o) {
+  o = o || {};
+  if (!state.snap) { p.snapMark = null; return pt; }
+  var tol = 10 / state.zoom, best = null, bd = tol;
+  snapTargets(p, o.exclude).forEach(function (q) { var d = Math.hypot(q[0] - pt[0], q[1] - pt[1]); if (d < bd) { bd = d; best = q; } });
+  if (best) { p.snapMark = best; return best.slice(); }
+  p.snapMark = null;
+  if (o.from) {
+    // within 3 degrees of horizontal or vertical: straighten
+    var dx = pt[0] - o.from[0], dy = pt[1] - o.from[1], ang = Math.abs(Math.atan2(dy, dx) * 180 / Math.PI) % 90;
+    if (Math.hypot(dx, dy) * state.zoom > 12 && (ang < 3 || ang > 87)) return Math.abs(dx) > Math.abs(dy) ? [pt[0], o.from[1]] : [o.from[0], pt[1]];
+  }
+  return pt;
+}
+function clearSnapMark(p) { if (p && p.snapMark) { p.snapMark = null; drawOverlay(p); } }
+/* Cut-out: a hole drawn inside an area measurement, taken off its area. */
+function startCutout(a) {
+  if (!a || measureKind(a) !== 'area') return;
+  state.cutFor = a.id; setTool('cutout');
+  toast('Tap the corners of the part to cut out of this area. Tap the first point (or Finish) to close it.', 5000);
+}
+function addCutout(p, verts) {
+  var a = byId(state.cutFor); state.cutFor = null;
+  if (!a || a.deleted || a.pageIndex !== p.index) { drawOverlay(p); toast('Draw the cut-out on the same page as the area.'); return; }
+  pushHistory();
+  a.holes = (a.holes || []).concat([verts]); updateGeom(a);
+  if (!a.isNew) { a.dirty = true; a.geomDirty = true; }
+  setTool('select'); state.sel = new Set([a.id]);
+  drawOverlay(p); markUnsaved(); renderList(); afterSelectionChange();
+  toast('Cut out. Area is now ' + (a.mtext || '') + '.');
+}
+function relabelMeasurements() {
+  live().forEach(function (a) { if (measureKind(a) && a.owned) { updateGeom(a); if (!a.isNew) { a.dirty = true; a.styleDirty = true; } } });
+  state.pages.forEach(drawOverlay); markUnsaved(); renderList(); renderProps();
+}
+
 function commitNew(a) {
   pushHistory();
   state.annots.push(a);
   state.sel = new Set([a.id]);
   markUnsaved(); renderList(); afterSelectionChange();
-  if (measureKind(a) && !a.measure) {
+  if (measureKind(a) && measureKind(a) !== 'angle' && !a.measure) {
     toast('This page has no scale yet. Set one to see the measurement.', 4500);
     openScale(a.pageIndex);
   }
@@ -2828,14 +3002,17 @@ function polyPointUp(g, q) {
   else if (c.length >= (T.closed ? 3 : 2) && near(q, c[c.length - 1]) && now - d.lastUp < 600) { finishDraft(); return; }
   else if (!near(q, c[c.length - 1])) c.push(q);
   d.lastUp = now;
+  if (T.maxPts && c.length >= T.maxPts) { finishDraft(); return; }
   refreshDraft();
 }
 function finishDraft() {
   var d = state.draft; if (!d) return;
   var T = TOOLS[d.tool], a = d.a, need = T.closed ? 3 : 2;
   state.draft = null; d.p.temp = null;
-  if (d.committed.length < need) { drawOverlay(d.p); updatePolyBar(); toast((T.closed ? 'A ' + T.name.toLowerCase() + ' needs at least 3 points.' : 'A perimeter needs at least 2 points.')); return; }
+  if (T.maxPts) need = T.maxPts;
+  if (d.committed.length < need) { drawOverlay(d.p); updatePolyBar(); toast(T.maxPts ? 'An angle needs 3 points: one end, the corner, the other end.' : T.closed ? 'A ' + T.name.toLowerCase() + ' needs at least 3 points.' : 'A perimeter needs at least 2 points.'); return; }
   delete a.draft; delete a.draftCommitted;
+  if (T.cutout) { addCutout(d.p, d.committed.slice()); updatePolyBar(); return; }
   a.vertices = d.committed.slice(); updateGeom(a);
   updatePolyBar();
   commitNew(a);
@@ -2919,6 +3096,8 @@ function duplicateSelection() {
     if (c.vertices) { c.vertices = c.vertices.map(mv); updateGeom(c); }
     if (c.box) c.box = [c.box[0] + dx, c.box[1] + dy, c.box[2] + dx, c.box[3] + dy];
     if (c.tip) c.tip = mv(c.tip);
+    if (c.ctr) { c.ctr = mv(c.ctr); updateGeom(c); }
+    if (c.holes) c.holes = c.holes.map(function (h) { return h.map(mv); });
     copies.push(c);
   });
   copies.forEach(function (c) {
@@ -3138,8 +3317,10 @@ function renderProps() {
     var ser = a.sym.n != null ? allSeries().filter(function (x) { return x.id === a.sym.series; })[0] : null;
     pm.innerHTML = (a.sym.n != null ? 'Number <b>' + esc(MarkupIO.symLabel(a)) + '</b>' + (ser ? ' in ' + esc(seriesName(ser)) : '') : 'Symbol <b>' + esc(MarkupIO.symLabel(a) || a.sym.shape) + '</b>') + ' · ' + symSizeText(a.sym);
   }
-  if (mk) pm.innerHTML = a.measure
-    ? (mk === 'area' ? 'Area' : 'Length') + ': <b>' + esc(a.mtext || measureText(a)) + '</b> · scale ' + esc(scaleLabel(a.measure))
+  if (mk === 'angle') pm.innerHTML = 'Angle: <b>' + esc(a.mtext || measureText(a)) + '</b>';
+  else if (mk) pm.innerHTML = a.measure
+    ? ({ area: 'Area', length: 'Length', radius: 'Radius', diameter: 'Diameter' }[mk] || 'Measurement') + ': <b>' + esc(a.mtext || measureText(a)) + '</b> · scale ' + esc(scaleLabel(a.measure)) +
+      (mk === 'area' && a.owned ? ' <button class="btn" type="button" id="pCutout">Cut out</button>' + (a.holes && a.holes.length ? ' <button class="btn" type="button" id="pClearCut">Remove cut-outs (' + a.holes.length + ')</button>' : '') : '')
     : 'No scale on this page. <button class="btn" type="button" id="pSetScale">Set scale</button>';
   var gcount = groupCount(s), whole = s.length > 1 && new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length;
   $('#btnGroup').disabled = s.length < 2 || whole;
@@ -3181,7 +3362,11 @@ $('#btnGroup').addEventListener('click', groupSelection);
 $('#btnUngroup').addEventListener('click', ungroupSelection);
 $('#btnRemoveFromGroup').addEventListener('click', removeFromGroup);
 $('#btnDelete').addEventListener('click', deleteSelection);
-$('#pMeasure').addEventListener('click', function (e) { if (e.target.id === 'pSetScale') { var s = selected(); openScale(s.length ? s[0].pageIndex : currentPageIndex()); } });
+$('#pMeasure').addEventListener('click', function (e) {
+  var s0 = selected();
+  if (e.target.id === 'pCutout' && s0.length === 1) { startCutout(s0[0]); return; }
+  if (e.target.id === 'pClearCut' && s0.length === 1) { pushHistory(); s0[0].holes = null; updateGeom(s0[0]); if (!s0[0].isNew) { s0[0].dirty = true; s0[0].geomDirty = true; } drawOverlay(state.pages[s0[0].pageIndex]); markUnsaved(); renderList(); renderProps(); return; }
+  if (e.target.id === 'pSetScale') { var s = selected(); openScale(s.length ? s[0].pageIndex : currentPageIndex()); } });
 
 /* ---------- markups list ---------- */
 function sortVal(a, key) {
@@ -3929,10 +4114,18 @@ function openScale(pageIndex, mode) {
   $('#scCalDraw').textContent = cal ? 'Draw again' : 'Draw line on page';
   $('#scRemove').hidden = !cur;
   setScaleMode(pick || 'preset');
+  syncMset();
   $('#scaleModal').hidden = false;
   if (pick === 'calibrate' && cal) setTimeout(function () { $('#scCalLen').focus(); }, 50);
 }
 function closeScale() { $('#scaleModal').hidden = true; }
+function syncMset() { var m = mset(); $('#msFtin').value = String(m.ftin); $('#msDec').value = String(m.dec); $('#msArea').value = m.area; $('#msAdec').value = String(m.adec); }
+['#msFtin', '#msDec', '#msArea', '#msAdec'].forEach(function (id) {
+  $(id).addEventListener('change', function () {
+    var m = mset(); m.ftin = +$('#msFtin').value; m.dec = +$('#msDec').value; m.area = $('#msArea').value; m.adec = +$('#msAdec').value;
+    savePrefs(); updateScaleResult(); if (state.pdf) relabelMeasurements();
+  });
+});
 function computeScale() {
   var fmt = $('#scUnits').value, base = FMT_BASE[fmt];
   if (scaleUI.mode === 'preset') {
@@ -3973,7 +4166,7 @@ function applyScaleFromDialog() {
   pages.forEach(function (i) { state.scales[i] = copyScale(sc); state.scaleDirty.add(i); });
   var touched = 0;
   state.annots.forEach(function (a) {
-    if (a.deleted || !a.owned || !measureKind(a) || !on.has(a.pageIndex)) return;
+    if (a.deleted || !a.owned || !measureKind(a) || measureKind(a) === 'angle' || !on.has(a.pageIndex)) return;
     a.measure = copyScale(sc); updateGeom(a); touched++;
     if (!a.isNew) { a.dirty = true; a.geomDirty = true; }
   });
@@ -4102,6 +4295,7 @@ document.addEventListener('pointerdown', function (e) {
   var vp = $('#verPop'); if (!vp.hidden && !vp.contains(e.target) && !$('#btnVersion').contains(e.target)) vp.hidden = true;
 });
 $('#fingerDraw').addEventListener('change', function (e) { state.fingerDraw = e.target.checked; savePrefs(); });
+$('#snapToggle').addEventListener('change', function (e) { state.snap = e.target.checked; savePrefs(); });
 $('#multiSel').addEventListener('change', function (e) { state.multiToggle = e.target.checked; });
 $('#zoomIn').addEventListener('click', function () { setZoom(state.zoom * 1.25); });
 $('#zoomOut').addEventListener('click', function () { setZoom(state.zoom / 1.25); });
@@ -4112,7 +4306,7 @@ $('#btnPanel').addEventListener('click', function () { var p = $('#panel'); p.hi
 $('#btnClosePanel').addEventListener('click', function () { $('#panel').hidden = true; renderVisible(); });
 $('#author').addEventListener('input', function (e) { state.author = e.target.value; savePrefs(); });
 
-var KEY_TOOL = { v: 'select', c: 'circle', r: 'rect', g: 'polygon', p: 'pen', l: 'length', a: 'area', e: 'perimeter', s: 'symbol', n: 'numbered', t: 'text', k: 'callout', h: 'highlighter', x: 'eraser', i: 'line', w: 'arrow', o: 'cloud', m: 'stamp' };
+var KEY_TOOL = { u: 'angle', d: 'diameter', q: 'radius', v: 'select', c: 'circle', r: 'rect', g: 'polygon', p: 'pen', l: 'length', a: 'area', e: 'perimeter', s: 'symbol', n: 'numbered', t: 'text', k: 'callout', h: 'highlighter', x: 'eraser', i: 'line', w: 'arrow', o: 'cloud', m: 'stamp' };
 document.addEventListener('keydown', function (e) {
   var tag = (e.target.tagName || '').toLowerCase();
   state.multi = e.shiftKey || e.metaKey || e.ctrlKey;
@@ -4178,6 +4372,7 @@ if (window.visualViewport) window.visualViewport.addEventListener('resize', func
 loadPrefs(); loadChest();
 $('#author').value = state.author;
 $('#fingerDraw').checked = state.fingerDraw;
+$('#snapToggle').checked = state.snap;
 updateStyleChip(); styleNew.sync();
 /* Offline support: the service worker keeps the app and its libraries on the device. */
 var offlineReady = false;

@@ -2,6 +2,18 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.3.0 (phase 4: measurements)
+**Added**
+- *Angle*: tap one end, the corner, then the other end.
+- *Radius* and *Diameter*: press at the centre and drag to the edge.
+- Cut-outs: select an area measurement and tap *Cut out*, then draw the part to subtract (several allowed; *Remove cut-outs* to undo them).
+- Measurement settings in the Scale dialog: feet-and-inch rounding (1/2" to 1/16"), decimal places, area units (sf/m², square yards, acres, hectares) and angle decimals. Changing them relabels every measurement.
+- *Snap* (toolbar toggle, on by default): new points snap to corners, ends and centres of markups on the page, and lines within 3° of level or plumb are straightened. An orange square shows the snap.
+- Shortcuts: U angle, Q radius, D diameter.
+
+**Note**
+- Angle, radius/diameter and cut-outs are written as normal PDF markups with the value in Comments. Revu shows them, but works out areas with cut-outs on its own terms.
+
 ## 2.2.0 (phase 3: counts and symbols)
 **Added**
 - Rotate symbols, numbers and stamps: a Rotation setting for new ones, and Rotate buttons (90° and 15° steps) for placed ones.

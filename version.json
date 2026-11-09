@@ -1,5 +1,5 @@
 {
-  "version": "2.2.0",
+  "version": "2.3.0",
   "date": "2026-11-09",
-  "notes": "Rotate symbols, duplicate, renumber a series, custom fields, Excel/CSV export of counts and markups, and a legend."
+  "notes": "Angle, radius and diameter measurements; cut-outs in areas; measurement precision and units; snapping to markups."
 }
