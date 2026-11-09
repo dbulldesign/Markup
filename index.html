@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.9.2">
+<meta name="app-version" content="2.0.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -135,6 +135,9 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .page canvas.base { display: block; width: 100%; height: 100%; }
 .page canvas.detail { position: absolute; display: block; pointer-events: none; }
 .page svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.marq { position: absolute; z-index: 4; pointer-events: none; border: 1.5px solid #2a5bd7; background: rgba(42,91,215,.10); }
+.marq.cross { border: 1.5px dashed #43a047; background: rgba(67,160,71,.10); }
+.marq[hidden] { display: none; }
 .page .pnum { position: absolute; left: 0; bottom: -15px; font-size: 11px; color: var(--ink-2); }
 .hl { mix-blend-mode: multiply; }
 
@@ -490,6 +493,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     <button class="btn primary" id="polyDone" type="button">Finish</button>
   </div>
   <div class="viewer" id="viewer">
+    <div class="marq" id="marq" hidden></div>
     <div class="pages" id="pages"></div>
     <div class="empty" id="empty">
       <div class="card">
@@ -862,8 +866,20 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     }
     return '(' + out + ')';
   }
+  /* Pages with /Rotate are turned by the viewer, so text drawn in page space is turned too.
+     Text (and a symbol's shape) is turned back by the page rotation so it reads upright on screen. */
+  function rotOf(a) { return (((+a.rot || 0) % 360) + 360) % 360; }
+  function rotv(a, dx, dy) { var t = rotOf(a) * Math.PI / 180, c = Math.round(Math.cos(t) * 1e6) / 1e6, sn = Math.round(Math.sin(t) * 1e6) / 1e6; return [dx * c - dy * sn, dx * sn + dy * c]; }
+  function sideways(a) { var r = rotOf(a); return r === 90 || r === 270; }
+  // Content-stream text centred on (cx, cy), turned with the page rotation.
+  function textOps(a, font, size, colr, cx, cy, tw, baseOff, text) {
+    var t = rotOf(a) * Math.PI / 180, c = Math.round(Math.cos(t) * 1e6) / 1e6, sn = Math.round(Math.sin(t) * 1e6) / 1e6;
+    var o = rotv(a, -tw / 2, -baseOff);
+    return 'q\nBT\n/' + font + ' ' + fmt(size) + ' Tf\n' + colr + ' rg\n' + [c, sn, -sn, c, cx + o[0], cy + o[1]].map(fmt).join(' ') + ' Tm\n' + pdfText(text) + ' Tj\nET\nQ';
+  }
   function labelBox(a) {
     var size = a.lsize || 10, tw = textWidth(a.mtext, size), w = tw + size * 0.7, h = size * 1.4;
+    if (sideways(a)) { var tmp = w; w = h; h = tmp; }
     return { x: a.lpos[0] - w / 2, y: a.lpos[1] - h / 2, w: w, h: h, tw: tw, size: size };
   }
   function vertexPath(v, closed) {
@@ -893,16 +909,17 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       return roundRectPts(rx0, ry0, rx1, ry1, Math.min(rx1 - rx0, ry1 - ry0) * 0.3);
     }
     var c = symCenter(a), s = Math.max(1, (a.rect[2] - a.rect[0]) - 2 * (inset || 0));
-    return (SYM_UNIT[a.sym.shape] || SYM_UNIT.diamond).map(function (q) { return [c[0] + q[0] * s, c[1] + q[1] * s]; });
+    return (SYM_UNIT[a.sym.shape] || SYM_UNIT.diamond).map(function (q) { var r = rotv(a, q[0] * s, q[1] * s); return [c[0] + r[0], c[1] + r[1]]; });
   }
   function symLabel(a) { if (!a.sym) return ''; return a.sym.n != null ? (a.sym.prefix || '') + a.sym.n : (a.sym.label || ''); }
   function symText(a) {
     var s = a.rect[2] - a.rect[0], hgt = a.rect[3] - a.rect[1], tri = a.sym.shape === 'triangle', label = symLabel(a);
+    if (sideways(a)) { var sw0 = s; s = hgt; hgt = sw0; } // as it looks on screen
     var wide = !!SYM_WIDE[a.sym.shape], m = Math.min(s, hgt);
     var size = m * (tri ? 0.36 : wide ? 0.58 : 0.5), maxW = s * (tri ? 0.46 : a.sym.shape === 'diamond' ? 0.56 : a.sym.shape === 'oval' ? 0.7 : wide ? 0.82 : 0.74);
     var w = textWidth(label, size); if (w > maxW) size *= maxW / w;
-    var c = symCenter(a);
-    return { text: label, size: size, x: c[0], y: c[1] + (tri ? -0.16 * s : 0), w: textWidth(label, size) };
+    var c = symCenter(a), off = rotv(a, 0, tri ? -0.16 * s : 0);
+    return { text: label, size: size, x: c[0] + off[0], y: c[1] + off[1], w: textWidth(label, size) };
   }
   function hexRgb(h) { var m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return null; var n = parseInt(m[1], 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; }
   function rgbHex(c) { return '#' + c.map(function (v) { var x = Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16); return x.length < 2 ? '0' + x : x; }).join('').toUpperCase(); }
@@ -931,7 +948,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       var st = symText(a);
       if (st.text) {
         fonts = { HelvB: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica-Bold', Encoding: 'WinAnsiEncoding' } };
-        parts.push('q\nBT\n/HelvB ' + f(st.size) + ' Tf\n' + col(symTextColor(a)) + ' rg\n' + f(st.x - st.w / 2) + ' ' + f(st.y - st.size * 0.36) + ' Td\n' + pdfText(st.text) + ' Tj\nET\nQ');
+        parts.push(textOps(a, 'HelvB', st.size, col(symTextColor(a)), st.x, st.y, st.w, st.size * 0.36, st.text));
       }
     } else if (a.subtype === 'Circle' || a.subtype === 'Square') {
       var h = lw / 2, ix0 = x0 + h, iy0 = y0 + h, ix1 = Math.max(x1 - h, ix0 + 0.01), iy1 = Math.max(y1 - h, iy0 + 0.01);
@@ -968,7 +985,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
         gs.GSl = { Type: 'ExtGState', CA: 1, ca: 0.85 };
         fonts = { Helv: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica', Encoding: 'WinAnsiEncoding' } };
         parts.push('q\n/GSl gs\n1 1 1 rg\n' + f(b.x) + ' ' + f(b.y) + ' ' + f(b.w) + ' ' + f(b.h) + ' re\nf\nQ');
-        parts.push('q\nBT\n/Helv ' + f(b.size) + ' Tf\n' + col(a.color || [0, 0, 0]) + ' rg\n' + f(a.lpos[0] - b.tw / 2) + ' ' + f(a.lpos[1] - b.size * 0.35) + ' Td\n' + pdfText(a.mtext) + ' Tj\nET\nQ');
+        parts.push(textOps(a, 'Helv', b.size, col(a.color || [0, 0, 0]), a.lpos[0], a.lpos[1], b.tw, b.size * 0.35, a.mtext));
       }
     }
     var resources = { ExtGState: gs };
@@ -1339,7 +1356,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.9.2';
+var APP_VERSION = '2.0.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1569,9 +1586,10 @@ function restore(json) {
 }
 function undo() { if (!state.history.length) return; state.future.push(JSON.stringify(state.annots)); restore(state.history.pop()); lastTag = null; }
 function redo() { if (!state.future.length) return; state.history.push(JSON.stringify(state.annots)); restore(state.future.pop()); lastTag = null; }
-function updateUndoButtons() { $('#btnUndo').disabled = !state.history.length; $('#btnRedo').disabled = !state.future.length; }
+function updateUndoButtons() { $('#btnUndo').disabled = !state.history.length; $('#btnRedo').disabled = !state.future.length; scheduleKeep(); }
 function markUnsaved() {
   state.unsaved = state.annots.some(function (a) { return a.isNew ? !a.deleted : (a.dirty || a.deleted); }) || groupsChanged() || state.scaleDirty.size > 0;
+  syncCanvasHidden();
   $('#btnSave').classList.toggle('unsaved', state.unsaved);
   scheduleKeep();
 }
@@ -1631,6 +1649,7 @@ async function saveSession() {
   var ses = {
     v: 1, docId: state.docId, name: state.fileName, annots: state.annots, scales: state.scales,
     scaleDirty: Array.from(state.scaleDirty), series: state.series, nextId: state.nextId,
+    history: state.history.slice(-25), future: state.future.slice(-25),
     zoom: state.zoom, sx: v.scrollWidth ? v.scrollLeft / v.scrollWidth : 0, sy: v.scrollHeight ? v.scrollTop / v.scrollHeight : 0,
     pendingExport: !!state.pendingSave, at: Date.now()
   };
@@ -1654,6 +1673,7 @@ async function restoreLast() {
       state.scaleDirty = new Set(ses.scaleDirty || []);
       if (ses.series) state.series = ses.series;
       if (ses.nextId) state.nextId = ses.nextId;
+      state.history = ses.history || []; state.future = ses.future || []; updateUndoButtons();
       if (ses.zoom && Math.abs(ses.zoom - state.zoom) > 0.001) setZoom(ses.zoom);
       var v = $('#viewer'); v.scrollLeft = (ses.sx || 0) * v.scrollWidth; v.scrollTop = (ses.sy || 0) * v.scrollHeight;
       state.pages.forEach(drawOverlay);
@@ -1692,6 +1712,7 @@ async function openFile(file) {
 async function loadPdf(bytes, name, opts) {
   if (state.pdf) { try { await state.pdf.destroy(); } catch (e) { /* ignore */ } }
   var pdf = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
+  hiddenOnCanvas = new Set();
   state.pdf = pdf; state.bytes = bytes; state.fileName = name || state.fileName;
   try { state.labels = await pdf.getPageLabels(); } catch (e) { state.labels = null; }
   var read = { annots: [], scales: [] };
@@ -1705,6 +1726,7 @@ async function loadPdf(bytes, name, opts) {
   await buildPages(opts && opts.keepScroll);
   // Measurement text and symbol labels are written ahead of any comment in /Contents; split them back off on read.
   state.annots.forEach(function (a) {
+    a.rot = pageRot(a.pageIndex);
     if (a.sym) {
       var lab = MarkupIO.symLabel(a), cc = a.contents || '', k = cc.indexOf('\n');
       if (lab && (k >= 0 ? cc.slice(0, k) : cc).trim() === lab) a.contents = k >= 0 ? cc.slice(k + 1) : '';
@@ -1815,7 +1837,7 @@ function renderDetails() {
     var c = document.createElement('canvas'); c.className = 'detail';
     c.width = Math.max(1, Math.floor(w * s)); c.height = Math.max(1, Math.floor(hgt * s));
     c.style.left = rx0 + 'px'; c.style.top = ry0 + 'px'; c.style.width = w + 'px'; c.style.height = hgt + 'px';
-    var task = p.page.render({ canvasContext: c.getContext('2d'), viewport: p.vp, transform: [s, 0, 0, s, -rx0 * s, -ry0 * s], annotationMode: pdfjsLib.AnnotationMode.ENABLE });
+    var task = p.page.render({ canvasContext: c.getContext('2d'), viewport: p.vp, transform: [s, 0, 0, s, -rx0 * s, -ry0 * s], annotationMode: pdfjsLib.AnnotationMode.ENABLE_STORAGE });
     p.detailTask = task;
     task.promise.then(function () {
       if (p.detailTask !== task) { c.width = 1; return; }
@@ -1825,13 +1847,31 @@ function renderDetails() {
     }, function (err) { if (p.detailTask === task) p.detailTask = null; c.width = 1; if (!err || err.name !== 'RenderingCancelledException') console.warn(err); });
   });
 }
+/* Markups already in the file are drawn by pdf.js into the page image. While one is moved, restyled
+   or deleted (and not yet saved), its original is hidden there so it does not show twice. */
+var hiddenOnCanvas = new Set();
+function pdfjsId(a) { return a.num + 'R' + (a.gen ? a.gen : ''); }
+function syncCanvasHidden() {
+  var store = state.pdf && state.pdf.annotationStorage; if (!store || !state.pages.length) return;
+  var want = new Set();
+  state.annots.forEach(function (a) { if (!a.isNew && a.num != null && (a.deleted || a.geomDirty || a.styleDirty)) want.add(a.id); });
+  var pages = new Set();
+  want.forEach(function (id) { if (hiddenOnCanvas.has(id)) return; var a = byId(id); if (!a) return; store.setValue(pdfjsId(a), { noView: true }); pages.add(a.pageIndex); });
+  hiddenOnCanvas.forEach(function (id) { if (want.has(id)) return; var a = byId(id); if (!a) return; store.setValue(pdfjsId(a), { noView: false }); pages.add(a.pageIndex); });
+  hiddenOnCanvas = want;
+  pages.forEach(function (i) { var pg = state.pages[i]; if (pg) rerenderPage(pg); });
+}
+function rerenderPage(p) {
+  if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; }
+  p.rendered = false; dropDetail(p); renderVisible();
+}
 function renderPage(p) {
   if (p.rendered || p.renderTask) return;
   var vp = p.vp, s = Math.min(state.dpr, Math.sqrt(MAX_BASE_PIXELS / (vp.width * vp.height)));
   p.baseScale = s;
   p.canvas.width = Math.max(1, Math.floor(vp.width * s)); p.canvas.height = Math.max(1, Math.floor(vp.height * s));
   var c2d = p.canvas.getContext('2d');
-  var params = { canvasContext: c2d, viewport: vp, annotationMode: pdfjsLib.AnnotationMode.ENABLE };
+  var params = { canvasContext: c2d, viewport: vp, annotationMode: pdfjsLib.AnnotationMode.ENABLE_STORAGE };
   if (Math.abs(s - 1) > 1e-4) params.transform = [s, 0, 0, s, 0, 0];
   var task = p.page.render(params);
   p.renderTask = task;
@@ -1990,16 +2030,23 @@ function handleAt(a, p, clientX, clientY) {
 function isMulti() { return state.multi || state.multiToggle; }
 /* Box selection: drag left to right to pick markups fully inside the box (solid blue),
    right to left to pick everything the box touches (dashed green). */
+// A point in the viewer's scrolled content, so a box can run across pages and the gaps between them.
+function contentPt(e) { var v = $('#viewer'), r = v.getBoundingClientRect(); return [e.clientX - r.left + v.scrollLeft, e.clientY - r.top + v.scrollTop]; }
 function finishMarquee(g) {
-  var p = g.p; p.marquee = null;
-  if (!g.moved) { drawOverlay(p); return; }
-  var a0 = g.start, b0 = g.cur, cross = toView(p, b0[0], b0[1])[0] < toView(p, a0[0], a0[1])[0];
-  var r = [Math.min(a0[0], b0[0]), Math.min(a0[1], b0[1]), Math.max(a0[0], b0[0]), Math.max(a0[1], b0[1])];
-  var hits = live().filter(function (a) {
-    if (a.pageIndex !== p.index) return false;
-    var q = a.rect;
-    return cross ? (q[0] <= r[2] && q[2] >= r[0] && q[1] <= r[3] && q[3] >= r[1])
-      : (q[0] >= r[0] && q[2] <= r[2] && q[1] >= r[1] && q[3] <= r[3]);
+  $('#marq').hidden = true;
+  if (!g.moved) return;
+  var x0 = Math.min(g.start[0], g.cur[0]), y0 = Math.min(g.start[1], g.cur[1]), x1 = Math.max(g.start[0], g.cur[0]), y1 = Math.max(g.start[1], g.cur[1]);
+  var cross = g.cur[0] < g.start[0], hits = [];
+  state.pages.forEach(function (p) {
+    var px = p.el.offsetLeft, py = p.el.offsetTop, pw = p.vp.width, ph = p.vp.height;
+    if (x1 < px || x0 > px + pw || y1 < py || y0 > py + ph) return;
+    var a = p.vp.convertToPdfPoint(x0 - px, y0 - py), b = p.vp.convertToPdfPoint(x1 - px, y1 - py);
+    var r = [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
+    live().forEach(function (m) {
+      if (m.pageIndex !== p.index) return;
+      var q = m.rect;
+      if (cross ? (q[0] <= r[2] && q[2] >= r[0] && q[1] <= r[3] && q[3] >= r[1]) : (q[0] >= r[0] && q[2] <= r[2] && q[1] >= r[1] && q[3] <= r[3])) hits.push(m);
+    });
   });
   if (!g.add) state.sel = new Set();
   hits.forEach(function (a) { membersOf(a).forEach(function (m) { state.sel.add(m.id); }); });
@@ -2068,7 +2115,7 @@ function onDown(e) {
     var touches = Array.from(ptrs.values()).filter(function (q) { return q.type === 'touch'; }).length;
     if (touches >= 2) {
       if (gesture && (gesture.mode === 'draw' || gesture.mode === 'place')) { gesture.p.temp = null; drawOverlay(gesture.p); }
-      if (gesture && gesture.mode === 'marquee') { gesture.p.marquee = null; drawOverlay(gesture.p); }
+      if (gesture && gesture.mode === 'marquee') $('#marq').hidden = true;
       if (gesture && gesture.mode === 'poly' && state.draft) { if (gesture.first) cancelDraft(); else { state.draft.live = null; refreshDraft(); } }
       startPinch(); return;
     }
@@ -2077,7 +2124,10 @@ function onDown(e) {
   if (gesture && gesture.mode !== 'pan') return;
   e.preventDefault();
   var pageEl = e.target.closest ? e.target.closest('.page') : null;
-  if (!pageEl) { if (state.tool === 'select' && !isMulti()) clearSel(); gesture = { mode: 'tap', id: e.pointerId }; return; }
+  if (!pageEl) {
+    if (state.tool === 'select') { if (!isMulti()) clearSel(); gesture = { mode: 'marquee', id: e.pointerId, start: contentPt(e), cur: contentPt(e), moved: false, add: isMulti() }; return; }
+    gesture = { mode: 'tap', id: e.pointerId }; return;
+  }
   var p = state.pages[+pageEl.dataset.index], pt = toPdf(p, e.clientX, e.clientY);
   var T = TOOLS[state.tool];
   if (T && T.symbol) {
@@ -2109,7 +2159,7 @@ function onDown(e) {
     } else {
       // Empty space: drag a box to select several markups.
       if (!isMulti()) clearSel();
-      gesture = { mode: 'marquee', id: e.pointerId, p: p, start: pt, cur: pt, moved: false, add: isMulti() };
+      gesture = { mode: 'marquee', id: e.pointerId, start: contentPt(e), cur: contentPt(e), moved: false, add: isMulti() };
     }
   } else {
     var a = newAnnot(state.tool, p.index, pt);
@@ -2158,11 +2208,13 @@ function onMove(e) {
     }
     drawOverlay(p);
   } else if (gesture.mode === 'marquee') {
-    gesture.cur = toPdf(p, e.clientX, e.clientY);
-    var ms = toView(p, gesture.start[0], gesture.start[1]), mc = toView(p, gesture.cur[0], gesture.cur[1]);
+    gesture.cur = contentPt(e);
+    var ms = gesture.start, mc = gesture.cur;
     if (!gesture.moved && Math.hypot(mc[0] - ms[0], mc[1] - ms[1]) < 6) return;
     gesture.moved = true;
-    p.marquee = { a: gesture.start, b: gesture.cur }; drawOverlay(p);
+    var mq = $('#marq'); mq.hidden = false; mq.classList.toggle('cross', mc[0] < ms[0]);
+    mq.style.left = Math.min(ms[0], mc[0]) + 'px'; mq.style.top = Math.min(ms[1], mc[1]) + 'px';
+    mq.style.width = Math.abs(mc[0] - ms[0]) + 'px'; mq.style.height = Math.abs(mc[1] - ms[1]) + 'px';
   } else if (gesture.mode === 'place') {
     centerSym(gesture.a, toPdf(p, e.clientX, e.clientY)); drawOverlay(p);
   } else if (gesture.mode === 'poly') {
@@ -2179,6 +2231,7 @@ function onMove(e) {
       if (it.v0) { it.a.vertices = it.v0.map(function (q) { return [q[0] + dx, q[1] + dy]; }); updateGeom(it.a); }
       if (!it.a.isNew) { it.a.geomDirty = true; it.a.dirty = true; }
     });
+    if (!gesture.synced) { gesture.synced = true; syncCanvasHidden(); }
     drawOverlay(p);
   } else if (gesture.mode === 'resize' && gesture.handle.charAt(0) === 'v') {
     var vi = +gesture.handle.slice(1), av = gesture.a;
@@ -2225,7 +2278,7 @@ function newAnnot(tool, pageIndex, pt) {
     id: 'n' + (state.nextId++), isNew: true, deleted: false, dirty: true, geomDirty: false, styleDirty: false, owned: true,
     subtype: sub, intent: T.intent || null, pageIndex: pageIndex, rect: [pt[0], pt[1], pt[0], pt[1]], inkList: sub === 'Ink' ? [[pt]] : null,
     vertices: T.poly ? [pt] : T.line ? [pt, pt] : null, measure: T.measure ? copyScale(scaleFor(pageIndex)) : null,
-    lsize: null, mtext: '', lpos: null,
+    lsize: null, mtext: '', lpos: null, rot: pageRot(pageIndex),
     color: hexToRgb(T.calibrate ? '#2a5bd7' : st.color), fillColor: (st.fill && MarkupIO.FILLABLE.has(sub) && !T.calibrate) ? hexToRgb(st.fillColor || st.color) : null,
     fillOpacity: st.fillOpacity, highlight: st.highlight, opacity: st.opacity, lineWidth: T.calibrate ? 1.5 : st.lineWidth,
     subject: chest ? (chest.subject || T.subj) : T.subj,
@@ -2243,7 +2296,8 @@ function newAnnot(tool, pageIndex, pt) {
   if (a.vertices) updateGeom(a);
   return a;
 }
-function centerSym(a, pt) { var d = MarkupIO.symDims(a.sym), hw = d[0] / 2, hh = d[1] / 2; a.rect = [pt[0] - hw, pt[1] - hh, pt[0] + hw, pt[1] + hh]; }
+function pageRot(i) { var p = state.pages[i]; return p && p.page ? (((p.page.rotate || 0) % 360) + 360) % 360 : 0; }
+function centerSym(a, pt) { var d = MarkupIO.symDims(a.sym), r = a.rot || 0; if (r === 90 || r === 270) d = [d[1], d[0]]; var hw = d[0] / 2, hh = d[1] / 2; a.rect = [pt[0] - hw, pt[1] - hh, pt[0] + hw, pt[1] + hh]; }
 function symSizeText(sym) { var d = MarkupIO.symDims(sym); return MarkupIO.SYM_WIDE[sym.shape] ? Math.round(d[0]) + ' \u00d7 ' + Math.round(d[1]) + ' pt' : Math.round(d[0]) + ' pt'; }
 /* SVG for a symbol's outline. map(x, y) turns the symbol's own units into SVG units; inset is in the symbol's units. */
 function symShapeSVG(a, map, inset) {
@@ -3424,6 +3478,9 @@ document.addEventListener('keydown', function (e) {
   state.multi = e.shiftKey || e.metaKey || e.ctrlKey;
   if (!$('#toolModal').hidden) { if (e.key === 'Escape') closeToolEditor(); else if (e.key === 'Enter' && tag === 'input') { e.preventDefault(); saveToolFromEditor(); } return; }
   if (!$('#scaleModal').hidden) { if (e.key === 'Escape') closeScale(); else if (e.key === 'Enter' && tag !== 'select') { e.preventDefault(); applyScaleFromDialog(); } return; }
+  if (e.key === 'Escape' && (tag === 'input' || tag === 'textarea' || tag === 'select')) {
+    e.target.blur(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; return;
+  }
   if (tag === 'input' || tag === 'textarea') return;
   if (state.draft) {
     if (e.key === 'Enter') { e.preventDefault(); finishDraft(); return; }

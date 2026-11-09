@@ -2,6 +2,14 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.0.0 (phase 1: fixes)
+**Fixed**
+- Moving, restyling or deleting a markup that was already in the PDF no longer leaves the original showing underneath until you save.
+- Escape now closes the style menu and Tool Chest while you are typing in a field.
+- Rotated sheets: symbol labels, numbers and measurement text read upright, and rectangle and oval symbols keep the width and height you set as seen on screen.
+- Box selection works across several pages and can start in the gap between pages.
+- Undo and redo history is kept with your work, so it survives an update or reopening the app.
+
 ## 1.9.2
 **Improved**
 - One compact colour picker everywhere (style menu, properties panel, tool editor): a *Line | Fill | Text* switch, each showing its current colour, over one shared row of colours. *Fill* has *None* and *Line* (same as the line); *Text* (symbols only) has *Auto*. Replaces the separate Text, Line colour and Fill colour rows and the *Fill inside* checkbox.

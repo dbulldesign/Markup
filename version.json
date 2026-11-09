@@ -1,5 +1,5 @@
 {
-  "version": "1.9.2",
+  "version": "2.0.0",
   "date": "2026-11-09",
-  "notes": "One compact colour picker everywhere: choose Line, Fill or Text, then a colour. Fill has None and Line; Text has Auto."
+  "notes": "Fixes: moved or deleted markups no longer show twice; Escape works while typing; rotated sheets show text upright; box selection across pages; undo history survives updates."
 }
