@@ -1,5 +1,5 @@
 {
-  "version": "2.4.0",
+  "version": "2.5.0",
   "date": "2026-11-09",
-  "notes": "Page thumbnails and go to page, search drawing text and markups, markup status, show/hide by subject, and several files open as tabs."
+  "notes": "Settings page, light/dark switch, compact toolbar with tool picker, arrange toolbar and Tool Chest, floating quick palette, Pencil hover preview, press-and-hold tool ring, and a help sheet."
 }

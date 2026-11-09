@@ -2,6 +2,21 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.5.0 (phase 6: interface and Apple Pencil)
+**Added**
+- *Settings* page (gear button, or Ctrl/Cmd+,): theme, toolbar, Pencil and touch, drawing, measurement display, your name, toolbar tools, backup/restore, updates and help.
+- Light / dark / match-the-iPad theme switch.
+- Compact toolbar (on by default): one tool button that opens a picker with every tool; the toolbar fits on one row. Turn it off in Settings for the full toolbar.
+- Arrange the toolbar: show or hide each tool and change the order (Settings > Toolbar tools); the tool picker follows the same order.
+- Arrange the Tool Chest: tap *Arrange* to move tools within a palette, palettes up and down, and the order of favourites (which is also their order in the toolbar).
+- Floating quick palette (button next to the gear): your common tools, favourites, undo and redo in a small bar you can drag anywhere.
+- Apple Pencil hover (on iPads that support it): shows where a symbol or number will land, outlines the markup under the tip with Select, and shows the snap point before you touch.
+- Press and hold the Pencil still for half a second for a ring of tools around the tip: slide onto a tool and lift, or lift and tap one; the middle button is Undo. Hold time and on/off in Settings.
+- Help sheet (? button, or press ?): gestures, tools, shortcuts and saving.
+
+**Note**
+- Apple Pencil double-tap and squeeze are only available to native apps, not web apps, so they cannot be used.
+
 ## 2.4.0 (phase 5: navigation and organisation)
 **Added**
 - *Pages* (button at the top left, shows the current page, e.g. 3 / 12): thumbnails of every page with the current one highlighted; tap to jump. Type a page number or label to go to it.
