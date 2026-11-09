@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.4.1">
+<meta name="app-version" content="1.5.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -412,7 +412,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
   <div class="seg favs" id="favBar" hidden></div>
 
   <label class="toggle" title="Let a finger draw as well as the Pencil"><input type="checkbox" id="fingerDraw"><span class="lbl keep">Finger draws</span></label>
-  <label class="toggle" title="Tap markups to add them to the selection, then Group"><input type="checkbox" id="multiSel"><span class="lbl keep">Multi-select</span></label>
+  <label class="toggle" title="Tap markups (or drag boxes) to add them to the selection, then Group"><input type="checkbox" id="multiSel"><span class="lbl keep">Multi-select</span></label>
 
   <span class="spacer"></span>
 
@@ -1293,7 +1293,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.4.1';
+var APP_VERSION = '1.5.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1814,6 +1814,10 @@ function drawOverlay(p) {
     html += selectionSVG(a, p, single === a);
   });
   if (p.temp) html += shapeSVG(p.temp, p, false);
+  if (p.marquee) {
+    var m0 = toView(p, p.marquee.a[0], p.marquee.a[1]), m1 = toView(p, p.marquee.b[0], p.marquee.b[1]), cross = m1[0] < m0[0];
+    html += '<rect x="' + Math.min(m0[0], m1[0]) + '" y="' + Math.min(m0[1], m1[1]) + '" width="' + Math.abs(m1[0] - m0[0]) + '" height="' + Math.abs(m1[1] - m0[1]) + '" fill="' + (cross ? 'rgba(67,160,71,.10)' : 'rgba(42,91,215,.10)') + '" stroke="' + (cross ? '#43a047' : '#2a5bd7') + '" stroke-width="1.5"' + (cross ? ' stroke-dasharray="6 4"' : '') + ' vector-effect="non-scaling-stroke"/>';
+  }
   p.svg.innerHTML = html;
 }
 function singleResizable() {
@@ -1845,6 +1849,24 @@ function handleAt(a, p, clientX, clientY) {
   return null;
 }
 function isMulti() { return state.multi || state.multiToggle; }
+/* Box selection: drag left to right to pick markups fully inside the box (solid blue),
+   right to left to pick everything the box touches (dashed green). */
+function finishMarquee(g) {
+  var p = g.p; p.marquee = null;
+  if (!g.moved) { drawOverlay(p); return; }
+  var a0 = g.start, b0 = g.cur, cross = toView(p, b0[0], b0[1])[0] < toView(p, a0[0], a0[1])[0];
+  var r = [Math.min(a0[0], b0[0]), Math.min(a0[1], b0[1]), Math.max(a0[0], b0[0]), Math.max(a0[1], b0[1])];
+  var hits = live().filter(function (a) {
+    if (a.pageIndex !== p.index) return false;
+    var q = a.rect;
+    return cross ? (q[0] <= r[2] && q[2] >= r[0] && q[1] <= r[3] && q[3] >= r[1])
+      : (q[0] >= r[0] && q[2] <= r[2] && q[1] >= r[1] && q[3] <= r[3]);
+  });
+  if (!g.add) state.sel = new Set();
+  hits.forEach(function (a) { membersOf(a).forEach(function (m) { state.sel.add(m.id); }); });
+  afterSelectionChange();
+  if (hits.length) toast(state.sel.size + (state.sel.size === 1 ? ' markup selected.' : ' markups selected.'), 1800);
+}
 function selectAnnot(a, add) {
   var members = membersOf(a), allIn = members.every(function (m) { return state.sel.has(m.id); });
   if (!add) state.sel = new Set();
@@ -1897,6 +1919,7 @@ function onDown(e) {
     var touches = Array.from(ptrs.values()).filter(function (q) { return q.type === 'touch'; }).length;
     if (touches >= 2) {
       if (gesture && (gesture.mode === 'draw' || gesture.mode === 'place')) { gesture.p.temp = null; drawOverlay(gesture.p); }
+      if (gesture && gesture.mode === 'marquee') { gesture.p.marquee = null; drawOverlay(gesture.p); }
       if (gesture && gesture.mode === 'poly' && state.draft) { if (gesture.first) cancelDraft(); else { state.draft.live = null; refreshDraft(); } }
       startPinch(); return;
     }
@@ -1933,7 +1956,11 @@ function onDown(e) {
         return { a: a, rect0: a.rect.slice(), ink0: a.inkList ? a.inkList.map(function (l) { return l.map(function (q) { return q.slice(); }); }) : null, v0: a.vertices ? a.vertices.map(function (q) { return q.slice(); }) : null };
       });
       gesture = { mode: 'move', id: e.pointerId, p: p, start: pt, items: items, moved: false };
-    } else { if (!isMulti()) clearSel(); gesture = { mode: 'tap', id: e.pointerId }; }
+    } else {
+      // Empty space: drag a box to select several markups.
+      if (!isMulti()) clearSel();
+      gesture = { mode: 'marquee', id: e.pointerId, p: p, start: pt, cur: pt, moved: false, add: isMulti() };
+    }
   } else {
     var a = newAnnot(state.tool, p.index, pt);
     p.temp = a; gesture = { mode: 'draw', id: e.pointerId, p: p, start: pt, a: a, last: pt };
@@ -1980,6 +2007,12 @@ function onMove(e) {
       an.rect = [Math.min(s[0], q2[0]), Math.min(s[1], q2[1]), Math.max(s[0], q2[0]), Math.max(s[1], q2[1])];
     }
     drawOverlay(p);
+  } else if (gesture.mode === 'marquee') {
+    gesture.cur = toPdf(p, e.clientX, e.clientY);
+    var ms = toView(p, gesture.start[0], gesture.start[1]), mc = toView(p, gesture.cur[0], gesture.cur[1]);
+    if (!gesture.moved && Math.hypot(mc[0] - ms[0], mc[1] - ms[1]) < 6) return;
+    gesture.moved = true;
+    p.marquee = { a: gesture.start, b: gesture.cur }; drawOverlay(p);
   } else if (gesture.mode === 'place') {
     centerSym(gesture.a, toPdf(p, e.clientX, e.clientY)); drawOverlay(p);
   } else if (gesture.mode === 'poly') {
@@ -2026,6 +2059,7 @@ function onUp(e) {
   var g2 = gesture; gesture = null;
   if (g2.mode === 'poly') { polyPointUp(g2, toPdf(g2.p, e.clientX, e.clientY)); return; }
   if (g2.mode === 'place') { placeSymbol(g2); return; }
+  if (g2.mode === 'marquee') { finishMarquee(g2); return; }
   if (g2.mode === 'draw') finishDraw(g2);
   else if (g2.mode === 'move' || g2.mode === 'resize') { if (g2.mode === 'resize' || g2.moved) { markUnsaved(); renderList(); renderProps(); } }
 }
@@ -2342,7 +2376,7 @@ function renderProps() {
   box.hidden = !s.length;
   if (!s.length) return;
   var a = s[0], same = function (k) { return s.every(function (x) { return x[k] === a[k]; }); };
-  $('#propsTitle').textContent = s.length === 1 ? typeLabel(a.subtype, a.intent) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
+  $('#propsTitle').textContent = s.length === 1 ? (a.sym ? (a.sym.n != null ? 'Number' : 'Symbol') : typeLabel(a.subtype, a.intent)) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
   $('#propsMeta').textContent = s.length === 1 ? ((a.author ? a.author + ', ' : '') + (fmtDate(a.date) || 'new')) : (new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length ? 'one group' : '');
   var sub = $('#pSubject'), con = $('#pContents');
   if (document.activeElement !== sub) { sub.value = same('subject') ? (a.subject || '') : ''; sub.placeholder = same('subject') ? 'e.g. Ellipse, Issue, Verify' : 'Mixed'; }

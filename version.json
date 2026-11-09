@@ -1,5 +1,5 @@
 {
-  "version": "1.4.1",
+  "version": "1.5.0",
   "date": "2026-11-09",
-  "notes": "Symbols and numbered markups: choose the text colour separately from the line and fill, before placing, in saved tools, or for symbols already placed."
+  "notes": "Box select: with Select, drag on empty space to select several markups. Left to right picks markups fully inside the box; right to left picks everything it touches. Multi-select adds to the selection."
 }
