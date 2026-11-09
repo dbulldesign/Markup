@@ -1,5 +1,5 @@
 {
-  "version": "2.0.0",
+  "version": "2.1.0",
   "date": "2026-11-09",
-  "notes": "Fixes: moved or deleted markups no longer show twice; Escape works while typing; rotated sheets show text upright; box selection across pages; undo history survives updates."
+  "notes": "New tools: line, arrow, text box, callout, cloud, highlighter, stamps and eraser."
 }

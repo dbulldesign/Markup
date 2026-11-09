@@ -2,6 +2,18 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.1.0 (phase 2: drawing tools)
+**Added**
+- *Line* and *Arrow* tools (PDF line markups with arrowheads Revu reads).
+- *Text box*: drag a box (or tap) and type. Tap a selected text box again to edit it. Text wraps and the box grows to fit; drag the corners to resize.
+- *Callout*: press where the arrow should point, drag to where the text goes, then type. Drag the arrow tip to move it.
+- *Cloud*: revision cloud, drawn like a polygon.
+- *Highlighter*: see-through freehand marker.
+- *Stamps*: APPROVED, REVISE AND RESUBMIT, VERIFY IN FIELD and more, or type your own; set the stamp and its height in the style menu.
+- *Eraser*: drag over pen and highlighter strokes to remove them.
+- All of these can be saved as tools in the Tool Chest; Revu tool sets with lines, arrows, clouds, text boxes and callouts can now be drawn.
+- Shortcuts: I line, W arrow, T text, K callout, O cloud, H highlighter, M stamp, X eraser.
+
 ## 2.0.0 (phase 1: fixes)
 **Fixed**
 - Moving, restyling or deleting a markup that was already in the PDF no longer leaves the original showing underneath until you save.

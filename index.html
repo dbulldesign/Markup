@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="2.0.0">
+<meta name="app-version" content="2.1.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -138,6 +138,8 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .marq { position: absolute; z-index: 4; pointer-events: none; border: 1.5px solid #2a5bd7; background: rgba(42,91,215,.10); }
 .marq.cross { border: 1.5px dashed #43a047; background: rgba(67,160,71,.10); }
 .marq[hidden] { display: none; }
+.textedit { position: absolute; z-index: 6; margin: 0; border: 1.5px dashed #2a5bd7; border-radius: 2px; background: rgba(255,255,255,.55); font-family: Helvetica, Arial, sans-serif; resize: none; overflow: hidden; outline: none; box-sizing: border-box; white-space: pre-wrap; }
+.textedit[hidden] { display: none; }
 .page .pnum { position: absolute; left: 0; bottom: -15px; font-size: 11px; color: var(--ink-2); }
 .hl { mix-blend-mode: multiply; }
 
@@ -417,16 +419,33 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     </button>
   </div>
 
+  <div class="seg" id="markTools">
+    <button class="tb" type="button" data-tool="line" title="Line" aria-label="Line"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M5 19 19 5"/></svg><span class="lbl">Line</span></button>
+    <button class="tb" type="button" data-tool="arrow" title="Arrow" aria-label="Arrow"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 19 19 5M10 5h9v9"/></svg><span class="lbl">Arrow</span></button>
+    <button class="tb" type="button" data-tool="text" title="Text box: drag a box (or tap), then type" aria-label="Text box"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7V5h14v2M12 5v14M9 19h6"/></svg><span class="lbl">Text</span></button>
+    <button class="tb" type="button" data-tool="callout" title="Callout: press where the arrow points, drag to where the text goes" aria-label="Callout"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="10" y="3" width="11" height="9" rx="1.5"/><path d="M10 9 3 20M13 6.5h5M13 9h3"/></svg><span class="lbl">Callout</span></button>
+    <button class="tb" type="button" data-tool="cloud" title="Cloud: tap each corner, tap the first point (or Finish) to close" aria-label="Cloud"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 9a2.5 2.5 0 0 1 4-2 2.5 2.5 0 0 1 5 0 2.5 2.5 0 0 1 4 2 2.5 2.5 0 0 1 0 5 2.5 2.5 0 0 1-4 3 2.5 2.5 0 0 1-5 0 2.5 2.5 0 0 1-4-3 2.5 2.5 0 0 1 0-5z"/></svg><span class="lbl">Cloud</span></button>
+    <button class="tb" type="button" data-tool="highlighter" title="Highlighter" aria-label="Highlighter"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m9 11 6-6 4 4-6 6zM9 11l-3 3 1 3h3l3-2"/><path d="M4 21h11" stroke-width="3" opacity=".55"/></svg><span class="lbl">Highlight</span></button>
+    <button class="tb" type="button" data-tool="stamp" title="Stamp: tap to place (choose the stamp in the style menu)" aria-label="Stamp"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M9 3h6v5l3 3v3H6v-3l3-3zM5 18h14v3H5z"/></svg><span class="lbl">Stamp</span></button>
+    <button class="tb" type="button" data-tool="eraser" title="Eraser: drag over pen and highlighter strokes to remove them" aria-label="Eraser"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="m14 4 6 6-9 9H6l-3-3z"/><path d="M9 21h12M9 9l6 6"/></svg><span class="lbl">Eraser</span></button>
+  </div>
+
   <button class="tb style-chip" id="btnStyle" type="button" title="Markup style" aria-label="Markup style" aria-haspopup="true"><span class="preview"></span></button>
   <div class="pop" id="stylePop" hidden>
     <h3>Style for new markups</h3>
     <div class="style" id="styleNew"></div>
     <div class="symset" id="symNew" hidden>
-      <label class="fld"><span>Symbol</span><select data-s="shape"><option value="circle">Circle</option><option value="oval">Oval</option><option value="square">Square</option><option value="rect">Rectangle</option><option value="roundrect">Rounded rectangle</option><option value="diamond">Diamond</option><option value="hexagon">Hexagon</option><option value="triangle">Triangle</option></select></label>
-      <label class="fld range"><span data-size-lbl>Size</span><input type="range" min="4" max="96" step="1" data-s="size"><output></output></label>
-      <label class="fld range" data-wide hidden><span>Height</span><input type="range" min="4" max="96" step="1" data-s="height"><output></output></label>
+      <label class="fld" data-only="stamp"><span>Stamp</span><input type="text" data-s="stampText" list="stampList" maxlength="28" placeholder="e.g. APPROVED"></label>
+      <label class="fld range" data-only="stamp"><span>Height</span><input type="range" min="8" max="72" step="1" data-s="stampSize"><output></output></label>
+      <label class="fld" data-not="stamp"><span>Symbol</span><select data-s="shape"><option value="circle">Circle</option><option value="oval">Oval</option><option value="square">Square</option><option value="rect">Rectangle</option><option value="roundrect">Rounded rectangle</option><option value="diamond">Diamond</option><option value="hexagon">Hexagon</option><option value="triangle">Triangle</option></select></label>
+      <label class="fld range" data-not="stamp"><span data-size-lbl>Size</span><input type="range" min="4" max="96" step="1" data-s="size"><output></output></label>
+      <label class="fld range" data-wide data-not="stamp" hidden><span>Height</span><input type="range" min="4" max="96" step="1" data-s="height"><output></output></label>
       <label class="fld" data-only="symbol"><span>Label</span><input type="text" data-s="label" maxlength="8" placeholder="e.g. A, L1"></label>
     </div>
+    <div class="symset" id="textNew" hidden>
+      <label class="fld range"><span>Text size</span><input type="range" min="6" max="48" step="1" id="textSize"><output></output></label>
+    </div>
+    <datalist id="stampList"></datalist>
     <button class="btn style-save" id="btnSaveTool" type="button">Save as a tool…</button>
   </div>
 
@@ -494,6 +513,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
   </div>
   <div class="viewer" id="viewer">
     <div class="marq" id="marq" hidden></div>
+    <textarea class="textedit" id="textEdit" hidden aria-label="Text" spellcheck="true"></textarea>
     <div class="pages" id="pages"></div>
     <div class="empty" id="empty">
       <div class="card">
@@ -592,9 +612,11 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     </div>
     <label class="fld" id="tNewSetRow" hidden>New palette name<input id="tNewSet" placeholder="e.g. My tools"></label>
     <div class="symset" id="tSym" hidden style="margin-top:0">
-      <label class="fld"><span>Symbol</span><select data-s="shape"><option value="circle">Circle</option><option value="oval">Oval</option><option value="square">Square</option><option value="rect">Rectangle</option><option value="roundrect">Rounded rectangle</option><option value="diamond">Diamond</option><option value="hexagon">Hexagon</option><option value="triangle">Triangle</option></select></label>
-      <label class="fld range"><span data-size-lbl>Size</span><input type="range" min="4" max="96" step="1" data-s="size"><output></output></label>
-      <label class="fld range" data-wide hidden><span>Height</span><input type="range" min="4" max="96" step="1" data-s="height"><output></output></label>
+      <label class="fld" data-only="stamp"><span>Stamp</span><input type="text" data-s="stampText" list="stampList" maxlength="28" placeholder="e.g. APPROVED"></label>
+      <label class="fld range" data-only="stamp"><span>Height</span><input type="range" min="8" max="72" step="1" data-s="stampSize"><output></output></label>
+      <label class="fld" data-not="stamp"><span>Symbol</span><select data-s="shape"><option value="circle">Circle</option><option value="oval">Oval</option><option value="square">Square</option><option value="rect">Rectangle</option><option value="roundrect">Rounded rectangle</option><option value="diamond">Diamond</option><option value="hexagon">Hexagon</option><option value="triangle">Triangle</option></select></label>
+      <label class="fld range" data-not="stamp"><span data-size-lbl>Size</span><input type="range" min="4" max="96" step="1" data-s="size"><output></output></label>
+      <label class="fld range" data-wide data-not="stamp" hidden><span>Height</span><input type="range" min="4" max="96" step="1" data-s="height"><output></output></label>
       <label class="fld" data-only="symbol"><span>Label</span><input type="text" data-s="label" maxlength="8" placeholder="e.g. A, L1"></label>
     </div>
     <label class="fld">Subject<input id="tSubject" list="subjects" placeholder="Shows as Subject in Revu"></label>
@@ -625,8 +647,8 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
    in the page /VP (viewport) array. */
 (function (root) {
   'use strict';
-  var OWNED = new Set(['Circle', 'Square', 'Ink', 'Polygon', 'PolyLine', 'Line']);
-  var FILLABLE = new Set(['Circle', 'Square', 'Polygon']);
+  var OWNED = new Set(['Circle', 'Square', 'Ink', 'Polygon', 'PolyLine', 'Line', 'FreeText', 'Stamp']);
+  var FILLABLE = new Set(['Circle', 'Square', 'Polygon', 'FreeText']);
   var SKIP = new Set(['Popup', 'Link', 'Widget', 'Screen', 'PrinterMark', 'TrapNet', 'Watermark', '3D', 'RichMedia', 'Projection']);
 
   function lib() { var L = root.PDFLib; if (!L) throw new Error('pdf-lib is not loaded'); return L; }
@@ -779,12 +801,29 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
         }
         var be = ctx.lookup(dict.get(N('BE'))), cloudy = be instanceof L.PDFDict && nameOf(be.get(N('S'))) === 'C';
         var editable = OWNED.has(subtype);
-        if (subtype === 'Polygon' || subtype === 'PolyLine') editable = !!vertices && !cloudy && intent !== 'PolygonCloud';
-        if (subtype === 'Line') editable = !!vertices && intent === 'LineDimension';
+        if (subtype === 'Polygon' || subtype === 'PolyLine') editable = !!vertices;
+        if (subtype === 'Line') editable = !!vertices && (intent === 'LineDimension' || !intent);
+        var le = null, lea = ctx.lookup(dict.get(N('LE')));
+        if (lea instanceof L.PDFArray) le = [nameOf(lea.get(0)) || 'None', nameOf(lea.get(1)) || 'None'];
+        else if (lea instanceof L.PDFName) le = [nameOf(lea), 'None'];
+        // Text boxes and callouts made by this app carry /PMText (font size, text colour) and stay editable.
+        var ftBox = null, ftTip = null, ftFs = null, ftTc = null;
+        if (subtype === 'FreeText') {
+          var pmt = ctx.lookup(dict.get(N('PMText')));
+          editable = pmt instanceof L.PDFDict;
+          if (editable) {
+            var rr0 = [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])];
+            var rd = numsOf(ctx, dict.get(N('RD'))) || [0, 0, 0, 0];
+            ftBox = [rr0[0] + (rd[0] || 0), rr0[1] + (rd[1] || 0), rr0[2] - (rd[2] || 0), rr0[3] - (rd[3] || 0)];
+            var cl = numsOf(ctx, dict.get(N('CL'))); ftTip = cl && cl.length >= 4 ? [cl[0], cl[1]] : null;
+            ftFs = numOf(ctx.lookup(pmt.get(N('FS'))), 12);
+            var tcv = numsOf(ctx, pmt.get(N('TC'))); ftTc = tcv && tcv.length === 3 ? rgbHex(tcv) : null;
+          }
+        }
         var measure = readMeasure(ctx, dict.get(N('Measure')));
         // Symbols placed by this app carry their settings in /PMSymbol so they stay editable here.
         var sym = null, pmd = ctx.lookup(dict.get(N('PMSymbol')));
-        if (pmd instanceof L.PDFDict && (subtype === 'Circle' || subtype === 'Square' || subtype === 'Polygon')) {
+        if (pmd instanceof L.PDFDict && (subtype === 'Circle' || subtype === 'Square' || subtype === 'Polygon' || subtype === 'Stamp')) {
           var nn = numOf(ctx.lookup(pmd.get(N('N'))), null);
           sym = { shape: nameOf(pmd.get(N('Shape'))) || 'circle', size: numOf(ctx.lookup(pmd.get(N('Size'))), null), height: numOf(ctx.lookup(pmd.get(N('Height'))), null),
             label: textOf(ctx.lookup(pmd.get(N('Label')))), n: nn,
@@ -814,6 +853,8 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
           isNew: false, deleted: false, dirty: false, geomDirty: false, styleDirty: false,
           owned: !!ref && editable, subtype: subtype, intent: intent, pageIndex: pageIndex,
           vertices: vertices, measure: measure, lsize: null, mtext: '', lpos: null, sym: sym,
+          le: le, cloud: subtype === 'Polygon' && (cloudy || intent === 'PolygonCloud'), cr: null,
+          box: ftBox, tip: ftTip, fs: ftFs, textColor: ftTc,
           rect: [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])],
           inkList: inkList,
           color: colorOf(ctx, dict.get(N('C'))), fillColor: colorOf(ctx, dict.get(N('IC'))),
@@ -887,9 +928,81 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
   }
 
   /* ---- fixed-size symbols (fixture counts, numbered series) ---- */
-  var SYM_SUB = { circle: 'Circle', oval: 'Circle', square: 'Square', rect: 'Square', roundrect: 'Polygon', diamond: 'Polygon', triangle: 'Polygon', hexagon: 'Polygon' };
+  var SYM_SUB = { circle: 'Circle', oval: 'Circle', square: 'Square', rect: 'Square', roundrect: 'Polygon', diamond: 'Polygon', triangle: 'Polygon', hexagon: 'Polygon', stamp: 'Stamp' };
   // Shapes with their own height (the others are as tall as they are wide).
-  var SYM_WIDE = { oval: 1, rect: 1, roundrect: 1 };
+  var SYM_WIDE = { oval: 1, rect: 1, roundrect: 1, stamp: 1 };
+  // A stamp is as wide as its text needs at the chosen height.
+  function stampDims(text, h) { return [textWidth(String(text || ''), h * 0.58) / 0.82 + h * 0.5, h]; }
+
+  /* ---- arrows, clouds, text boxes ---- */
+  function arrowSize(a) { return Math.max(((+a.lineWidth) || 1) * 4, 7); }
+  // An open arrowhead at tip, pointing away from 'from': [wing, tip, wing].
+  function arrowHead(tip, from, size) {
+    var dx = tip[0] - from[0], dy = tip[1] - from[1], l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l, w = size * 0.5;
+    var bx = tip[0] - ux * size, by = tip[1] - uy * size;
+    return [[bx - uy * w, by + ux * w], tip, [bx + uy * w, by - ux * w]];
+  }
+  // Revision cloud: scallops (two cubic curves each) bulging outwards along every edge.
+  function cloudCurves(v, r) {
+    var n = v.length, area = 0, out = [];
+    for (var i = 0; i < n; i++) { var j = (i + 1) % n; area += v[i][0] * v[j][1] - v[j][0] * v[i][1]; }
+    var ccw = area > 0;
+    for (var e = 0; e < n; e++) {
+      var A = v[e], B = v[(e + 1) % n], len = Math.hypot(B[0] - A[0], B[1] - A[1]); if (len < 0.01) continue;
+      var segs = Math.max(1, Math.round(len / (2 * r)));
+      for (var k = 0; k < segs; k++) {
+        var a0 = [A[0] + (B[0] - A[0]) * k / segs, A[1] + (B[1] - A[1]) * k / segs], b0 = [A[0] + (B[0] - A[0]) * (k + 1) / segs, A[1] + (B[1] - A[1]) * (k + 1) / segs];
+        var dl = Math.hypot(b0[0] - a0[0], b0[1] - a0[1]), d = [(b0[0] - a0[0]) / dl, (b0[1] - a0[1]) / dl], nr = ccw ? [d[1], -d[0]] : [-d[1], d[0]];
+        var rho = dl / 2, K = 0.5523 * rho, top = [(a0[0] + b0[0]) / 2 + nr[0] * rho, (a0[1] + b0[1]) / 2 + nr[1] * rho];
+        out.push([a0, [a0[0] + nr[0] * K, a0[1] + nr[1] * K], [top[0] - d[0] * K, top[1] - d[1] * K], top]);
+        out.push([top, [top[0] + d[0] * K, top[1] + d[1] * K], [b0[0] + nr[0] * K, b0[1] + nr[1] * K], b0]);
+      }
+    }
+    return out;
+  }
+  function cloudPdfPath(c) {
+    if (!c.length) return '';
+    return fmt(c[0][0][0]) + ' ' + fmt(c[0][0][1]) + ' m\n' + c.map(function (q) { return [q[1], q[2], q[3]].map(function (pt) { return fmt(pt[0]) + ' ' + fmt(pt[1]); }).join(' ') + ' c'; }).join('\n') + '\nh';
+  }
+  // Word-wrap text to a width (Helvetica metrics); returns the lines.
+  function wrapText(text, maxW, size) {
+    var out = [];
+    String(text || '').split(/\r?\n/).forEach(function (para) {
+      var words = para.split(/(\s+)/), line = '';
+      words.forEach(function (w) {
+        if (!w) return;
+        var tryL = line + w;
+        if (textWidth(tryL.replace(/\s+$/, ''), size) <= maxW || !line.trim()) {
+          if (textWidth(tryL, size) > maxW && !line.trim() && !/^\s+$/.test(w)) {
+            // one long word: break it by characters
+            var chunk = '';
+            for (var i = 0; i < w.length; i++) { if (textWidth(chunk + w[i], size) > maxW && chunk) { out.push(chunk); chunk = ''; } chunk += w[i]; }
+            line = chunk;
+          } else line = tryL;
+        } else { out.push(line.replace(/\s+$/, '')); line = /^\s+$/.test(w) ? '' : w; }
+      });
+      out.push(line.replace(/\s+$/, ''));
+    });
+    return out;
+  }
+  // Text box layout as seen on screen (W x H, top-left origin, v downwards).
+  function ftLayout(a) {
+    var size = +a.fs || 12, pad = Math.max(3, size * 0.35), b = a.box, sw = sideways(a);
+    var W = sw ? b[3] - b[1] : b[2] - b[0], H = sw ? b[2] - b[0] : b[3] - b[1];
+    return { size: size, pad: pad, W: W, H: H, lines: wrapText(a.contents || '', Math.max(size, W - 2 * pad), size) };
+  }
+  function ftVisToPdf(a, L0, u, v) { var b = a.box, c = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2], r = rotv(a, u - L0.W / 2, L0.H / 2 - v); return [c[0] + r[0], c[1] + r[1]]; }
+  // Where a callout's leader meets the box: the middle of the side nearest the tip.
+  function ftAttach(a) {
+    var b = a.box, t = a.tip, cs = [[(b[0] + b[2]) / 2, b[1]], [(b[0] + b[2]) / 2, b[3]], [b[0], (b[1] + b[3]) / 2], [b[2], (b[1] + b[3]) / 2]], best = cs[0], bd = Infinity;
+    cs.forEach(function (q) { var d = Math.hypot(q[0] - t[0], q[1] - t[1]); if (d < bd) { bd = d; best = q; } });
+    return best;
+  }
+  function ftBounds(a) {
+    var b = a.box, pad = (+a.lineWidth || 1) / 2 + 1, r = [b[0] - pad, b[1] - pad, b[2] + pad, b[3] + pad];
+    if (a.tip) { var s = arrowSize(a); r = [Math.min(r[0], a.tip[0] - s), Math.min(r[1], a.tip[1] - s), Math.max(r[2], a.tip[0] + s), Math.max(r[3], a.tip[1] + s)]; }
+    return r;
+  }
   function symKind(shape) { return shape === 'circle' || shape === 'oval' ? 'ellipse' : shape === 'square' || shape === 'rect' ? 'box' : 'poly'; }
   function symDims(sym) { var w = +sym.size || 18; return SYM_WIDE[sym.shape] ? [w, +sym.height || Math.round(w * 0.6)] : [w, w]; }
   function roundRectPts(x0, y0, x1, y1, r) {
@@ -904,9 +1017,9 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
   };
   function symCenter(a) { return [(a.rect[0] + a.rect[2]) / 2, (a.rect[1] + a.rect[3]) / 2]; }
   function symPoints(a, inset) {
-    if (a.sym.shape === 'roundrect') {
+    if (a.sym.shape === 'roundrect' || a.sym.shape === 'stamp') {
       var i0 = inset || 0, rx0 = a.rect[0] + i0, ry0 = a.rect[1] + i0, rx1 = Math.max(rx0 + 1, a.rect[2] - i0), ry1 = Math.max(ry0 + 1, a.rect[3] - i0);
-      return roundRectPts(rx0, ry0, rx1, ry1, Math.min(rx1 - rx0, ry1 - ry0) * 0.3);
+      return roundRectPts(rx0, ry0, rx1, ry1, Math.min(rx1 - rx0, ry1 - ry0) * (a.sym.shape === 'stamp' ? 0.18 : 0.3));
     }
     var c = symCenter(a), s = Math.max(1, (a.rect[2] - a.rect[0]) - 2 * (inset || 0));
     return (SYM_UNIT[a.sym.shape] || SYM_UNIT.diamond).map(function (q) { var r = rotv(a, q[0] * s, q[1] * s); return [c[0] + r[0], c[1] + r[1]]; });
@@ -963,9 +1076,23 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       var d = (a.inkList || []).map(function (pts) {
         return pts.map(function (p, i) { return f(p[0]) + ' ' + f(p[1]) + (i ? ' l' : ' m'); }).join('\n');
       }).join('\n');
+      if (a.highlight) gs.GSs.BM = 'Multiply'; // highlighter: the drawing shows through
       parts.push('q\n/GSs gs\n' + col(a.color || [0, 0, 0]) + ' RG\n' + f(lw || 1) + ' w\n1 J\n1 j\n' + d + '\nS\nQ');
+    } else if (a.subtype === 'FreeText' && a.box) {
+      var L0 = ftLayout(a), bb = a.box, bpath = f(bb[0]) + ' ' + f(bb[1]) + ' ' + f(bb[2] - bb[0]) + ' ' + f(bb[3] - bb[1]) + ' re';
+      if (a.fillColor) { gs.GSf = { Type: 'ExtGState', CA: fix(a.fillOpacity, 3), ca: fix(a.fillOpacity, 3), BM: a.highlight ? 'Multiply' : 'Normal' }; parts.push('q\n/GSf gs\n' + col(a.fillColor) + ' rg\n' + bpath + '\nf\nQ'); }
+      var lead = '';
+      if (a.tip) { var at = ftAttach(a), ah = arrowHead(a.tip, at, arrowSize(a)); lead = '\n' + f(at[0]) + ' ' + f(at[1]) + ' m\n' + f(a.tip[0]) + ' ' + f(a.tip[1]) + ' l\n' + vertexPath(ah, false); }
+      if (a.color && (lw > 0 || a.tip)) parts.push('q\n/GSs gs\n' + col(a.color) + ' RG\n' + f(lw || 1) + ' w\n1 J\n1 j\n' + (lw > 0 ? bpath : '') + lead + '\nS\nQ');
+      fonts = { Helv: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica', Encoding: 'WinAnsiEncoding' } };
+      var tcol = col(hexRgb(a.textColor) || a.color || [0, 0, 0]);
+      L0.lines.forEach(function (ln, i) {
+        if (!ln) return;
+        var tw = textWidth(ln, L0.size), c0 = ftVisToPdf(a, L0, L0.pad + tw / 2, L0.pad + L0.size * 0.95 + i * L0.size * 1.2);
+        parts.push(textOps(a, 'Helv', L0.size, tcol, c0[0], c0[1], tw, 0, ln));
+      });
     } else if (a.vertices && a.vertices.length >= 2) {
-      var closed = a.subtype === 'Polygon', vp = vertexPath(a.vertices, closed);
+      var closed = a.subtype === 'Polygon', vp = a.cloud && closed && a.vertices.length >= 3 ? cloudPdfPath(cloudCurves(a.vertices, a.cr || 8)) : vertexPath(a.vertices, closed);
       if (closed && a.fillColor) {
         gs.GSf = { Type: 'ExtGState', CA: fix(a.fillOpacity, 3), ca: fix(a.fillOpacity, 3), BM: a.highlight ? 'Multiply' : 'Normal' };
         parts.push('q\n/GSf gs\n' + col(a.fillColor) + ' rg\n' + vp + '\nf\nQ');
@@ -973,7 +1100,13 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       var strokeW = lw || (a.color ? 1 : 0);
       if (a.color && strokeW > 0) {
         var ticks = '';
-        if (a.subtype === 'Line') {
+        if (a.subtype === 'Line' && a.le) {
+          [[1, 0], [0, 1]].forEach(function (ij, e) {
+            if (!a.le[e] || a.le[e] === 'None') return;
+            ticks += '\n' + vertexPath(arrowHead(a.vertices[ij[1]], a.vertices[ij[0]], arrowSize(a)), false);
+          });
+        }
+        if (a.subtype === 'Line' && a.intent === 'LineDimension') {
           var p0 = a.vertices[0], p1 = a.vertices[1], dx = p1[0] - p0[0], dy = p1[1] - p0[1], len = Math.hypot(dx, dy) || 1;
           var t = Math.max(strokeW * 3, (a.lsize || 10) * 0.45), nx = -dy / len * t, ny = dx / len * t;
           [p0, p1].forEach(function (q) { ticks += '\n' + f(q[0] - nx) + ' ' + f(q[1] - ny) + ' m\n' + f(q[0] + nx) + ' ' + f(q[1] + ny) + ' l'; });
@@ -1029,7 +1162,19 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
         dict.set(N('PMSymbol'), ctx.obj(sd));
         return;
       }
+      if (a.subtype === 'FreeText' && a.box) {
+        var tc = hexRgb(a.textColor) || a.color || [0, 0, 0], R = a.rect, B = a.box;
+        dict.set(N('DA'), L.PDFString.of('/Helv ' + fmt(a.fs || 12) + ' Tf ' + tc.map(fmt).join(' ') + ' rg'));
+        dict.set(N('RD'), ctx.obj([B[0] - R[0], B[1] - R[1], R[2] - B[2], R[3] - B[3]].map(function (v) { return fix(Math.max(0, v)); })));
+        if (a.tip) { var at2 = ftAttach(a); dict.set(N('IT'), N('FreeTextCallout')); dict.set(N('CL'), ctx.obj([a.tip[0], a.tip[1], at2[0], at2[1]].map(function (v) { return fix(v); }))); dict.set(N('LE'), N('OpenArrow')); }
+        else { dict.delete(N('CL')); dict.delete(N('IT')); }
+        var pt = { FS: fix(a.fs || 12, 2) }; if (hexRgb(a.textColor)) pt.TC = hexRgb(a.textColor).map(function (v) { return fix(v, 4); });
+        dict.set(N('PMText'), ctx.obj(pt));
+        return;
+      }
       if (!a.vertices) return;
+      if (a.subtype === 'Line' && a.le) dict.set(N('LE'), ctx.obj(a.le.map(function (n) { return N(n || 'None'); })));
+      if (a.cloud) { dict.set(N('BE'), ctx.obj({ S: 'C', I: 1 })); dict.set(N('IT'), N('PolygonCloud')); }
       if (a.subtype === 'Line') dict.set(N('L'), flat(a.vertices));
       else if (a.subtype === 'Polygon' || a.subtype === 'PolyLine') dict.set(N('Vertices'), flat(a.vertices));
       if (a.measure) dict.set(N('Measure'), measureDict(ctx, a.measure));
@@ -1145,7 +1290,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     return await doc.save({ useObjectStreams: false });
   }
 
-  root.MarkupIO = { SYM_SUB: SYM_SUB, SYM_WIDE: SYM_WIDE, symKind: symKind, symDims: symDims, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
+  root.MarkupIO = { stampDims: stampDims, arrowSize: arrowSize, arrowHead: arrowHead, cloudCurves: cloudCurves, ftLayout: ftLayout, ftAttach: ftAttach, ftBounds: ftBounds, SYM_SUB: SYM_SUB, SYM_WIDE: SYM_WIDE, symKind: symKind, symDims: symDims, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>
@@ -1158,9 +1303,10 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
   var SUPPORTED = { Circle: 'circle', Square: 'rect', Ink: 'pen', Polygon: 'polygon' };
   // Which drawing tool a Revu tool maps to, using its subtype and intent (/IT).
   function drawToolFor(subtype, it) {
-    if (subtype === 'Polygon') return it === 'PolygonDimension' ? 'area' : (it === 'PolygonCloud' ? null : 'polygon');
+    if (subtype === 'Polygon') return it === 'PolygonDimension' ? 'area' : (it === 'PolygonCloud' ? 'cloud' : 'polygon');
     if (subtype === 'PolyLine') return it === 'PolyLineDimension' ? 'perimeter' : null;
-    if (subtype === 'Line') return it === 'LineDimension' ? 'length' : null;
+    if (subtype === 'Line') return it === 'LineDimension' ? 'length' : 'line';
+    if (subtype === 'FreeText') return it === 'FreeTextCallout' ? 'callout' : 'text';
     return SUPPORTED[subtype] || null;
   }
 
@@ -1356,7 +1502,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '2.0.0';
+var APP_VERSION = '2.1.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1369,8 +1515,17 @@ var TOOLS = {
   perimeter: { sub: 'PolyLine', subj: 'Perimeter Measurement', name: 'Perimeter', intent: 'PolyLineDimension', measure: true, poly: true },
   calibrate: { sub: 'Line', subj: '', name: 'Calibrate', line: true, calibrate: true },
   symbol: { sub: 'Circle', subj: 'Fixture', name: 'Symbol', symbol: true },
-  numbered: { sub: 'Circle', subj: 'Count', name: 'Numbered', symbol: true, numbered: true }
+  numbered: { sub: 'Circle', subj: 'Count', name: 'Numbered', symbol: true, numbered: true },
+  line: { sub: 'Line', subj: 'Line', name: 'Line', line: true, le: ['None', 'None'] },
+  arrow: { sub: 'Line', subj: 'Arrow', name: 'Arrow', line: true, le: ['None', 'OpenArrow'] },
+  cloud: { sub: 'Polygon', subj: 'Cloud', name: 'Cloud', intent: 'PolygonCloud', poly: true, closed: true, cloud: true },
+  highlighter: { sub: 'Ink', subj: 'Highlight', name: 'Highlighter', highlighter: true },
+  text: { sub: 'FreeText', subj: 'Text Box', name: 'Text box', text: true },
+  callout: { sub: 'FreeText', subj: 'Callout', name: 'Callout', text: true, callout: true },
+  stamp: { sub: 'Stamp', subj: 'Stamp', name: 'Stamp', symbol: true, stamp: true },
+  eraser: { name: 'Eraser', eraser: true }
 };
+var STAMPS = ['APPROVED', 'APPROVED AS NOTED', 'REVISE AND RESUBMIT', 'REJECTED', 'FOR REVIEW', 'VERIFY IN FIELD', 'NOT IN SCOPE', 'DRAFT', 'VOID'];
 var UNIT_M = { ft: 0.3048, 'in': 0.0254, m: 1, cm: 0.01, mm: 0.001 };
 var FMT_BASE = { 'ft-in': 'ft', ft: 'ft', 'in': 'in', m: 'm', cm: 'cm', mm: 'mm' };
 var SCALE_PRESETS = [
@@ -1388,7 +1543,7 @@ var state = {
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
   chestSets: [], chestTool: null, pendingSave: null,
   scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null, docId: null, expanded: new Set(),
-  sym: { shape: 'circle', size: 18, height: 12, label: 'A', textColor: null }, series: { defs: {}, cur: null }
+  sym: { shape: 'circle', size: 18, height: 12, label: 'A', textColor: null, stampText: 'APPROVED', stampSize: 20 }, textSize: 12, editing: null, series: { defs: {}, cur: null }
 };
 
 /* ---------- small helpers ---------- */
@@ -1423,7 +1578,7 @@ function fmtDate(iso) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 var TYPE_LABEL = { Circle: 'Ellipse', Square: 'Rectangle', Ink: 'Pen', FreeText: 'Text', Text: 'Note', Line: 'Line', Polygon: 'Polygon', PolyLine: 'Polyline', Highlight: 'Highlight', Underline: 'Underline', StrikeOut: 'Strikeout', Squiggly: 'Squiggly', Stamp: 'Stamp', FileAttachment: 'Attachment', Caret: 'Caret' };
-var INTENT_LABEL = { LineDimension: 'Length', PolyLineDimension: 'Perimeter', PolygonDimension: 'Area', PolygonCloud: 'Cloud' };
+var INTENT_LABEL = { LineDimension: 'Length', PolyLineDimension: 'Perimeter', PolygonDimension: 'Area', PolygonCloud: 'Cloud', FreeTextCallout: 'Callout' };
 function typeLabel(sub, intent) { return INTENT_LABEL[intent] || TYPE_LABEL[sub] || sub || 'Markup'; }
 function pageLabel(i) { return (state.labels && state.labels[i]) ? state.labels[i] : String(i + 1); }
 function byId(id) { for (var i = 0; i < state.annots.length; i++) if (state.annots[i].id === id) return state.annots[i]; return null; }
@@ -1492,7 +1647,7 @@ function updateGeom(a) {
   a.mtext = measureText(a);
   var v = a.vertices, x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
   v.forEach(function (q) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); });
-  var pad = (a.lineWidth || 1) / 2 + 1 + (a.subtype === 'Line' ? Math.max((a.lineWidth || 1) * 3, a.lsize * 0.45) : 0);
+  var pad = (a.lineWidth || 1) / 2 + 1 + (a.intent === 'LineDimension' ? Math.max((a.lineWidth || 1) * 3, a.lsize * 0.45) : 0) + (a.le ? MarkupIO.arrowSize(a) : 0) + (a.cloud ? (a.cr || 8) * 1.1 : 0);
   x0 -= pad; y0 -= pad; x1 += pad; y1 += pad;
   a.lpos = a.mtext ? labelPos(a) : null;
   if (a.lpos) { var b = MarkupIO.labelBox(a); x0 = Math.min(x0, b.x); y0 = Math.min(y0, b.y); x1 = Math.max(x1, b.x + b.w); y1 = Math.max(y1, b.y + b.h); }
@@ -1545,17 +1700,23 @@ function loadPrefs() {
     if (p.lastScale) state.lastScale = p.lastScale;
     if (p.lastPalette) state.lastPalette = p.lastPalette;
     if (p.sym) state.sym = Object.assign(state.sym, p.sym);
+    if (p.textSize) state.textSize = p.textSize;
   } catch (e) { /* storage may be empty or blocked */ }
 }
 function savePrefs() {
-  try { localStorage.setItem('pencil-markup-prefs', JSON.stringify({ author: state.author, style: state.style, fingerDraw: state.fingerDraw, lastScale: state.lastScale, lastPalette: state.lastPalette, sym: state.sym })); } catch (e) { /* ignore */ }
+  try { localStorage.setItem('pencil-markup-prefs', JSON.stringify({ author: state.author, style: state.style, fingerDraw: state.fingerDraw, lastScale: state.lastScale, lastPalette: state.lastPalette, sym: state.sym, textSize: state.textSize })); } catch (e) { /* ignore */ }
 }
 function loadChest() {
   try { var s = JSON.parse(localStorage.getItem('pencil-markup-toolsets') || '[]'); if (Array.isArray(s)) state.chestSets = s; } catch (e) { state.chestSets = []; }
   // Tool sets imported by older versions: re-map which tools can be drawn now.
   state.chestSets.forEach(function (set) { (set.tools || []).forEach(function (t) { t.drawTool = resolveDrawTool(t); t.supported = !!t.drawTool; }); });
 }
-function resolveDrawTool(t) { return t.sym ? (t.sym.numbered ? 'numbered' : 'symbol') : ToolChest.drawToolFor(t.subtype, t.intent); }
+function resolveDrawTool(t) {
+  if (t.sym) return t.sym.shape === 'stamp' ? 'stamp' : t.sym.numbered ? 'numbered' : 'symbol';
+  // Tools saved in this app keep their tool (an Arrow and a Line are both PDF lines, for example).
+  if (t.drawTool && TOOLS[t.drawTool] && TOOLS[t.drawTool].sub === t.subtype) return t.drawTool;
+  return ToolChest.drawToolFor(t.subtype, t.intent);
+}
 function saveChest() {
   try {
     var json = JSON.stringify(state.chestSets);
@@ -1794,6 +1955,7 @@ function setZoom(z, anchor) {
   state.pages.forEach(sizePage);
   viewer.scrollLeft = cx * ratio - ax; viewer.scrollTop = cy * ratio - ay;
   updateZoomLabel(); renderVisible(); state.pages.forEach(drawOverlay); scheduleKeep();
+  if (state.editing) openTextEditor(state.editing);
 }
 function updateZoomLabel() { $('#zoomVal').textContent = Math.round(state.zoom * 100) + '%'; }
 
@@ -1916,7 +2078,9 @@ function shapeSVG(a, p, ghost) {
     out += geo + ' fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '"/>';
   } else if (a.subtype === 'Ink') {
     var d = (a.inkList || []).map(function (l) { return l.map(function (q, i) { var v = toView(p, q[0], q[1]); return (i ? 'L' : 'M') + v[0].toFixed(1) + ' ' + v[1].toFixed(1); }).join(' '); }).join(' ');
-    out += '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + a.opacity + '" stroke-width="' + lw + '" stroke-linecap="round" stroke-linejoin="round"/>';
+    out += '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + a.opacity + '" stroke-width="' + lw + '" stroke-linecap="round" stroke-linejoin="round"' + (a.highlight ? ' class="hl"' : '') + '/>';
+  } else if (a.subtype === 'FreeText' && a.box) {
+    out += textBoxSVG(a, p, lw, stroke, so);
   } else if (isVertexShape(a) && a.vertices.length) {
     out += vertexShapeSVG(a, p, lw, stroke, so);
   } else {
@@ -1933,11 +2097,32 @@ function symSVG(a, p, lw, stroke, so) {
   if (t.text) { var c = toView(p, t.x, t.y); out += '<text x="' + c[0] + '" y="' + (c[1] + t.size * z * 0.36) + '" font-size="' + (t.size * z) + '" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + rgbToHex(MarkupIO.symTextColor(a)) + '">' + esc(t.text) + '</text>'; }
   return out;
 }
+function textBoxSVG(a, p, lw, stroke, so) {
+  var z = state.zoom, vb = viewRect(p, a.box), out = '', L0 = MarkupIO.ftLayout(a);
+  var g = '<rect x="' + vb[0] + '" y="' + vb[1] + '" width="' + Math.max(0.5, vb[2] - vb[0]) + '" height="' + Math.max(0.5, vb[3] - vb[1]) + '"';
+  if (a.fillColor) out += g + ' fill="' + rgbToHex(a.fillColor) + '" fill-opacity="' + a.fillOpacity + '"' + (a.highlight ? ' class="hl"' : '') + ' stroke="none"/>';
+  if (a.lineWidth > 0) out += g + ' fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '"/>';
+  if (a.tip) {
+    var at = MarkupIO.ftAttach(a), ah = MarkupIO.arrowHead(a.tip, at, MarkupIO.arrowSize(a)).map(function (q) { return toView(p, q[0], q[1]); }), v0 = toView(p, at[0], at[1]), v1 = toView(p, a.tip[0], a.tip[1]);
+    out += '<path d="M' + v0[0] + ' ' + v0[1] + 'L' + v1[0] + ' ' + v1[1] + 'M' + ah[0][0] + ' ' + ah[0][1] + 'L' + ah[1][0] + ' ' + ah[1][1] + 'L' + ah[2][0] + ' ' + ah[2][1] + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + Math.max(lw, 0.75 * z) + '" stroke-linecap="round" stroke-linejoin="round"/>';
+  }
+  if (state.editing === a) return out; // the text is in the editor on top
+  var tc = a.textColor || stroke, fs = L0.size * z;
+  L0.lines.forEach(function (ln, i) {
+    if (!ln) return;
+    out += '<text x="' + (vb[0] + L0.pad * z) + '" y="' + (vb[1] + (L0.pad + L0.size * 0.95 + i * L0.size * 1.2) * z) + '" font-size="' + fs + '" font-family="Helvetica, Arial, sans-serif" fill="' + tc + '" xml:space="preserve">' + esc(ln) + '</text>';
+  });
+  return out;
+}
 function vertexShapeSVG(a, p, lw, stroke, so) {
   var z = state.zoom, out = '';
   var pts = a.vertices.map(function (q) { return toView(p, q[0], q[1]); });
   var d = pts.map(function (v, i) { return (i ? 'L' : 'M') + v[0].toFixed(1) + ' ' + v[1].toFixed(1); }).join(' ');
   var closed = a.subtype === 'Polygon' && !a.draft;
+  if (closed && a.cloud && a.vertices.length >= 3) {
+    var cc = MarkupIO.cloudCurves(a.vertices, a.cr || 8), mp = function (q) { var v = toView(p, q[0], q[1]); return v[0].toFixed(1) + ' ' + v[1].toFixed(1); };
+    d = cc.length ? 'M' + mp(cc[0][0]) + cc.map(function (q) { return 'C' + mp(q[1]) + ' ' + mp(q[2]) + ' ' + mp(q[3]); }).join('') : d;
+  }
   if (closed) d += ' Z';
   if (a.subtype === 'Polygon' && a.fillColor && pts.length >= 3) out += '<path d="' + d + (closed ? '' : ' Z') + '" fill="' + rgbToHex(a.fillColor) + '" fill-opacity="' + a.fillOpacity + '"' + (a.highlight ? ' class="hl"' : '') + ' stroke="none"/>';
   out += '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '" stroke-linecap="round" stroke-linejoin="round"/>';
@@ -1945,7 +2130,14 @@ function vertexShapeSVG(a, p, lw, stroke, so) {
     var l = pts[pts.length - 1], f = pts[0];
     out += '<path d="M' + l[0] + ' ' + l[1] + ' L' + f[0] + ' ' + f[1] + '" fill="none" stroke="' + stroke + '" stroke-opacity=".5" stroke-width="' + Math.max(1, lw) + '" stroke-dasharray="6 5"/>';
   }
-  if (a.subtype === 'Line' && pts.length === 2) {
+  if (a.subtype === 'Line' && a.le && pts.length === 2) {
+    [[1, 0], [0, 1]].forEach(function (ij, e) {
+      if (!a.le[e] || a.le[e] === 'None') return;
+      var ah = MarkupIO.arrowHead(a.vertices[ij[1]], a.vertices[ij[0]], MarkupIO.arrowSize(a)).map(function (q) { return toView(p, q[0], q[1]); });
+      out += '<path d="M' + ah[0][0] + ' ' + ah[0][1] + 'L' + ah[1][0] + ' ' + ah[1][1] + 'L' + ah[2][0] + ' ' + ah[2][1] + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '" stroke-linecap="round" stroke-linejoin="round"/>';
+    });
+  }
+  if (a.subtype === 'Line' && a.intent === 'LineDimension' && pts.length === 2) {
     var dx = pts[1][0] - pts[0][0], dy = pts[1][1] - pts[0][1], len = Math.hypot(dx, dy) || 1;
     var t = Math.max((a.lineWidth || 1) * 3, (a.lsize || 10) * 0.45) * z, nx = -dy / len * t, ny = dx / len * t;
     pts.forEach(function (q) { out += '<path d="M' + (q[0] - nx) + ' ' + (q[1] - ny) + ' L' + (q[0] + nx) + ' ' + (q[1] + ny) + '" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '" stroke-linecap="round"/>'; });
@@ -1971,6 +2163,12 @@ function vertexShapeSVG(a, p, lw, stroke, so) {
 function selectionSVG(a, p, withHandles) {
   var vr = viewRect(p, a.rect), m = 4;
   var out = '<rect x="' + (vr[0] - m) + '" y="' + (vr[1] - m) + '" width="' + (vr[2] - vr[0] + 2 * m) + '" height="' + (vr[3] - vr[1] + 2 * m) + '" fill="none" stroke="#2a5bd7" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>';
+  if (withHandles && a.subtype === 'FreeText' && a.box) {
+    var vb = viewRect(p, a.box);
+    [[vb[0], vb[1]], [vb[2], vb[1]], [vb[0], vb[3]], [vb[2], vb[3]]].forEach(function (c) { out += '<rect x="' + (c[0] - 7) + '" y="' + (c[1] - 7) + '" width="14" height="14" rx="3" fill="#fff" stroke="#2a5bd7" stroke-width="1.5"/>'; });
+    if (a.tip) { var tv = toView(p, a.tip[0], a.tip[1]); out += '<circle cx="' + tv[0] + '" cy="' + tv[1] + '" r="7" fill="#fff" stroke="#2a5bd7" stroke-width="1.5"/>'; }
+    return out;
+  }
   if (withHandles && isVertexShape(a)) {
     a.vertices.forEach(function (q) { var v = toView(p, q[0], q[1]); out += '<circle cx="' + v[0] + '" cy="' + v[1] + '" r="7" fill="#fff" stroke="#2a5bd7" stroke-width="1.5"/>'; });
     return out;
@@ -1993,6 +2191,7 @@ function drawOverlay(p) {
     html += selectionSVG(a, p, single === a);
   });
   if (p.temp) html += shapeSVG(p.temp, p, false);
+  if (p.eraser) { var ev = toView(p, p.eraser[0], p.eraser[1]); html += '<circle cx="' + ev[0] + '" cy="' + ev[1] + '" r="10" fill="rgba(198,40,40,.08)" stroke="#c62828" stroke-width="1.5" stroke-dasharray="3 3"/>'; }
   if (p.marquee) {
     var m0 = toView(p, p.marquee.a[0], p.marquee.a[1]), m1 = toView(p, p.marquee.b[0], p.marquee.b[1]), cross = m1[0] < m0[0];
     html += '<rect x="' + Math.min(m0[0], m1[0]) + '" y="' + Math.min(m0[1], m1[1]) + '" width="' + Math.abs(m1[0] - m0[0]) + '" height="' + Math.abs(m1[1] - m0[1]) + '" fill="' + (cross ? 'rgba(67,160,71,.10)' : 'rgba(42,91,215,.10)') + '" stroke="' + (cross ? '#43a047' : '#2a5bd7') + '" stroke-width="1.5"' + (cross ? ' stroke-dasharray="6 4"' : '') + ' vector-effect="non-scaling-stroke"/>';
@@ -2001,7 +2200,7 @@ function drawOverlay(p) {
 }
 function singleResizable() {
   var s = selected();
-  return (s.length === 1 && s[0].owned && !s[0].sym && (s[0].subtype === 'Circle' || s[0].subtype === 'Square' || isVertexShape(s[0]))) ? s[0] : null;
+  return (s.length === 1 && s[0].owned && !s[0].sym && (s[0].subtype === 'Circle' || s[0].subtype === 'Square' || isVertexShape(s[0]) || (s[0].subtype === 'FreeText' && s[0].box))) ? s[0] : null;
 }
 
 /* ---------- selection and hit testing ---------- */
@@ -2018,7 +2217,8 @@ function hitTest(p, pt) {
 }
 function handleAt(a, p, clientX, clientY) {
   var r = p.el.getBoundingClientRect(), s = r.width / p.vp.width || 1;
-  var vx = (clientX - r.left) / s, vy = (clientY - r.top) / s, vr = viewRect(p, a.rect);
+  var vx = (clientX - r.left) / s, vy = (clientY - r.top) / s, vr = viewRect(p, a.subtype === 'FreeText' && a.box ? a.box : a.rect);
+  if (a.subtype === 'FreeText' && a.tip) { var tv = toView(p, a.tip[0], a.tip[1]); if (Math.hypot(vx - tv[0], vy - tv[1]) <= 14) return 'tip'; }
   if (isVertexShape(a)) {
     for (var k = a.vertices.length - 1; k >= 0; k--) { var v = toView(p, a.vertices[k][0], a.vertices[k][1]); if (Math.hypot(vx - v[0], vy - v[1]) <= 14) return 'v' + k; }
     return null;
@@ -2108,6 +2308,8 @@ function pinchClear(g) {
 }
 function onDown(e) {
   if (!state.pdf) return;
+  if (e.target.closest && e.target.closest('#textEdit')) return; // typing in a text box
+  if (state.editing) { closeTextEditor(); if (e.pointerType !== 'touch' || state.fingerDraw) { e.preventDefault(); return; } }
   var isTouch = e.pointerType === 'touch';
   ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
   try { viewer.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
@@ -2130,6 +2332,7 @@ function onDown(e) {
   }
   var p = state.pages[+pageEl.dataset.index], pt = toPdf(p, e.clientX, e.clientY);
   var T = TOOLS[state.tool];
+  if (T && T.eraser) { gesture = { mode: 'erase', id: e.pointerId, p: p, hist: false, n: 0 }; eraseAt(gesture, pt); return; }
   if (T && T.symbol) {
     var sa = newAnnot(state.tool, p.index, pt);
     p.temp = sa; gesture = { mode: 'place', id: e.pointerId, p: p, a: sa };
@@ -2146,16 +2349,18 @@ function onDown(e) {
   }
   if (state.tool === 'select') {
     var single = singleResizable(), h = single && single.pageIndex === p.index ? handleAt(single, p, e.clientX, e.clientY) : null;
-    if (h) { pushHistory(); gesture = { mode: 'resize', id: e.pointerId, a: single, handle: h, p: p, vr0: viewRect(p, single.rect) }; return; }
+    if (h) { pushHistory(); gesture = { mode: 'resize', id: e.pointerId, a: single, handle: h, p: p, vr0: viewRect(p, single.subtype === 'FreeText' && single.box ? single.box : single.rect) }; return; }
 
     var hit = hitTest(p, pt);
     if (hit) {
       var grp = membersOf(hit), drill = !isMulti() && grp.length > 1 && state.sel.has(hit.id) && state.sel.size === grp.length && grp.every(function (m) { return state.sel.has(m.id); });
+      var wasSel = state.sel.has(hit.id);
       if (!state.sel.has(hit.id)) selectAnnot(hit, isMulti());
       var items = selected().filter(function (a) { return a.owned && a.pageIndex === p.index; }).map(function (a) {
-        return { a: a, rect0: a.rect.slice(), ink0: a.inkList ? a.inkList.map(function (l) { return l.map(function (q) { return q.slice(); }); }) : null, v0: a.vertices ? a.vertices.map(function (q) { return q.slice(); }) : null };
+        return { a: a, rect0: a.rect.slice(), ink0: a.inkList ? a.inkList.map(function (l) { return l.map(function (q) { return q.slice(); }); }) : null, v0: a.vertices ? a.vertices.map(function (q) { return q.slice(); }) : null, box0: a.box ? a.box.slice() : null, tip0: a.tip ? a.tip.slice() : null };
       });
-      gesture = { mode: 'move', id: e.pointerId, p: p, start: pt, items: items, moved: false, drill: drill ? hit : null };
+      var editTxt = hit.subtype === 'FreeText' && hit.owned && hit.box && state.sel.size === 1 && state.sel.has(hit.id) && wasSel;
+      gesture = { mode: 'move', id: e.pointerId, p: p, start: pt, items: items, moved: false, drill: drill ? hit : null, editText: editTxt ? hit : null };
     } else {
       // Empty space: drag a box to select several markups.
       if (!isMulti()) clearSel();
@@ -2202,6 +2407,11 @@ function onMove(e) {
     } else if (an.subtype === 'Line') {
       an.vertices = [gesture.start, toPdf(p, e.clientX, e.clientY)];
       updateGeom(an);
+    } else if (an.subtype === 'FreeText') {
+      var qt = toPdf(p, e.clientX, e.clientY), st0 = gesture.start;
+      if (an.tip) { var dw = defaultTextBox(an); an.box = [qt[0], qt[1] - dw[1], qt[0] + dw[0], qt[1]]; }
+      else an.box = [Math.min(st0[0], qt[0]), Math.min(st0[1], qt[1]), Math.max(st0[0], qt[0]), Math.max(st0[1], qt[1])];
+      an.rect = MarkupIO.ftBounds(an);
     } else {
       var q2 = toPdf(p, e.clientX, e.clientY), s = gesture.start;
       an.rect = [Math.min(s[0], q2[0]), Math.min(s[1], q2[1]), Math.max(s[0], q2[0]), Math.max(s[1], q2[1])];
@@ -2215,6 +2425,9 @@ function onMove(e) {
     var mq = $('#marq'); mq.hidden = false; mq.classList.toggle('cross', mc[0] < ms[0]);
     mq.style.left = Math.min(ms[0], mc[0]) + 'px'; mq.style.top = Math.min(ms[1], mc[1]) + 'px';
     mq.style.width = Math.abs(mc[0] - ms[0]) + 'px'; mq.style.height = Math.abs(mc[1] - ms[1]) + 'px';
+  } else if (gesture.mode === 'erase') {
+    var evs2 = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; if (!evs2.length) evs2 = [e];
+    evs2.forEach(function (ev) { eraseAt(gesture, toPdf(p, ev.clientX, ev.clientY)); });
   } else if (gesture.mode === 'place') {
     centerSym(gesture.a, toPdf(p, e.clientX, e.clientY)); drawOverlay(p);
   } else if (gesture.mode === 'poly') {
@@ -2229,6 +2442,8 @@ function onMove(e) {
       it.a.rect = [it.rect0[0] + dx, it.rect0[1] + dy, it.rect0[2] + dx, it.rect0[3] + dy];
       if (it.ink0) it.a.inkList = it.ink0.map(function (l) { return l.map(function (q) { return [q[0] + dx, q[1] + dy]; }); });
       if (it.v0) { it.a.vertices = it.v0.map(function (q) { return [q[0] + dx, q[1] + dy]; }); updateGeom(it.a); }
+      if (it.box0) it.a.box = [it.box0[0] + dx, it.box0[1] + dy, it.box0[2] + dx, it.box0[3] + dy];
+      if (it.tip0) it.a.tip = [it.tip0[0] + dx, it.tip0[1] + dy];
       if (!it.a.isNew) { it.a.geomDirty = true; it.a.dirty = true; }
     });
     if (!gesture.synced) { gesture.synced = true; syncCanvasHidden(); }
@@ -2238,6 +2453,10 @@ function onMove(e) {
     av.vertices[vi] = toPdf(p, e.clientX, e.clientY); updateGeom(av);
     if (!av.isNew) { av.geomDirty = true; av.dirty = true; }
     drawOverlay(p);
+  } else if (gesture.mode === 'resize' && gesture.handle === 'tip') {
+    var at3 = gesture.a; at3.tip = toPdf(p, e.clientX, e.clientY); at3.rect = MarkupIO.ftBounds(at3);
+    if (!at3.isNew) { at3.geomDirty = true; at3.dirty = true; }
+    drawOverlay(p);
   } else if (gesture.mode === 'resize') {
     var r = p.el.getBoundingClientRect(), sc = r.width / p.vp.width || 1;
     var vx = (e.clientX - r.left) / sc, vy = (e.clientY - r.top) / sc, vr = gesture.vr0.slice(), hnd = gesture.handle;
@@ -2245,7 +2464,8 @@ function onMove(e) {
     if (hnd.indexOf('n') >= 0) vr[1] = vy; else vr[3] = vy;
     var nr = pdfRectFromView(p, vr), an2 = gesture.a;
     if (nr[2] - nr[0] < 2) nr[2] = nr[0] + 2; if (nr[3] - nr[1] < 2) nr[3] = nr[1] + 2;
-    an2.rect = nr; if (!an2.isNew) { an2.geomDirty = true; an2.dirty = true; }
+    if (an2.subtype === 'FreeText' && an2.box) { an2.box = nr; fitTextBox(an2, true); } else an2.rect = nr;
+    if (!an2.isNew) { an2.geomDirty = true; an2.dirty = true; }
     drawOverlay(p);
   }
 }
@@ -2262,8 +2482,10 @@ function onUp(e) {
   var g2 = gesture; gesture = null;
   if (g2.mode === 'poly') { polyPointUp(g2, toPdf(g2.p, e.clientX, e.clientY)); return; }
   if (g2.mode === 'place') { placeSymbol(g2); return; }
+  if (g2.mode === 'erase') { g2.p.eraser = null; drawOverlay(g2.p); if (g2.n) { markUnsaved(); renderList(); renderProps(); } return; }
   if (g2.mode === 'marquee') { finishMarquee(g2); return; }
   if (g2.mode === 'draw') finishDraw(g2);
+  else if (g2.mode === 'move' && !g2.moved && g2.editText) openTextEditor(g2.editText);
   else if (g2.mode === 'move' && !g2.moved && g2.drill) {
     // Tapping a markup in a group that is already selected picks just that one markup.
     state.sel = new Set([g2.drill.id]); afterSelectionChange();
@@ -2285,7 +2507,19 @@ function newAnnot(tool, pageIndex, pt) {
     contents: chest ? (chest.contents || '') : '',
     author: state.author, date: new Date().toISOString(), parentId: null, nm: MarkupIO.makeNM()
   };
-  if (T.symbol) {
+  a.le = T.le ? T.le.slice() : null;
+  if (T.cloud) { a.cloud = true; a.cr = clamp(defaultLabelSize(pageIndex) * 0.9, 5, 24); }
+  if (T.highlighter) { a.highlight = true; a.opacity = Math.min(st.opacity, 0.45); a.lineWidth = Math.max(st.lineWidth, 8); }
+  if (T.text) {
+    a.box = [pt[0], pt[1], pt[0], pt[1]]; a.fs = clamp(+state.textSize || 12, 4, 72); a.textColor = state.sym.textColor || null;
+    a.tip = T.callout ? pt.slice() : null; a.contents = chest ? (chest.contents || '') : '';
+  }
+  if (T.stamp) {
+    var stx = String(state.sym.stampText || 'APPROVED').toUpperCase(), sth = clamp(+state.sym.stampSize || 20, 8, 96), sd = MarkupIO.stampDims(stx, sth);
+    a.subtype = 'Stamp'; a.fillColor = null;
+    a.sym = { shape: 'stamp', size: sd[0], height: sd[1], label: stx, textColor: state.sym.textColor || null, n: null, series: null, prefix: '' };
+    centerSym(a, pt);
+  } else if (T.symbol) {
     var sy = state.sym, size = clamp(+sy.size || 18, 4, 144);
     a.subtype = MarkupIO.SYM_SUB[sy.shape] || 'Circle';
     a.sym = { shape: sy.shape || 'circle', size: size, height: MarkupIO.SYM_WIDE[sy.shape] ? clamp(+sy.height || 12, 4, 144) : null, label: T.numbered ? '' : (sy.label || ''), textColor: sy.textColor || null, n: null, series: null, prefix: '' };
@@ -2384,11 +2618,88 @@ function finishDraw(g) {
   var min = 6 / state.zoom, ok;
   if (a.subtype === 'Ink') { ok = a.inkList[0].length >= 2 && (a.rect[2] - a.rect[0] > min || a.rect[3] - a.rect[1] > min); }
   else if (a.subtype === 'Line') ok = polyLength(a.vertices) > min;
+  else if (a.subtype === 'FreeText') {
+    // A tap makes a box of the default size; a callout without a drag puts the box up and to the right.
+    var dw = defaultTextBox(a), bx = a.box;
+    if (a.tip && Math.hypot(bx[0] - a.tip[0], bx[3] - a.tip[1]) < 3 * min) a.box = [a.tip[0] + dw[1] * 1.5, a.tip[1] + dw[1], a.tip[0] + dw[1] * 1.5 + dw[0], a.tip[1] + dw[1] * 2];
+    else if (!a.tip && (bx[2] - bx[0] < min || bx[3] - bx[1] < min)) a.box = [g.start[0], g.start[1] - dw[1], g.start[0] + dw[0], g.start[1]];
+    fitTextBox(a, true); ok = true;
+  }
   else ok = (a.rect[2] - a.rect[0]) > min && (a.rect[3] - a.rect[1]) > min;
   if (!ok) { drawOverlay(p); return; }
+  if (a.subtype === 'FreeText') { commitNew(a); openTextEditor(a); return; }
   if (TOOLS[state.tool] && TOOLS[state.tool].calibrate) { drawOverlay(p); finishCalibrateLine(p, polyLength(a.vertices)); return; }
   commitNew(a);
 }
+/* ---------- text boxes and callouts ---------- */
+function defaultTextBox(a) { var f = +a.fs || 12, pad = Math.max(3, f * 0.35); return [f * 12, f * 1.2 + pad * 2]; }
+// Make the box tall enough for its text (keeps the top where it is). grow: only ever enlarge.
+function fitTextBox(a, grow) {
+  var L0 = MarkupIO.ftLayout(a), need = Math.max(1, L0.lines.length) * L0.size * 1.2 + L0.pad * 2, b = a.box, r = a.rot || 0;
+  if (!grow || need > L0.H) {
+    if (r === 0) a.box = [b[0], b[3] - need, b[2], b[3]];
+    else if (r === 180) a.box = [b[0], b[1], b[2], b[1] + need];
+    else if (r === 90) a.box = [b[0], b[1], b[0] + need, b[3]];
+    else a.box = [b[2] - need, b[1], b[2], b[3]];
+  }
+  a.rect = MarkupIO.ftBounds(a);
+}
+function openTextEditor(a) {
+  var p = state.pages[a.pageIndex]; if (!p) return;
+  if (state.editing && state.editing !== a) closeTextEditor();
+  var ta = $('#textEdit'), z = state.zoom, L0 = MarkupIO.ftLayout(a);
+  state.editing = a; state.sel = new Set([a.id]);
+  ta.value = a.contents || '';
+  ta.style.fontSize = (L0.size * z) + 'px'; ta.style.lineHeight = (L0.size * 1.2 * z) + 'px'; ta.style.padding = (L0.pad * z) + 'px';
+  ta.style.color = a.textColor || rgbToHex(a.color || [0, 0, 0]);
+  placeTextEditor(); ta.hidden = false; ta.focus();
+  afterSelectionChange();
+}
+function placeTextEditor() {
+  var a = state.editing, ta = $('#textEdit'); if (!a) return;
+  var p = state.pages[a.pageIndex], vb = viewRect(p, a.box);
+  ta.style.left = (p.el.offsetLeft + vb[0]) + 'px'; ta.style.top = (p.el.offsetTop + vb[1]) + 'px';
+  ta.style.width = Math.max(40, vb[2] - vb[0]) + 'px'; ta.style.height = Math.max(24, vb[3] - vb[1]) + 'px';
+}
+function closeTextEditor() {
+  var a = state.editing, ta = $('#textEdit'); if (!a) return;
+  state.editing = null; ta.hidden = true; ta.blur();
+  if (!String(a.contents || '').trim() && a.isNew) { var i = state.annots.indexOf(a); if (i >= 0) state.annots.splice(i, 1); state.sel = new Set(); }
+  var p = state.pages[a.pageIndex]; if (p) drawOverlay(p);
+  markUnsaved(); renderList(); renderProps();
+}
+$('#textEdit').addEventListener('input', function () {
+  var a = state.editing; if (!a) return;
+  pushHistory('text:' + a.id);
+  a.contents = $('#textEdit').value; fitTextBox(a, true);
+  if (!a.isNew) { a.dirty = true; a.geomDirty = true; }
+  placeTextEditor(); drawOverlay(state.pages[a.pageIndex]);
+});
+$('#textEdit').addEventListener('blur', function () { setTimeout(function () { if (state.editing && document.activeElement !== $('#textEdit')) closeTextEditor(); }, 120); });
+$('#textEdit').addEventListener('keydown', function (e) { if (e.key === 'Escape') { e.stopPropagation(); closeTextEditor(); } });
+
+/* ---------- eraser: removes pen and highlighter strokes it touches ---------- */
+function segDist(q, a, b) {
+  var dx = b[0] - a[0], dy = b[1] - a[1], l2 = dx * dx + dy * dy, t = l2 ? clamp(((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l2, 0, 1) : 0;
+  return Math.hypot(q[0] - (a[0] + t * dx), q[1] - (a[1] + t * dy));
+}
+function eraseAt(g, q) {
+  var p = g.p, tol = 10 / state.zoom, hit = false;
+  p.eraser = q;
+  live().slice().forEach(function (a) {
+    if (a.pageIndex !== p.index || a.subtype !== 'Ink' || !a.owned) return;
+    var r = a.rect, t = tol + (a.lineWidth || 1) / 2;
+    if (q[0] < r[0] - t || q[0] > r[2] + t || q[1] < r[1] - t || q[1] > r[3] + t) return;
+    var touch = (a.inkList || []).some(function (l) { for (var i = 1; i < l.length; i++) if (segDist(q, l[i - 1], l[i]) <= t) return true; return l.length === 1 && Math.hypot(q[0] - l[0][0], q[1] - l[0][1]) <= t; });
+    if (!touch) return;
+    if (!g.hist) { pushHistory(); g.hist = true; }
+    if (a.isNew) state.annots.splice(state.annots.indexOf(a), 1); else a.deleted = true;
+    state.sel.delete(a.id); g.n++; hit = true;
+  });
+  drawOverlay(p);
+  if (hit) syncCanvasHidden();
+}
+
 function commitNew(a) {
   pushHistory();
   state.annots.push(a);
@@ -2473,7 +2784,10 @@ function applyToSelection(patch, tag) {
         a.color = hexToRgb(v); if (follows) a.fillColor = hexToRgb(v); if (!a.isNew) a.styleDirty = true;
       }
       else if (k === 'fill') { if (MarkupIO.FILLABLE.has(a.subtype)) { a.fillColor = v ? (a.fillColor || a.color || hexToRgb(state.style.color)) : null; if (!a.isNew) a.styleDirty = true; } }
-      else if (k === 'textColor') { if (a.sym && a.owned) { a.sym = Object.assign({}, a.sym, { textColor: v }); if (!a.isNew) a.styleDirty = true; } }
+      else if (k === 'textColor') {
+        if (a.sym && a.owned) { a.sym = Object.assign({}, a.sym, { textColor: v }); if (!a.isNew) a.styleDirty = true; }
+        else if (a.subtype === 'FreeText' && a.owned) { a.textColor = v; if (!a.isNew) a.styleDirty = true; }
+      }
       else if (k === 'fillColor') { if (MarkupIO.FILLABLE.has(a.subtype)) { a.fillColor = v ? hexToRgb(v) : (a.color || hexToRgb(state.style.color)); if (!a.isNew) a.styleDirty = true; } }
       else if (k === 'subject' || k === 'contents') { a[k] = v; }
       else { a[k] = v; if (!a.isNew) a.styleDirty = true; }
@@ -2630,7 +2944,7 @@ function buildStyleControls(root, get, set, open) {
   return { sync: sync };
 }
 var styleNew = buildStyleControls($('#styleNew'), function () {
-  return Object.assign({}, state.style, { textColor: state.sym.textColor || null, hasText: !!(TOOLS[state.tool] && TOOLS[state.tool].symbol) });
+  return Object.assign({}, state.style, { textColor: state.sym.textColor || null, hasText: !!(TOOLS[state.tool] && (TOOLS[state.tool].symbol || TOOLS[state.tool].text)) });
 }, function (patch) {
   if ('textColor' in patch) { state.sym.textColor = patch.textColor; delete patch.textColor; }
   Object.assign(state.style, patch); savePrefs(); updateStyleChip();
@@ -2638,26 +2952,29 @@ var styleNew = buildStyleControls($('#styleNew'), function () {
 var styleSel = buildStyleControls($('#styleSel'), function () {
   var s = selected(); if (!s.length) return null; var a = s[0];
   var lineHex = rgbToHex(a.color || [0, 0, 0]), fillHex = a.fillColor ? rgbToHex(a.fillColor) : null;
-  var syms = s.filter(function (x) { return x.sym && x.owned; });
-  return { textColor: syms.length ? syms[0].sym.textColor || null : null, hasText: syms.length > 0,
+  var syms = s.filter(function (x) { return x.sym && x.owned; }), txts = s.filter(function (x) { return x.subtype === 'FreeText' && x.owned; });
+  return { textColor: syms.length ? syms[0].sym.textColor || null : txts.length ? txts[0].textColor || null : null, hasText: syms.length + txts.length > 0,
     color: lineHex, fill: !!a.fillColor, fillColor: fillHex && fillHex.toUpperCase() !== lineHex.toUpperCase() ? fillHex.toUpperCase() : null, highlight: !!a.highlight, fillOpacity: a.fillOpacity, lineWidth: a.lineWidth, opacity: a.opacity };
 }, function (patch) { applyToSelection(patch, 'style:' + Object.keys(patch)[0]); }, false);
 function bindSymControls(root, get, set) {
   root.addEventListener('input', function (e) {
     var k = e.target.dataset.s; if (!k) return;
-    set(k, k === 'size' || k === 'height' ? +e.target.value : e.target.value); sync();
+    set(k, k === 'size' || k === 'height' || k === 'stampSize' ? +e.target.value : e.target.value); sync();
   });
   function sync(tool) {
     var s = get(); if (!s) return;
     if (!s.height) s.height = Math.round((+s.size || 18) * 0.6);
     root.querySelectorAll('[data-s]').forEach(function (el) { var k = el.dataset.s; if (document.activeElement !== el) el.value = s[k] == null ? '' : s[k]; if (el.type === 'range') { paintRange(el); el.nextElementSibling.value = s[k] + ' pt'; } });
-    if (tool) root.querySelectorAll('[data-only]').forEach(function (el) { el.hidden = el.dataset.only !== tool; });
+    if (tool) root.querySelectorAll('[data-only]').forEach(function (el) { el.hidden = el.dataset.only.split(' ').indexOf(tool) < 0; });
     var wide = !!MarkupIO.SYM_WIDE[s.shape];
     root.querySelectorAll('[data-wide]').forEach(function (el) { el.hidden = !wide; });
+    if (tool) root.querySelectorAll('[data-not]').forEach(function (el) { if (el.dataset.not.split(' ').indexOf(tool) >= 0) el.hidden = true; else if (!el.hasAttribute('data-wide')) el.hidden = false; });
     root.querySelectorAll('[data-size-lbl]').forEach(function (el) { el.textContent = wide ? 'Width' : 'Size'; });
   }
   return { sync: sync };
 }
+$('#stampList').innerHTML = STAMPS.map(function (t) { return '<option value="' + t + '">'; }).join('');
+$('#textSize').addEventListener('input', function (e) { state.textSize = +e.target.value; e.target.nextElementSibling.value = state.textSize + ' pt'; savePrefs(); });
 var symNew = bindSymControls($('#symNew'), function () { return state.sym; }, function (k, v) { state.sym[k] = v; savePrefs(); });
 function updateStyleChip() {
   var chip = $('#btnStyle'); chip.style.setProperty('--c', state.style.color); chip.style.setProperty('--f', state.style.fillColor || state.style.color); chip.classList.toggle('nofill', !state.style.fill);
@@ -2997,7 +3314,9 @@ function applyChestTool(set, t) {
     opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth == null ? 1 : t.lineWidth, 0, 12), highlight: !!t.highlight
   });
   // A numbered tool has no label of its own, so keep the plain Symbol tool's label.
-  if (t.sym) state.sym = { shape: t.sym.shape || 'circle', size: t.sym.size || 18, height: t.sym.height || state.sym.height || 12, label: t.sym.numbered ? state.sym.label : (t.sym.label || ''), textColor: t.sym.textColor || null };
+  if (t.fs) state.textSize = t.fs;
+  if (t.sym && t.sym.shape === 'stamp') { state.sym.stampText = t.sym.label || state.sym.stampText; state.sym.stampSize = t.sym.height || state.sym.stampSize; state.sym.textColor = t.sym.textColor || null; }
+  else if (t.sym) state.sym = { shape: t.sym.shape || 'circle', size: t.sym.size || 18, height: t.sym.height || state.sym.height || 12, label: t.sym.numbered ? state.sym.label : (t.sym.label || ''), textColor: t.sym.textColor || null };
   savePrefs(); updateStyleChip(); styleNew.sync(); renderChest(); updateSeqBar();
   if (t.sym) { toast(t.title + ': tap to place' + (t.sym.numbered ? ' 1, 2, 3...' : '') + '.'); return; }
   toast(t.title + ': draw with the ' + (TOOLS[t.drawTool] ? TOOLS[t.drawTool].name : 'Circle') + ' tool');
@@ -3062,11 +3381,11 @@ $('#btnNewTool').addEventListener('click', function () { openToolEditor(null, nu
 $('#btnSaveTool').addEventListener('click', function () { $('#stylePop').hidden = true; openToolEditor(null, null); });
 
 /* ---------- tool editor ---------- */
-var DRAWABLE = ['circle', 'rect', 'polygon', 'pen', 'length', 'area', 'perimeter', 'symbol', 'numbered'];
+var DRAWABLE = ['circle', 'rect', 'polygon', 'pen', 'highlighter', 'line', 'arrow', 'cloud', 'text', 'callout', 'length', 'area', 'perimeter', 'symbol', 'numbered', 'stamp'];
 var editor = null;
 $('#tType').innerHTML = DRAWABLE.map(function (k) { return '<option value="' + k + '">' + esc(TOOLS[k].name) + '</option>'; }).join('');
 var styleTool = buildStyleControls($('#styleTool'), function () {
-  return editor && Object.assign({}, editor.style, { textColor: editor.sym.textColor || null, hasText: !!TOOLS[$('#tType').value].symbol });
+  return editor && Object.assign({}, editor.style, { textColor: editor.sym.textColor || null, hasText: !!(TOOLS[$('#tType').value].symbol || TOOLS[$('#tType').value].text) });
 }, function (patch) {
   if (!editor) return;
   if ('textColor' in patch) { editor.sym.textColor = patch.textColor; delete patch.textColor; }
@@ -3092,6 +3411,7 @@ function openToolEditor(set, tool) {
   var cur = DRAWABLE.indexOf(state.tool) >= 0 ? state.tool : 'circle';
   if (tool) {
     editor = { set: set, tool: tool, style: styleFromTool(tool), sym: Object.assign({}, state.sym, { textColor: null }, tool.sym || {}) };
+    if (tool.sym && tool.sym.shape === 'stamp') Object.assign(editor.sym, { shape: state.sym.shape, size: state.sym.size, height: state.sym.height, stampText: tool.sym.label, stampSize: tool.sym.height });
     $('#toolTitle').textContent = 'Edit tool';
     $('#tName').value = tool.title || '';
     $('#tType').value = tool.drawTool || ToolChest.drawToolFor(tool.subtype, tool.intent) || 'circle';
@@ -3123,11 +3443,13 @@ function closeToolEditor() { $('#toolModal').hidden = true; editor = null; }
 /* The tool as it would be saved from the editor's current settings. */
 function editorFields() {
   var type = $('#tType').value, T = TOOLS[type], st = editor.style;
-  var symSub = T.symbol ? (MarkupIO.SYM_SUB[editor.sym.shape] || 'Circle') : null;
+  var symSub = T.stamp ? 'Stamp' : T.symbol ? (MarkupIO.SYM_SUB[editor.sym.shape] || 'Circle') : null;
   return {
     title: $('#tName').value.trim() || $('#tSubject').value.trim() || T.name,
     subtype: symSub || T.sub, intent: T.intent || '', drawTool: type, supported: true,
-    sym: T.symbol ? { shape: editor.sym.shape || 'circle', size: clamp(+editor.sym.size || 18, 4, 144), height: MarkupIO.SYM_WIDE[editor.sym.shape] ? clamp(+editor.sym.height || 12, 4, 144) : null, label: T.numbered ? '' : (editor.sym.label || ''), textColor: editor.sym.textColor || null, numbered: !!T.numbered } : null,
+    fs: T.text ? state.textSize : null,
+    sym: T.stamp ? (function () { var tx = String(editor.sym.stampText || 'APPROVED').toUpperCase(), d = MarkupIO.stampDims(tx, clamp(+editor.sym.stampSize || 20, 8, 96)); return { shape: 'stamp', size: d[0], height: d[1], label: tx, textColor: editor.sym.textColor || null }; })()
+      : T.symbol ? { shape: editor.sym.shape || 'circle', size: clamp(+editor.sym.size || 18, 4, 144), height: MarkupIO.SYM_WIDE[editor.sym.shape] ? clamp(+editor.sym.height || 12, 4, 144) : null, label: T.numbered ? '' : (editor.sym.label || ''), textColor: editor.sym.textColor || null, numbered: !!T.numbered } : null,
     color: hexToRgb(st.color), fillColor: st.fill && MarkupIO.FILLABLE.has(symSub || T.sub) ? hexToRgb(st.fillColor || st.color) : null,
     fillOpacity: st.fillOpacity, opacity: st.opacity, lineWidth: st.lineWidth, highlight: !!st.highlight,
     subject: $('#tSubject').value.trim(), contents: $('#tContents').value, fav: $('#tFav').checked, icon: null
@@ -3170,6 +3492,17 @@ function previewSVG(f) {
     case 'rect': body = '<rect x="68" y="28" width="184" height="84"' + fillA + strokeA + '/>'; break;
     case 'polygon': body = '<path d="M74 110 92 32 196 22 252 74 188 118Z"' + fillA + strokeA + '/>'; break;
     case 'pen': body = '<path d="M50 104C86 18 118 124 160 64S226 30 270 84"' + ' fill="none"' + strokeA + '/>'; break;
+    case 'highlighter': body = '<path d="M50 70H270"' + ' fill="none" stroke="' + stroke + '" stroke-opacity="' + Math.min(f.opacity, 0.45) + '" stroke-width="' + Math.max(18, lw * 3) + '" stroke-linecap="round" class="hl"/>'; break;
+    case 'line': body = '<path d="M60 110 260 30"' + ' fill="none"' + strokeA + '/>'; break;
+    case 'arrow': body = '<path d="M60 110 260 30M238 26 260 30 252 50"' + ' fill="none"' + strokeA + '/>'; break;
+    case 'cloud': { var cc = MarkupIO.cloudCurves([[70, 112], [250, 112], [250, 28], [70, 28]], 12); body = '<path d="M' + cc[0][0].join(' ') + cc.map(function (q) { return 'C' + q[1].join(' ') + ' ' + q[2].join(' ') + ' ' + q[3].join(' '); }).join('') + 'Z"' + fillA + strokeA + '/>'; break; }
+    case 'text': case 'callout': {
+      var tcl = f.sym && f.sym.textColor || (editor && editor.sym.textColor) || stroke, bxx = f.drawTool === 'callout' ? 130 : 70;
+      body = '<rect x="' + bxx + '" y="36" width="150" height="50"' + fillA + strokeA + '/><text x="' + (bxx + 10) + '" y="66" font-size="' + Math.min(26, (f.fs || 12) * 1.6) + '" font-family="Helvetica, Arial, sans-serif" fill="' + tcl + '">Text</text>' +
+        (f.drawTool === 'callout' ? '<path d="M130 70 60 112M70 98 60 112 76 110" fill="none"' + strokeA + '/>' : '');
+      break;
+    }
+    case 'stamp': body = pvSymbol(f, PV_W / 2, null).svg; break;
     case 'length': body = '<path d="M60 92H260M60 80V104M260 80V104"' + ' fill="none"' + strokeA + '/>' + label(160, 70, "12'-6\""); break;
     case 'area': body = '<path d="M64 112 80 30H230L262 112Z"' + fillA + strokeA + '/>' + label(163, 74, '245.50 sf'); break;
     case 'perimeter': body = '<path d="M50 112 98 34 190 58 270 30"' + ' fill="none"' + strokeA + '/>' + label(160, 100, "36'-4\""); break;
@@ -3184,7 +3517,7 @@ function updateToolPreview() {
     pvQueued = false; if (!editor) return;
     var f = editorFields(), T = TOOLS[f.drawTool];
     $('#tPreviewArt').innerHTML = previewSVG(f);
-    var note = f.sym ? symSizeText(f.sym) + ' on the sheet' : (T.measure ? 'example measurement' : T.name);
+    var note = f.drawTool === 'stamp' ? Math.round(f.sym.height) + ' pt tall' : f.sym ? symSizeText(f.sym) + ' on the sheet' : T.text ? (f.fs || 12) + ' pt text' : (T.measure ? 'example measurement' : T.name);
     $('#tPreviewCap').innerHTML = '<b>' + esc(f.title) + (f.subject && f.subject !== f.title ? ' · ' + esc(f.subject) : '') + '</b><span>' + esc(note) + '</span>';
   });
 }
@@ -3454,7 +3787,12 @@ $$('.topbar [data-tool]').forEach(function (b) {
 });
 $('#btnStyle').addEventListener('click', function (e) {
   e.stopPropagation(); var pop = $('#stylePop'); pop.hidden = !pop.hidden;
-  if (!pop.hidden) { styleNew.sync(); var isSym = !!(TOOLS[state.tool] && TOOLS[state.tool].symbol); $('#symNew').hidden = !isSym; if (isSym) symNew.sync(state.tool); fitPop(pop); }
+  if (!pop.hidden) {
+    styleNew.sync(); var isSym = !!(TOOLS[state.tool] && TOOLS[state.tool].symbol); $('#symNew').hidden = !isSym; if (isSym) symNew.sync(state.tool);
+    var isTxt = !!(TOOLS[state.tool] && TOOLS[state.tool].text); $('#textNew').hidden = !isTxt;
+    if (isTxt) { $('#textSize').value = state.textSize; paintRange($('#textSize')); $('#textSize').nextElementSibling.value = state.textSize + ' pt'; }
+    fitPop(pop);
+  }
 });
 document.addEventListener('pointerdown', function (e) {
   var pop = $('#stylePop'); if (!pop.hidden && !pop.contains(e.target) && !$('#btnStyle').contains(e.target)) pop.hidden = true;
@@ -3472,7 +3810,7 @@ $('#btnPanel').addEventListener('click', function () { var p = $('#panel'); p.hi
 $('#btnClosePanel').addEventListener('click', function () { $('#panel').hidden = true; renderVisible(); });
 $('#author').addEventListener('input', function (e) { state.author = e.target.value; savePrefs(); });
 
-var KEY_TOOL = { v: 'select', c: 'circle', r: 'rect', g: 'polygon', p: 'pen', l: 'length', a: 'area', e: 'perimeter', s: 'symbol', n: 'numbered' };
+var KEY_TOOL = { v: 'select', c: 'circle', r: 'rect', g: 'polygon', p: 'pen', l: 'length', a: 'area', e: 'perimeter', s: 'symbol', n: 'numbered', t: 'text', k: 'callout', h: 'highlighter', x: 'eraser', i: 'line', w: 'arrow', o: 'cloud', m: 'stamp' };
 document.addEventListener('keydown', function (e) {
   var tag = (e.target.tagName || '').toLowerCase();
   state.multi = e.shiftKey || e.metaKey || e.ctrlKey;
