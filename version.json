@@ -1,5 +1,5 @@
 {
-  "version": "1.8.0",
+  "version": "1.9.0",
   "date": "2026-11-09",
-  "notes": "Groups: tap a grouped markup again to pick just that one; Remove from group; Add to group; Merge groups. List rows inside a group select a single markup."
+  "notes": "The app now keeps the open PDF and all markups (even unsaved ones) on the iPad. Updating, reloading or reopening the app brings back the last file exactly where you left off, and Update no longer loses markups."
 }

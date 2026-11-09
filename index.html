@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.8.0">
+<meta name="app-version" content="1.9.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -1329,7 +1329,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.8.0';
+var APP_VERSION = '1.9.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1360,7 +1360,7 @@ var state = {
   annots: [], sel: new Set(), history: [], future: [], fingerDraw: false, author: '',
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
   chestSets: [], chestTool: null, pendingSave: null,
-  scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null,
+  scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null, docId: null,
   sym: { shape: 'circle', size: 18, height: 12, label: 'A', textColor: null }, series: { defs: {}, cur: null }
 };
 
@@ -1563,20 +1563,115 @@ function updateUndoButtons() { $('#btnUndo').disabled = !state.history.length; $
 function markUnsaved() {
   state.unsaved = state.annots.some(function (a) { return a.isNew ? !a.deleted : (a.dirty || a.deleted); }) || groupsChanged() || state.scaleDirty.size > 0;
   $('#btnSave').classList.toggle('unsaved', state.unsaved);
+  scheduleKeep();
 }
 var groupBaseline = '';
 function groupKey() { return live().map(function (a) { return a.id + '>' + (a.parentId || ''); }).sort().join('|'); }
 function groupsChanged() { return groupKey() !== groupBaseline; }
 
 /* ---------- loading and layout ---------- */
+/* ---------- keep the open file and work on the device ----------
+   The open PDF and the current markups (saved or not), zoom and scroll are kept in IndexedDB,
+   so an update, a reload or reopening the app brings back the same file exactly as it was. */
+var idb = (function () {
+  var dbp = null;
+  function open() {
+    if (!dbp) dbp = new Promise(function (res, rej) {
+      var r = indexedDB.open('pencil-markup', 1);
+      r.onupgradeneeded = function () { r.result.createObjectStore('kv'); };
+      r.onsuccess = function () { res(r.result); }; r.onerror = function () { rej(r.error); };
+    });
+    return dbp;
+  }
+  function tx(mode, fn) {
+    return open().then(function (db) {
+      return new Promise(function (res, rej) {
+        var t = db.transaction('kv', mode), req = fn(t.objectStore('kv'));
+        t.oncomplete = function () { res(req && req.result); };
+        t.onerror = function () { rej(t.error); }; t.onabort = function () { rej(t.error); };
+      });
+    });
+  }
+  return {
+    get: function (k) { return tx('readonly', function (st) { return st.get(k); }); },
+    set: function (k, v) { return tx('readwrite', function (st) { return st.put(v, k); }); },
+    del: function (k) { return tx('readwrite', function (st) { return st.delete(k); }); }
+  };
+})();
+var keep = { ok: true, timer: null, warned: false, restoring: false };
+async function storeDoc(bytes, name) {
+  state.docId = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+  try {
+    await idb.set('doc', { id: state.docId, name: name, bytes: bytes.slice(0), at: Date.now() });
+    keep.ok = true;
+  } catch (e) {
+    console.warn('Could not keep the file on this device', e);
+    state.docId = null; keep.ok = false;
+    if (!keep.warned) { keep.warned = true; toast('This PDF could not be kept on the device (storage is full or blocked), so it will not reopen automatically. Save it before updating.', 7000); }
+  }
+}
+function scheduleKeep() {
+  if (!state.pdf || !state.docId || keep.restoring) return;
+  clearTimeout(keep.timer); keep.timer = setTimeout(saveSession, 900);
+}
+async function saveSession() {
+  clearTimeout(keep.timer);
+  if (!state.pdf || !state.docId) return false;
+  var v = $('#viewer');
+  var ses = {
+    v: 1, docId: state.docId, name: state.fileName, annots: state.annots, scales: state.scales,
+    scaleDirty: Array.from(state.scaleDirty), series: state.series, nextId: state.nextId,
+    zoom: state.zoom, sx: v.scrollWidth ? v.scrollLeft / v.scrollWidth : 0, sy: v.scrollHeight ? v.scrollTop / v.scrollHeight : 0,
+    pendingExport: !!state.pendingSave, at: Date.now()
+  };
+  try { await idb.set('session', JSON.parse(JSON.stringify(ses))); keep.ok = true; return true; }
+  catch (e) { console.warn('Could not keep the markups on this device', e); keep.ok = false; return false; }
+}
+async function restoreLast() {
+  var doc = null, ses = null;
+  try { doc = await idb.get('doc'); } catch (e) { return; }
+  if (!doc || !doc.bytes) return;
+  try { ses = await idb.get('session'); } catch (e) { ses = null; }
+  keep.restoring = true;
+  setBusy('Reopening ' + doc.name + '…');
+  try {
+    state.docId = doc.id;
+    await loadPdf(new Uint8Array(doc.bytes), doc.name, {});
+    $('#empty').hidden = true; $('#btnSave').disabled = false;
+    if (ses && ses.docId === doc.id) {
+      state.annots = ses.annots || state.annots;
+      if (ses.scales) state.scales = ses.scales;
+      state.scaleDirty = new Set(ses.scaleDirty || []);
+      if (ses.series) state.series = ses.series;
+      if (ses.nextId) state.nextId = ses.nextId;
+      if (ses.zoom && Math.abs(ses.zoom - state.zoom) > 0.001) setZoom(ses.zoom);
+      var v = $('#viewer'); v.scrollLeft = (ses.sx || 0) * v.scrollWidth; v.scrollTop = (ses.sy || 0) * v.scrollHeight;
+      state.pages.forEach(drawOverlay);
+      markUnsaved(); renderList(); renderProps(); updateScaleButton(); updateSeqBar(); renderVisible();
+      if (ses.pendingExport) {
+        state.pendingSave = { bytes: state.bytes, name: state.fileName.replace(/\.pdf$/i, '') + '.pdf' };
+        $('#saveBarText').textContent = 'Markups are in the PDF but the file has not been saved or shared yet.';
+        $('#saveBar').hidden = false;
+      }
+    }
+    toast('Reopened ' + doc.name + (state.unsaved ? ' with your unsaved markups.' : '.'), 3500);
+  } catch (e) {
+    console.warn('Could not reopen the last file', e);
+    try { await idb.del('doc'); await idb.del('session'); } catch (e2) { /* ignore */ }
+  } finally { keep.restoring = false; setBusy(null); }
+}
+
 async function openFile(file) {
   if (!file) return;
   setBusy('Opening ' + file.name + '…');
   try {
     var buf = await file.arrayBuffer();
+    state.docId = null; // nothing is kept until the new file is stored
     await loadPdf(new Uint8Array(buf), file.name, {});
     $('#empty').hidden = true;
     $('#btnSave').disabled = false;
+    state.pendingSave = null; $('#saveBar').hidden = true;
+    await storeDoc(state.bytes, state.fileName); saveSession();
     toast(state.pdf.numPages + (state.pdf.numPages === 1 ? ' page, ' : ' pages, ') + live().length + ' existing markups');
   } catch (e) {
     console.error(e);
@@ -1666,7 +1761,7 @@ function setZoom(z, anchor) {
   state.zoom = z;
   state.pages.forEach(sizePage);
   viewer.scrollLeft = cx * ratio - ax; viewer.scrollTop = cy * ratio - ay;
-  updateZoomLabel(); renderVisible(); state.pages.forEach(drawOverlay);
+  updateZoomLabel(); renderVisible(); state.pages.forEach(drawOverlay); scheduleKeep();
 }
 function updateZoomLabel() { $('#zoomVal').textContent = Math.round(state.zoom * 100) + '%'; }
 
@@ -1922,7 +2017,7 @@ viewer.addEventListener('pointerdown', onDown);
 viewer.addEventListener('pointermove', onMove);
 viewer.addEventListener('pointerup', onUp);
 viewer.addEventListener('pointercancel', onUp);
-viewer.addEventListener('scroll', renderVisible, { passive: true });
+viewer.addEventListener('scroll', function () { renderVisible(); scheduleKeep(); }, { passive: true });
 window.addEventListener('resize', function () { renderVisible(); });
 
 function startPinch() {
@@ -2185,6 +2280,7 @@ function ensureSeries() {
   return newSeries('');
 }
 function updateSeqBar() {
+  scheduleKeep();
   var bar = $('#seqBar'), show = state.tool === 'numbered' && !!state.pdf;
   bar.hidden = !show; if (!show) return;
   var cur = ensureSeries(), list = allSeries();
@@ -2623,7 +2719,9 @@ async function savePdf() {
     state.scaleDirty.forEach(function (i) { scales[i] = state.scales[i] || null; });
     state.annots.forEach(function (a) { if (a.vertices && !a.deleted && (a.isNew || a.geomDirty || a.styleDirty)) updateGeom(a); });
     out = await MarkupIO.applyMarkups(state.bytes, state.annots, { author: state.author || '', scales: scales });
+    state.docId = null;
     await loadPdf(out, state.fileName, { keepScroll: true });
+    await storeDoc(out, state.fileName);
   } catch (e) {
     console.error(e); setBusy(null);
     toast('The markups could not be written: ' + (e && e.message ? e.message : 'unknown error'), 6000); return;
@@ -2633,7 +2731,9 @@ async function savePdf() {
   if (!(window.claude && window.claude.use)) {
     // Hosted outside claude.ai (for example GitHub Pages): share or download directly, from a tap.
     state.pendingSave = { bytes: out, name: outName };
+    $('#saveBarText').textContent = 'Markups written into the PDF.';
     $('#saveBar').hidden = false;
+    saveSession();
     return;
   }
   var dl = null;
@@ -2657,13 +2757,13 @@ async function saveDirect() {
   try {
     if (navigator.canShare && typeof File === 'function') {
       var file = new File([blob], p.name, { type: 'application/pdf' });
-      if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: p.name }); $('#saveBar').hidden = true; state.pendingSave = null; toast('Shared. Open it in Revu to see the same markups.'); return; }
+      if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: p.name }); $('#saveBar').hidden = true; state.pendingSave = null; saveSession(); toast('Shared. Open it in Revu to see the same markups.'); return; }
     }
   } catch (e) { if (e && e.name === 'AbortError') { toast('Share cancelled. The markups stay in the open document.'); return; } }
   var url = URL.createObjectURL(blob), link = document.createElement('a');
   link.href = url; link.download = p.name; document.body.appendChild(link); link.click();
   setTimeout(function () { URL.revokeObjectURL(url); link.remove(); }, 5000);
-  $('#saveBar').hidden = true; state.pendingSave = null; toast('Downloaded. Open it in Revu to see the same markups.');
+  $('#saveBar').hidden = true; state.pendingSave = null; saveSession(); toast('Downloaded. Open it in Revu to see the same markups.');
 }
 $('#btnSaveFile').addEventListener('click', saveDirect);
 $('#btnSaveBarClose').addEventListener('click', function () { $('#saveBar').hidden = true; });
@@ -3211,8 +3311,10 @@ async function checkForUpdate(manual) {
   if (manual && !update.error && !hasUpdate()) toast('You have the latest version (v' + APP_VERSION + ').');
   if (!manual && hasUpdate()) toast('Version ' + update.latest + ' is available. Tap Update in the toolbar.', 5000);
 }
-function applyUpdate() {
-  if (state.unsaved && !confirm('You have markups that are not saved into a PDF yet. Updating reloads the app and they will be lost. Update anyway?')) return;
+async function applyUpdate() {
+  // Keep the open file and every markup first; the new version reopens them.
+  var kept = !state.pdf || (state.docId && await saveSession());
+  if (!kept && state.unsaved && !confirm('Your markups could not be kept on this device, so updating now would lose them. Save the PDF first, or update anyway?')) return;
   reloadingForUpdate = true;
   // A new query string skips any cached copy of the page.
   location.replace(location.pathname + '?v=' + encodeURIComponent(update.latest) + location.hash);
@@ -3296,7 +3398,13 @@ document.addEventListener('drop', function (e) {
 });
 
 var reloadingForUpdate = false;
-window.addEventListener('beforeunload', function (e) { if (state.unsaved && !reloadingForUpdate) { e.preventDefault(); e.returnValue = ''; } });
+window.addEventListener('beforeunload', function (e) {
+  if (state.docId) saveSession();
+  // Only warn when the work could not be kept on the device.
+  if (state.unsaved && !reloadingForUpdate && !(state.docId && keep.ok)) { e.preventDefault(); e.returnValue = ''; }
+});
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden') saveSession(); });
+window.addEventListener('pagehide', function () { saveSession(); });
 /* iOS scrolls the whole app when the keyboard opens; put it back when the field closes. */
 /* Keep popovers inside the screen so they never make the page itself scrollable. */
 function fitPop(pop) {
@@ -3337,6 +3445,9 @@ renderVersion(); setTimeout(maybeCheck, 1500);
 renderFavBar();
 if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) $('#panel').hidden = false;
 renderList();
+// Ask the browser not to clear the kept file when space runs low.
+try { if (navigator.storage && navigator.storage.persist) navigator.storage.persist(); } catch (e) { /* ignore */ }
+restoreLast();
 })();
 </script>
 </body>

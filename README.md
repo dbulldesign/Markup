@@ -47,6 +47,12 @@ Tools and settings are kept in the browser on that device, so back them up befor
 - Measurements are saved as standard PDF measurement annotations (Line, PolyLine and Polygon with a `/Measure` scale) and the page scale is saved in the page viewport, so Revu shows them as Length, Perimeter and Area measurements.
 - Select a polygon or measurement and drag its corner handles to adjust it.
 
+## Reopening where you left off
+
+The open PDF and everything you have done to it (including markups not yet written into the PDF, the scale, numbered series, zoom and scroll position) are kept on the iPad as you work. Reloading, updating or reopening the app brings back the same file exactly as it was, and *Update* no longer warns about losing markups. Opening a different PDF makes that the one that reopens.
+
+This is a working copy inside the app, not your file in Files: tap *Save PDF* and then *Save file* to share or save the marked-up PDF. If you wrote markups into the PDF but did not share it yet, the save bar comes back when the app reopens.
+
 ## Versions and updates
 
 The version number is in the toolbar (for example *v1.1.0*). The app checks `version.json` on the server when it opens, when you come back to it, and every 30 minutes. When a newer version is published, the chip turns into *Update*; tap it to see what changed and reload into the new version.
