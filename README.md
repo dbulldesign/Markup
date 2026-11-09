@@ -15,6 +15,7 @@ The three libraries it uses (pdf.js 3.11.174, pdf-lib 1.17.1, pako 2.1.0) are in
 - Pencil draws, a finger pans, pinch to zoom. *Finger draws* lets a finger draw too.
 - Circle, Rectangle and Pen tools; the style chip sets the line colour and fill colour (independently, or *Line* to fill with the line colour), fill on/off, highlight, opacity and line width. Selected markups can be recoloured the same way in the properties panel.
 - Select to move or resize. With Select, drag on empty space to box-select: drag left to right to pick markups fully inside the box (solid blue), right to left to pick everything the box touches (dashed green). Turn on *Multi-select* to add to the selection. *Group* makes a Revu group.
+- Groups: tapping a markup selects its whole group; tap it again to select just that one markup. *Remove from group* takes the selected markups out and leaves the rest grouped. Select a group plus other markups and tap *Add to group*, or select several groups and tap *Merge groups*. *Ungroup* breaks up the whole group. In the markups list, the *Group of N* row selects the group and a row under it selects just that markup.
 - *Tool Chest* imports `.btx` tool sets exported from Revu. Circle, rectangle and pen tools become drawable with their subject, color, fill and line width.
 - *Save PDF* writes the markups into the file and offers the share sheet (or a download on a computer).
 

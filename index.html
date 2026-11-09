@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.7.0">
+<meta name="app-version" content="1.8.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -506,6 +506,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <div class="actions">
         <button class="btn" id="btnGroup" type="button">Group</button>
         <button class="btn" id="btnUngroup" type="button">Ungroup</button>
+        <button class="btn" id="btnRemoveFromGroup" type="button" title="Take the selected markups out of their group; the rest of the group stays together">Remove from group</button>
         <button class="btn danger" id="btnDelete" type="button">Delete</button>
       </div>
     </section>
@@ -1328,7 +1329,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.7.0';
+var APP_VERSION = '1.8.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1984,11 +1985,12 @@ function onDown(e) {
 
     var hit = hitTest(p, pt);
     if (hit) {
+      var grp = membersOf(hit), drill = !isMulti() && grp.length > 1 && state.sel.has(hit.id) && state.sel.size === grp.length && grp.every(function (m) { return state.sel.has(m.id); });
       if (!state.sel.has(hit.id)) selectAnnot(hit, isMulti());
       var items = selected().filter(function (a) { return a.owned && a.pageIndex === p.index; }).map(function (a) {
         return { a: a, rect0: a.rect.slice(), ink0: a.inkList ? a.inkList.map(function (l) { return l.map(function (q) { return q.slice(); }); }) : null, v0: a.vertices ? a.vertices.map(function (q) { return q.slice(); }) : null };
       });
-      gesture = { mode: 'move', id: e.pointerId, p: p, start: pt, items: items, moved: false };
+      gesture = { mode: 'move', id: e.pointerId, p: p, start: pt, items: items, moved: false, drill: drill ? hit : null };
     } else {
       // Empty space: drag a box to select several markups.
       if (!isMulti()) clearSel();
@@ -2094,6 +2096,11 @@ function onUp(e) {
   if (g2.mode === 'place') { placeSymbol(g2); return; }
   if (g2.mode === 'marquee') { finishMarquee(g2); return; }
   if (g2.mode === 'draw') finishDraw(g2);
+  else if (g2.mode === 'move' && !g2.moved && g2.drill) {
+    // Tapping a markup in a group that is already selected picks just that one markup.
+    state.sel = new Set([g2.drill.id]); afterSelectionChange();
+    toast('One markup in the group selected. Tap Remove from group to take it out, or drag to move just it.', 3500);
+  }
   else if (g2.mode === 'move' || g2.mode === 'resize') { if (g2.mode === 'resize' || g2.moved) { markUnsaved(); renderList(); renderProps(); } }
 }
 function newAnnot(tool, pageIndex, pt) {
@@ -2307,21 +2314,46 @@ function applyToSelection(patch, tag) {
   pages.forEach(function (i) { drawOverlay(state.pages[i]); });
   markUnsaved(); renderList();
 }
+/* Groups are one level deep: a head markup with members pointing at it (Revu /IRT + /RT Group). */
+function inGroup(a) { return !!(a.parentId && byId(a.parentId) && !byId(a.parentId).deleted) || live().some(function (y) { return y.parentId === a.id; }); }
+function groupCount(sel) { var heads = new Set(); sel.forEach(function (a) { if (inGroup(a)) heads.add(headOf(a).id); }); return heads.size; }
+/* Unselected members whose head is moving to another group (or leaving) form their own group again. */
+function regroupLeftBehind(ids) {
+  var byHead = {};
+  live().forEach(function (x) { if (!ids.has(x.id) && x.parentId && ids.has(x.parentId)) (byHead[x.parentId] = byHead[x.parentId] || []).push(x); });
+  Object.keys(byHead).forEach(function (h) { var rest = byHead[h], nh = rest[0]; nh.parentId = null; rest.slice(1).forEach(function (x) { x.parentId = nh.id; }); });
+}
+/* Group: makes one group from the selection. Selecting a group plus other markups adds them to it;
+   selecting several groups merges them. */
 function groupSelection() {
   var s = selected(); if (s.length < 2) return;
   pushHistory();
+  var merging = groupCount(s);
   s.sort(function (a, b) { return a.pageIndex - b.pageIndex || state.annots.indexOf(a) - state.annots.indexOf(b); });
-  var head = s[0]; head.parentId = null;
   var ids = new Set(s.map(function (a) { return a.id; }));
+  regroupLeftBehind(ids);
+  var head = s[0]; head.parentId = null;
   s.slice(1).forEach(function (a) { a.parentId = head.id; });
-  live().forEach(function (x) { if (x !== head && x.parentId && ids.has(x.parentId)) x.parentId = head.id; });
   markUnsaved(); renderList(); renderProps();
+  toast(merging > 1 ? merging + ' groups merged into one group of ' + s.length + '.' : merging === 1 ? 'Added to the group (now ' + s.length + ').' : 'Grouped ' + s.length + ' markups.');
 }
+/* Ungroup: breaks up every group the selection touches. */
 function ungroupSelection() {
   var s = selected(); if (!s.length) return;
   pushHistory();
+  var all = new Set(); s.forEach(function (a) { membersOf(a).forEach(function (m) { all.add(m); }); });
+  all.forEach(function (a) { a.parentId = null; });
+  markUnsaved(); renderList(); renderProps();
+}
+/* Remove from group: only the selected markups leave; the rest of each group stays grouped. */
+function removeFromGroup() {
+  var s = selected().filter(inGroup); if (!s.length) return;
+  pushHistory();
+  var ids = new Set(s.map(function (a) { return a.id; }));
+  regroupLeftBehind(ids);
   s.forEach(function (a) { a.parentId = null; });
   markUnsaved(); renderList(); renderProps();
+  toast(s.length === 1 ? '1 markup removed from its group.' : s.length + ' markups removed from their groups.');
 }
 function deleteSelection() {
   var s = selected(); if (!s.length) return;
@@ -2464,8 +2496,12 @@ function renderProps() {
   if (mk) pm.innerHTML = a.measure
     ? (mk === 'area' ? 'Area' : 'Length') + ': <b>' + esc(a.mtext || measureText(a)) + '</b> · scale ' + esc(scaleLabel(a.measure))
     : 'No scale on this page. <button class="btn" type="button" id="pSetScale">Set scale</button>';
-  $('#btnGroup').disabled = s.length < 2;
-  $('#btnUngroup').disabled = !s.some(function (x) { return x.parentId || live().some(function (y) { return y.parentId === x.id; }); });
+  var gcount = groupCount(s), whole = s.length > 1 && new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length;
+  $('#btnGroup').disabled = s.length < 2 || whole;
+  $('#btnGroup').textContent = s.length < 2 ? 'Group' : gcount > 1 ? 'Merge groups' : gcount === 1 && !whole ? 'Add to group' : 'Group';
+  $('#btnUngroup').disabled = !gcount;
+  $('#btnRemoveFromGroup').hidden = !gcount;
+  if (s.length === 1 && inGroup(a)) $('#propsMeta').textContent += ' · in a group of ' + membersOf(a).length + ' (tap Remove from group to take it out)';
 }
 bindTextColorRow($('#pSymText'), function (v) {
   var syms = selected().filter(function (x) { return x.sym && x.owned; }); if (!syms.length) return;
@@ -2478,6 +2514,7 @@ $('#pSubject').addEventListener('input', function (e) { applyToSelection({ subje
 $('#pContents').addEventListener('input', function (e) { applyToSelection({ contents: e.target.value }, 'contents'); });
 $('#btnGroup').addEventListener('click', groupSelection);
 $('#btnUngroup').addEventListener('click', ungroupSelection);
+$('#btnRemoveFromGroup').addEventListener('click', removeFromGroup);
 $('#btnDelete').addEventListener('click', deleteSelection);
 $('#pMeasure').addEventListener('click', function (e) { if (e.target.id === 'pSetScale') { var s = selected(); openScale(s.length ? s[0].pageIndex : currentPageIndex()); } });
 
@@ -2533,7 +2570,7 @@ function renderList() {
   groups.forEach(function (g) {
     if (g.members.length) {
       var ms = g.members.slice().sort(cmp);
-      html += '<div class="row g" data-group="' + esc(g.head.id) + '"><span>Group of ' + (ms.length + 1) + '</span><span class="hint">tap to select all</span></div>';
+      html += '<div class="row g" data-group="' + esc(g.head.id) + '"><span>Group of ' + (ms.length + 1) + '</span><span class="hint">tap to select the group, a row below for one markup</span></div>';
       html += row(g.head, 'member');
       ms.forEach(function (m) { html += row(m, 'member'); });
     } else html += row(g.head, '');
@@ -2546,7 +2583,12 @@ $('#rows').addEventListener('click', function (e) {
   if (g) { var h = byId(g.dataset.group); if (h) { selectAnnot(h, false); jumpTo(h); } return; }
   var r = e.target.closest ? e.target.closest('.row[data-id]') : null; if (!r) return;
   var a = byId(r.dataset.id); if (!a) return;
-  if (isMulti()) selectAnnot(a, true); else { state.sel = new Set(membersOf(a).map(function (m) { return m.id; })); afterSelectionChange(); }
+  if (r.classList.contains('member')) {
+    // A row inside a group picks just that markup (the group's header row picks the whole group).
+    if (isMulti()) { if (state.sel.has(a.id)) state.sel.delete(a.id); else state.sel.add(a.id); }
+    else state.sel = new Set([a.id]);
+    afterSelectionChange();
+  } else if (isMulti()) selectAnnot(a, true); else { state.sel = new Set(membersOf(a).map(function (m) { return m.id; })); afterSelectionChange(); }
   jumpTo(a);
 });
 $('#rows').addEventListener('dblclick', function (e) {
