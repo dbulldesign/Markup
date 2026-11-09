@@ -1,5 +1,5 @@
 {
-  "version": "1.3.1",
+  "version": "1.4.0",
   "date": "2026-11-09",
-  "notes": "New app icon. To see it on the Home Screen, remove the app icon and add the site again."
+  "notes": "Symbol tool: fixed-size symbols for fixture counts that you can design and save as tools. Numbered tool: each tap places the next number; continue a series or start a new one. Counts by subject in the markups panel. Fixes the toolbar sliding under the status bar when the Tool Chest is open."
 }
