@@ -1,5 +1,5 @@
 {
-  "version": "1.2.1",
+  "version": "1.3.0",
   "date": "2026-11-09",
-  "notes": "Fixes \"That file could not be opened as a PDF\" (pdf.js worker failed to load): the PDF libraries now load from this site instead of a CDN."
+  "notes": "Works offline: the app and its PDF libraries are kept on the device after the first visit. Adds an app icon for the Home Screen."
 }

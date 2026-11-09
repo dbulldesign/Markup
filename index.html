@@ -4,10 +4,15 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Markup">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon-180.png">
+<link rel="icon" href="icon-180.png">
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.2.1">
+<meta name="app-version" content="1.3.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -392,6 +397,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
     <h3>Pencil Markup</h3>
     <p>Installed: <b id="verInstalled"></b></p>
     <p id="verLatest">Checking for updates…</p>
+    <p id="verOffline"></p>
     <p class="notes" id="verNotes" hidden></p>
     <div class="actions">
       <button class="btn primary" id="btnUpdate" type="button" hidden>Update now</button>
@@ -1167,7 +1173,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.2.1';
+var APP_VERSION = '1.3.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2665,10 +2671,14 @@ function renderVersion() {
     : 'You have the latest version' + esc(when) + '.';
   var notes = $('#verNotes'); notes.hidden = !(up && update.notes); notes.textContent = update.notes || '';
   $('#btnUpdate').hidden = !up;
-  $('#emptyVer').textContent = 'Version ' + APP_VERSION + (up ? ' · v' + update.latest + ' available' : '');
+  $('#emptyVer').textContent = 'Version ' + APP_VERSION + (up ? ' · v' + update.latest + ' available' : '') + (offlineReady ? ' · works offline' : '');
+  $('#verOffline').innerHTML = !('serviceWorker' in navigator) ? 'Offline use is not supported in this browser.'
+    : offlineReady ? 'Offline: <b>ready</b>. The app opens without a connection.'
+    : 'Offline: getting ready… keep the app open for a moment while online.';
 }
 async function checkForUpdate(manual) {
   if (location.protocol === 'file:') { update.error = 'Update checks work when the app is opened from its web address.'; renderVersion(); return; }
+  if (navigator.onLine === false) { update.error = 'Offline. Updates are checked when you are back online.'; renderVersion(); if (manual) toast('You are offline. The app keeps working; updates are checked when you reconnect.'); return; }
   update.checking = true; renderVersion();
   try {
     var r = await fetch(new URL('version.json', location.href).href + '?t=' + Date.now(), { cache: 'no-store' });
@@ -2777,6 +2787,19 @@ loadPrefs(); loadChest();
 $('#author').value = state.author;
 $('#fingerDraw').checked = state.fingerDraw;
 updateStyleChip(); styleNew.sync();
+/* Offline support: the service worker keeps the app and its libraries on the device. */
+var offlineReady = false;
+if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
+  navigator.serviceWorker.register('sw.js', { scope: './' }).then(function (reg) {
+    return navigator.serviceWorker.ready;
+  }).then(function () {
+    var first = !navigator.serviceWorker.controller;
+    offlineReady = true; renderVersion();
+    try { if (first && !localStorage.getItem('pencil-markup-offline')) { localStorage.setItem('pencil-markup-offline', '1'); toast('Ready to work offline.'); } } catch (e) { /* ignore */ }
+  }).catch(function (e) { console.warn('Offline support unavailable', e); });
+}
+window.addEventListener('online', function () { lastUpdateCheck = 0; maybeCheck(); });
+window.addEventListener('offline', function () { toast('You are offline. Opening, marking up and saving PDFs still works.', 4000); });
 renderVersion(); setTimeout(maybeCheck, 1500);
 renderFavBar();
 if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) $('#panel').hidden = false;

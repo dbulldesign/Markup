@@ -4,7 +4,7 @@ A single-file web app for marking up PDFs on an iPad with Apple Pencil. Markups 
 
 ## Host it on GitHub Pages
 
-1. Create a repository and add `index.html`, `version.json` and the `vendor/` folder.
+1. Create a repository and add `index.html`, `version.json`, `sw.js`, `manifest.webmanifest`, the icons and the `vendor/` folder.
 2. Settings, Pages, Source: *Deploy from a branch*, branch `main`, folder `/ (root)`.
 3. Open `https://<you>.github.io/<repo>/` in Safari on the iPad. Use Share, *Add to Home Screen* to run it full-screen.
 
@@ -46,3 +46,10 @@ To publish a new version, bump both together:
 
 1. `APP_VERSION` in `index.html` (and the `app-version` meta tag).
 2. `version` (and `notes`) in `version.json`.
+3. `CACHE` in `sw.js` (so devices replace their offline copy).
+
+## Offline
+
+After the app has been opened once with a connection, it works with no connection: opening, marking up and saving PDFs all run on the device. The service worker (`sw.js`) keeps `index.html`, the `vendor/` libraries and the icons on the iPad, and always tries the network first for the page so updates still arrive when you are online.
+
+On iPad, add it to the Home Screen and open it from there once while online; the version popover shows *Offline: ready* when it is set up. Home Screen apps keep their own storage, separate from Safari.
