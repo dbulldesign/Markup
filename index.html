@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.5.0">
+<meta name="app-version" content="1.5.1">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -226,6 +226,12 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .tb.fav .hl { mix-blend-mode: multiply; }
 .style-save { margin-top: 10px; width: 100%; }
 /* Tool editor */
+.modal .tpreview { position: sticky; top: -18px; z-index: 2; margin: -4px -18px 0; padding: 10px 18px; background: var(--surface); border-bottom: 1px solid var(--line); }
+.modal .tpreview .art { background: #fff; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.modal .tpreview svg { display: block; width: 100%; height: auto; }
+.modal .tpreview .hl { mix-blend-mode: multiply; }
+.modal .tpreview .cap { margin-top: 6px; font-size: 13px; color: var(--ink-2); display: flex; justify-content: space-between; gap: 8px; }
+.modal .tpreview .cap b { color: var(--ink); font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .modal .two { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .modal .check { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink); }
 .modal .check input { width: 22px; height: 22px; margin: 0; }
@@ -550,6 +556,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 <div class="modal" id="toolModal" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="toolTitle">
     <h2 id="toolTitle">Save tool</h2>
+    <div class="tpreview" id="tPreview" aria-live="polite"><div class="art" id="tPreviewArt"></div><div class="cap" id="tPreviewCap"></div></div>
     <label class="fld">Name<input id="tName" placeholder="e.g. Fixture to verify"></label>
     <div class="two">
       <label class="fld">Draws<select id="tType"></select></label>
@@ -1293,7 +1300,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.5.0';
+var APP_VERSION = '1.5.1';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2796,11 +2803,82 @@ function openToolEditor(set, tool) {
     if (!lastId) $('#tNewSet').value = 'My tools';
   }
   $('#tDelete').hidden = !tool;
-  styleTool.sync(); syncEditorType();
+  styleTool.sync(); syncEditorType(); updateToolPreview();
   $('#toolModal').hidden = false;
   $('#chestPop').hidden = true;
 }
 function closeToolEditor() { $('#toolModal').hidden = true; editor = null; }
+/* The tool as it would be saved from the editor's current settings. */
+function editorFields() {
+  var type = $('#tType').value, T = TOOLS[type], st = editor.style;
+  var symSub = T.symbol ? (MarkupIO.SYM_SUB[editor.sym.shape] || 'Circle') : null;
+  return {
+    title: $('#tName').value.trim() || $('#tSubject').value.trim() || T.name,
+    subtype: symSub || T.sub, intent: T.intent || '', drawTool: type, supported: true,
+    sym: T.symbol ? { shape: editor.sym.shape || 'circle', size: clamp(+editor.sym.size || 18, 4, 144), label: T.numbered ? '' : (editor.sym.label || ''), textColor: editor.sym.textColor || null, numbered: !!T.numbered } : null,
+    color: hexToRgb(st.color), fillColor: st.fill && MarkupIO.FILLABLE.has(symSub || T.sub) ? hexToRgb(st.color) : null,
+    fillOpacity: st.fillOpacity, opacity: st.opacity, lineWidth: st.lineWidth, highlight: !!st.highlight,
+    subject: $('#tSubject').value.trim(), contents: $('#tContents').value, fav: $('#tFav').checked, icon: null
+  };
+}
+
+/* ---------- live tool preview ---------- */
+var PV_W = 320, PV_H = 140;
+function pvSymbol(f, cx, n) {
+  // Shown 1.5x a printed point so small symbols stay readable; the caption gives the real size.
+  var k = 1.5, sz = clamp(f.sym.size * k, 12, 118), h = sz / 2, cyUp = PV_H / 2;
+  var a = { rect: [cx - h, cyUp - h, cx + h, cyUp + h], sym: { shape: f.sym.shape, size: sz, label: f.sym.label, textColor: f.sym.textColor, n: n, prefix: '' }, color: f.color, fillColor: f.fillColor, fillOpacity: f.fillOpacity };
+  var lw = (f.lineWidth || 0) * k, hl = lw / 2, flip = function (y) { return PV_H - y; };
+  var geo;
+  if (f.sym.shape === 'circle') geo = '<circle cx="' + cx + '" cy="' + flip(cyUp) + '" r="' + Math.max(0.5, h - hl) + '"';
+  else if (f.sym.shape === 'square') geo = '<rect x="' + (cx - h + hl) + '" y="' + (flip(cyUp) - h + hl) + '" width="' + Math.max(0.5, sz - lw) + '" height="' + Math.max(0.5, sz - lw) + '"';
+  else geo = '<path d="' + MarkupIO.symPoints(a, hl).map(function (q, i) { return (i ? 'L' : 'M') + q[0].toFixed(1) + ' ' + flip(q[1]).toFixed(1); }).join(' ') + ' Z"';
+  var out = '';
+  if (f.fillColor) out += geo + ' fill="' + rgbToHex(f.fillColor) + '" fill-opacity="' + f.fillOpacity + '"' + (f.highlight ? ' class="hl"' : '') + ' stroke="none"/>';
+  if (lw > 0 && f.color) out += geo + ' fill="none" stroke="' + rgbToHex(f.color) + '" stroke-opacity="' + f.opacity + '" stroke-width="' + lw + '" stroke-linejoin="round"/>';
+  var t = MarkupIO.symText(a);
+  if (t.text) out += '<text x="' + t.x + '" y="' + (flip(t.y) + t.size * 0.36) + '" font-size="' + t.size + '" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + rgbToHex(MarkupIO.symTextColor(a)) + '">' + esc(t.text) + '</text>';
+  return { svg: out, w: sz };
+}
+function previewSVG(f) {
+  var stroke = rgbToHex(f.color || [0, 0, 0]), lw = Math.max(f.lineWidth > 0 ? 0.75 : 0, (f.lineWidth || 0) * 1.5);
+  var fillA = f.fillColor ? ' fill="' + rgbToHex(f.fillColor) + '" fill-opacity="' + f.fillOpacity + '"' + (f.highlight ? ' class="hl"' : '') : ' fill="none"';
+  var strokeA = ' stroke="' + stroke + '" stroke-opacity="' + (lw > 0 ? f.opacity : 0) + '" stroke-width="' + lw + '" stroke-linejoin="round" stroke-linecap="round"';
+  var label = function (x, y, txt) { var fs = 13, w = txt.length * fs * 0.56 + 10; return '<rect x="' + (x - w / 2) + '" y="' + (y - 10) + '" width="' + w + '" height="19" fill="#fff" fill-opacity=".85"/><text x="' + x + '" y="' + (y + 4.5) + '" font-size="' + fs + '" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + stroke + '">' + esc(txt) + '</text>'; };
+  // A faint drawing underneath, so fill opacity and highlight show the way they will on a plan.
+  var bg = '<g stroke="#d5d9e0" stroke-width="1"><path d="M0 35H320M0 70H320M0 105H320M80 0V140M160 0V140M240 0V140"/></g><g stroke="#9aa3ae" stroke-width="2.5" fill="none"><path d="M24 24H140V116H24zM180 24H296V116H180z"/></g>';
+  var body = '';
+  switch (f.drawTool) {
+    case 'symbol': body = pvSymbol(f, PV_W / 2, null).svg; break;
+    case 'numbered': {
+      var gap = clamp(f.sym.size * 1.5, 12, 118) + 16;
+      body = [1, 2, 3].map(function (n, i) { return pvSymbol(f, PV_W / 2 + (i - 1) * gap, n).svg; }).join('');
+      break;
+    }
+    case 'circle': body = '<ellipse cx="160" cy="70" rx="92" ry="44"' + fillA + strokeA + '/>'; break;
+    case 'rect': body = '<rect x="68" y="28" width="184" height="84"' + fillA + strokeA + '/>'; break;
+    case 'polygon': body = '<path d="M74 110 92 32 196 22 252 74 188 118Z"' + fillA + strokeA + '/>'; break;
+    case 'pen': body = '<path d="M50 104C86 18 118 124 160 64S226 30 270 84"' + ' fill="none"' + strokeA + '/>'; break;
+    case 'length': body = '<path d="M60 92H260M60 80V104M260 80V104"' + ' fill="none"' + strokeA + '/>' + label(160, 70, "12'-6\""); break;
+    case 'area': body = '<path d="M64 112 80 30H230L262 112Z"' + fillA + strokeA + '/>' + label(163, 74, '245.50 sf'); break;
+    case 'perimeter': body = '<path d="M50 112 98 34 190 58 270 30"' + ' fill="none"' + strokeA + '/>' + label(160, 100, "36'-4\""); break;
+    default: body = toolPreview(f);
+  }
+  return '<svg viewBox="0 0 ' + PV_W + ' ' + PV_H + '" xmlns="http://www.w3.org/2000/svg">' + bg + body + '</svg>';
+}
+var pvQueued = false;
+function updateToolPreview() {
+  if (pvQueued) return; pvQueued = true;
+  requestAnimationFrame(function () {
+    pvQueued = false; if (!editor) return;
+    var f = editorFields(), T = TOOLS[f.drawTool];
+    $('#tPreviewArt').innerHTML = previewSVG(f);
+    var note = f.sym ? Math.round(f.sym.size) + ' pt on the sheet' : (T.measure ? 'example measurement' : T.name);
+    $('#tPreviewCap').innerHTML = '<b>' + esc(f.title) + (f.subject && f.subject !== f.title ? ' · ' + esc(f.subject) : '') + '</b><span>' + esc(note) + '</span>';
+  });
+}
+['input', 'change', 'click'].forEach(function (t) { $('#toolModal').addEventListener(t, updateToolPreview); });
+
 function saveToolFromEditor() {
   if (!editor) return;
   var type = $('#tType').value, T = TOOLS[type], st = editor.style;
@@ -2810,15 +2888,7 @@ function saveToolFromEditor() {
     target = newPalette(nm);
   } else target = state.chestSets.filter(function (s) { return s.id === setId; })[0];
   if (!target) return;
-  var symSub = T.symbol ? (MarkupIO.SYM_SUB[editor.sym.shape] || 'Circle') : null;
-  var fields = {
-    title: $('#tName').value.trim() || $('#tSubject').value.trim() || T.name,
-    subtype: symSub || T.sub, intent: T.intent || '', drawTool: type, supported: true,
-    sym: T.symbol ? { shape: editor.sym.shape || 'circle', size: clamp(+editor.sym.size || 18, 4, 144), label: T.numbered ? '' : (editor.sym.label || ''), textColor: editor.sym.textColor || null, numbered: !!T.numbered } : null,
-    color: hexToRgb(st.color), fillColor: st.fill && MarkupIO.FILLABLE.has(symSub || T.sub) ? hexToRgb(st.color) : null,
-    fillOpacity: st.fillOpacity, opacity: st.opacity, lineWidth: st.lineWidth, highlight: !!st.highlight,
-    subject: $('#tSubject').value.trim(), contents: $('#tContents').value, fav: $('#tFav').checked, icon: null
-  };
+  var fields = editorFields();
   var tool = editor.tool;
   if (tool) {
     Object.assign(tool, fields);

@@ -1,5 +1,5 @@
 {
-  "version": "1.5.0",
+  "version": "1.5.1",
   "date": "2026-11-09",
-  "notes": "Box select: with Select, drag on empty space to select several markups. Left to right picks markups fully inside the box; right to left picks everything it touches. Multi-select adds to the selection."
+  "notes": "Tool editor: live preview of the tool at the top that updates as you change any setting."
 }

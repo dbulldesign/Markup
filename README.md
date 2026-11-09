@@ -23,6 +23,7 @@ Author name, style defaults and imported tool sets are remembered in the browser
 ## Your own tools, palettes and favourites
 
 - Pick a tool and style, then tap *Save as a tool…* in the style menu (or *+ Tool* in the Tool Chest). Give it a name, subject, default comment and style, and choose the palette it goes in (or make a new one).
+- The tool editor shows a live preview at the top that updates as you change the type, colours, fill, line, symbol shape, size, label or text colour, and stays in view while you scroll.
 - Tap ☆ on any tool to make it a favourite. Favourites appear as one-tap buttons in the toolbar and at the top of the Tool Chest.
 - Tap ••• on a tool to edit it, move it to another palette, change what it draws, or delete it. *Use current style* copies the style you are drawing with.
 - *+ Palette* makes an empty palette; each palette can be renamed, exported to a file or removed. Imported Revu tool sets can be edited the same way.
