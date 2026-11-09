@@ -1,13 +1,17 @@
 /* Pencil Markup service worker: keeps the app and its libraries on the device so it opens offline.
    Bump CACHE whenever any file below changes (keep it in step with APP_VERSION in index.html). */
 'use strict';
-var CACHE = 'pencil-markup-1.3.0';
+var CACHE = 'pencil-markup-1.3.1';
 var APP_SHELL = [
   './',
   'index.html',
   'manifest.webmanifest',
-  'icon-180.png',
-  'icon-512.png',
+  'icons/apple-touch-icon.png',
+  'icons/icon.svg',
+  'icons/favicon-32.png',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/icon-maskable-512.png',
   'vendor/pdf.min.js?v=3.11.174',
   'vendor/pdf.worker.min.js?v=3.11.174',
   'vendor/pdf-lib.min.js?v=1.17.1',

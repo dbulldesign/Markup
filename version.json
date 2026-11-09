@@ -1,5 +1,5 @@
 {
-  "version": "1.3.0",
+  "version": "1.3.1",
   "date": "2026-11-09",
-  "notes": "Works offline: the app and its PDF libraries are kept on the device after the first visit. Adds an app icon for the Home Screen."
+  "notes": "New app icon. To see it on the Home Screen, remove the app icon and add the site again."
 }

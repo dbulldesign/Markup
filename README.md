@@ -4,7 +4,7 @@ A single-file web app for marking up PDFs on an iPad with Apple Pencil. Markups 
 
 ## Host it on GitHub Pages
 
-1. Create a repository and add `index.html`, `version.json`, `sw.js`, `manifest.webmanifest`, the icons and the `vendor/` folder.
+1. Create a repository and add `index.html`, `version.json`, `sw.js`, `manifest.webmanifest` and the `icons/` and `vendor/` folders.
 2. Settings, Pages, Source: *Deploy from a branch*, branch `main`, folder `/ (root)`.
 3. Open `https://<you>.github.io/<repo>/` in Safari on the iPad. Use Share, *Add to Home Screen* to run it full-screen.
 
@@ -50,6 +50,10 @@ To publish a new version, bump both together:
 
 ## Offline
 
-After the app has been opened once with a connection, it works with no connection: opening, marking up and saving PDFs all run on the device. The service worker (`sw.js`) keeps `index.html`, the `vendor/` libraries and the icons on the iPad, and always tries the network first for the page so updates still arrive when you are online.
+After the app has been opened once with a connection, it works with no connection: opening, marking up and saving PDFs all run on the device. The service worker (`sw.js`) keeps `index.html`, the `vendor/` libraries and the `icons/` on the iPad, and always tries the network first for the page so updates still arrive when you are online.
 
 On iPad, add it to the Home Screen and open it from there once while online; the version popover shows *Offline: ready* when it is set up. Home Screen apps keep their own storage, separate from Safari.
+
+## App icon
+
+The icon source is `icons/icon.svg`. The PNGs next to it are rendered from it: `apple-touch-icon.png` (180 px, iPad/iPhone Home Screen), `icon-192.png` and `icon-512.png` (Android and install prompts), `icon-maskable-512.png` (artwork inset for launchers that crop to a circle) and `favicon-32.png` (browser tab).
