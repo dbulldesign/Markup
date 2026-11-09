@@ -1,5 +1,5 @@
 {
-  "version": "1.6.0",
+  "version": "1.6.1",
   "date": "2026-11-09",
-  "notes": "Line and fill colours are now independent for every tool: in the style menu, saved tools, and for markups already placed. Choose Line under Fill colour to fill with the line colour."
+  "notes": "Fixes sliders: the handle no longer runs over the value at 100%, and sliders in the tool editor no longer sit in a grey box."
 }
