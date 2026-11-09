@@ -1,5 +1,5 @@
 {
-  "version": "2.3.0",
+  "version": "2.4.0",
   "date": "2026-11-09",
-  "notes": "Angle, radius and diameter measurements; cut-outs in areas; measurement precision and units; snapping to markups."
+  "notes": "Page thumbnails and go to page, search drawing text and markups, markup status, show/hide by subject, and several files open as tabs."
 }

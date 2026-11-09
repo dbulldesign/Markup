@@ -2,6 +2,14 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.4.0 (phase 5: navigation and organisation)
+**Added**
+- *Pages* (button at the top left, shows the current page, e.g. 3 / 12): thumbnails of every page with the current one highlighted; tap to jump. Type a page number or label to go to it.
+- *Search* (in the same drawer, or Ctrl/Cmd+F): finds text in the drawing (room names, fixture tags, notes) and in your markups (subject, label, comments, fields, status). Tap a result to jump there; text matches are highlighted.
+- Markup *Status*: None, Accepted, Rejected, Cancelled, Completed, set in the properties panel and shown in the list (sortable). Saved as standard PDF review-status replies, the format Acrobat writes and Revu reads into its Status column.
+- *Show...*: hide or show markups by subject (view only; they stay in the PDF).
+- Several files open at once as tabs. Each keeps its own markups, scale and undo; tap a tab to switch, x to close, + to open another. All of them reopen after an update.
+
 ## 2.3.0 (phase 4: measurements)
 **Added**
 - *Angle*: tap one end, the corner, then the other end.

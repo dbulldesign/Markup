@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="2.3.0">
+<meta name="app-version" content="2.4.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -138,6 +138,35 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .marq { position: absolute; z-index: 4; pointer-events: none; border: 1.5px solid #2a5bd7; background: rgba(42,91,215,.10); }
 .marq.cross { border: 1.5px dashed #43a047; background: rgba(67,160,71,.10); }
 .marq[hidden] { display: none; }
+.tabs { flex: none; display: flex; gap: 4px; padding: 4px 8px; background: var(--surface-2); border-bottom: 1px solid var(--line); overflow-x: auto; }
+.tabs[hidden] { display: none; }
+.tab { flex: none; display: inline-flex; align-items: center; gap: 4px; max-width: 240px; min-height: 34px; padding: 0 4px 0 12px; border-radius: 9px; font-size: 13px; color: var(--ink-2); cursor: pointer; border: 0; background: transparent; }
+.tab .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tab.on { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.tab .x { border: 0; background: none; color: var(--ink-2); font-size: 17px; width: 28px; height: 28px; border-radius: 7px; cursor: pointer; }
+.tab.add { padding: 0 12px; font-size: 18px; color: var(--ink-2); }
+.drawer { flex: none; width: 250px; background: var(--surface); border-right: 1px solid var(--line); display: flex; flex-direction: column; min-height: 0; }
+.drawer[hidden], .dbody[hidden] { display: none; }
+.dhead { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 8px 10px; border-bottom: 1px solid var(--line); }
+.dhead .tb { min-height: 34px; }
+.dbody { display: flex; flex-direction: column; min-height: 0; flex: 1; }
+.dinput { margin: 10px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 9px; padding: 8px 10px; font-size: 15px; }
+.thumbs { overflow: auto; padding: 0 12px 16px; display: grid; gap: 12px; align-content: start; }
+.thumb { border: 0; background: none; padding: 0; cursor: pointer; display: grid; gap: 4px; justify-items: center; color: var(--ink-2); font-size: 12px; }
+.thumb .tc { width: 100%; background: #fff; box-shadow: 0 1px 4px rgba(0,0,0,.25); border-radius: 2px; outline: 3px solid transparent; outline-offset: 2px; display: block; }
+.thumb canvas { width: 100%; height: 100%; display: block; }
+.thumb.on .tc { outline-color: var(--accent); }
+.thumb.on .tl { color: var(--accent); font-weight: 600; }
+.sresults { overflow: auto; padding: 0 10px 16px; }
+.sresults h4 { margin: 10px 2px 4px; font-size: 13px; color: var(--ink-2); font-weight: 600; }
+.sres { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid var(--line); background: none; padding: 8px 4px; font-size: 14px; color: var(--ink); cursor: pointer; }
+.sres .sp { color: var(--ink-2); font-size: 12px; margin-right: 6px; }
+.sres mark { background: #ffe082; color: #000; border-radius: 2px; }
+.vlist { display: grid; gap: 2px; max-height: 50vh; overflow: auto; }
+.vrow { display: flex; align-items: center; gap: 10px; min-height: 38px; font-size: 15px; }
+.vrow input { width: 22px; height: 22px; margin: 0; }
+.vrow .n { margin-left: auto; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+@media (max-width: 899px) { .drawer { position: absolute; left: 0; top: 0; bottom: 0; z-index: 9; box-shadow: var(--shadow); } }
 .textedit { position: absolute; z-index: 6; margin: 0; border: 1.5px dashed #2a5bd7; border-radius: 2px; background: rgba(255,255,255,.55); font-family: Helvetica, Arial, sans-serif; resize: none; overflow: hidden; outline: none; box-sizing: border-box; white-space: pre-wrap; }
 .textedit[hidden] { display: none; }
 .page .pnum { position: absolute; left: 0; bottom: -15px; font-size: 11px; color: var(--ink-2); }
@@ -298,6 +327,9 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .row .sw { grid-area: sw; width: 14px; height: 14px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(128,128,128,.4); align-self: center; }
 .row .subj { grid-area: subj; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row .subj .muted { color: var(--ink-2); font-weight: 400; }
+.st { display: inline-block; font-size: 11px; font-weight: 600; border-radius: 6px; padding: 1px 6px; vertical-align: 1px; background: var(--surface-3); color: var(--ink-2); }
+.st-accepted { background: #d7f0d9; color: #1b5e20; } .st-rejected { background: #fbdcdc; color: #b71c1c; } .st-completed { background: #dbe5fb; color: #1a3e9a; } .st-cancelled { background: var(--surface-3); color: var(--ink-2); text-decoration: line-through; }
+.list-head .visbtn { margin-left: auto; }
 .row .pg { grid-area: pg; color: var(--ink-2); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .row .comm { grid-area: comm; color: var(--ink-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.2em; }
 .row .meta { grid-area: meta; color: var(--ink-2); font-size: 12px; white-space: nowrap; text-align: right; }
@@ -380,6 +412,9 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 </head>
 <body>
 <header class="topbar">
+  <button class="tb" id="btnPages" type="button" title="Pages, go to page and search" aria-label="Pages and search">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="4" y="3" width="7" height="8" rx="1"/><rect x="13" y="3" width="7" height="8" rx="1"/><rect x="4" y="13" width="7" height="8" rx="1"/><rect x="13" y="13" width="7" height="8" rx="1"/></svg><span class="lbl keep" id="pageInd">Pages</span>
+  </button>
   <button class="tb" id="btnOpen" type="button" title="Open a PDF" aria-label="Open">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="lbl">Open</span>
   </button>
@@ -518,8 +553,23 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     </div>
   </div>
 </header>
+<nav class="tabs" id="tabs" hidden aria-label="Open files"></nav>
 
 <div class="work">
+  <aside class="drawer" id="drawer" hidden>
+    <div class="dhead">
+      <div class="seg" id="drawerTabs"><button class="tb" type="button" data-dt="pages">Pages</button><button class="tb" type="button" data-dt="search">Search</button></div>
+      <button class="btn" id="drawerClose" type="button">Close</button>
+    </div>
+    <div id="dPages" class="dbody">
+      <input id="gotoIn" class="dinput" placeholder="Go to page (number or label)" inputmode="text" aria-label="Go to page">
+      <div class="thumbs" id="thumbs"></div>
+    </div>
+    <div id="dSearch" class="dbody" hidden>
+      <input id="searchIn" class="dinput" type="search" placeholder="Search text and markups" aria-label="Search">
+      <div class="sresults" id="searchRes"></div>
+    </div>
+  </aside>
   <div class="polybar seqbar" id="seqBar" hidden>
     <span class="info"><b>Numbered</b></span>
     <label class="info">Series <select id="seqSel" aria-label="Series"></select></label>
@@ -560,6 +610,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <label class="fld">Subject<input class="fld-in" id="pSubject" list="subjects" placeholder="e.g. Ellipse, Issue, Verify"></label>
       <datalist id="subjects"><option value="Ellipse"><option value="Rectangle"><option value="Pen"><option value="Issue"><option value="Verify"><option value="RFI"><option value="Note"></datalist>
       <div class="measure" id="pMeasure" hidden></div>
+      <label class="fld">Status<select class="fld-in" id="pStatus"><option value="">None</option><option value="accepted">Accepted</option><option value="rejected">Rejected</option><option value="cancelled">Cancelled</option><option value="completed">Completed</option></select></label>
       <label class="fld">Comments<textarea class="fld-ta" id="pContents" rows="2" placeholder="Shows in the Comments column"></textarea></label>
       <div class="rotrow" id="pRotate" hidden><span>Rotate</span>
         <button class="btn" type="button" data-rot="-90" aria-label="Rotate 90 degrees anticlockwise">&#x21BA; 90&#xB0;</button>
@@ -591,6 +642,8 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <button type="button" data-key="author">Author</button>
       <button type="button" data-key="date">Date</button>
       <button type="button" data-key="color">Color</button>
+      <button type="button" data-key="status">Status</button>
+      <button type="button" id="btnVis" class="visbtn" title="Show or hide markups by subject">Show&#x2026;</button>
     </div>
     <div class="rows" id="rows"><div class="none">No markups yet.</div></div>
   </aside>
@@ -643,6 +696,15 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <button class="btn" id="scCancel" type="button">Cancel</button>
       <button class="btn primary" id="scOk" type="button">Apply</button>
     </div>
+  </div>
+</div>
+<div class="modal" id="visModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="visTitle">
+    <h2 id="visTitle">Show markups</h2>
+    <label class="vrow"><input type="checkbox" id="visAll"><span><b>Show markups</b></span></label>
+    <div class="vlist" id="visList"></div>
+    <p class="hint">Hidden markups stay in the PDF; this only changes what you see here.</p>
+    <div class="actions"><button class="btn" type="button" id="visShowAll">Show all</button><button class="btn" type="button" id="visHideAll">Hide all</button><span class="spacer"></span><button class="btn primary" type="button" id="visClose">Done</button></div>
   </div>
 </div>
 <div class="modal" id="exportModal" hidden>
@@ -823,7 +885,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 
   function readFromDoc(doc) {
     var L = lib();
-    var ctx = doc.context, pages = doc.getPages(), out = [];
+    var ctx = doc.context, pages = doc.getPages(), out = [], statusReplies = [];
     var N = function (k) { return L.PDFName.of(k); };
     pages.forEach(function (page, pageIndex) {
       var arr = null; try { arr = page.node.Annots(); } catch (e) { arr = null; }
@@ -835,10 +897,15 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
         var subtype = nameOf(dict.get(N('Subtype')));
         if (!subtype || SKIP.has(subtype)) continue;
         var flags = numOf(ctx.lookup(dict.get(N('F'))), 0);
-        if (flags & 2) continue;
         var irt = dict.get(N('IRT'));
         var rt = nameOf(dict.get(N('RT'))) || (irt ? 'R' : null);
-        if (irt && rt !== 'Group') continue; // review replies stay in the file but are not markups
+        if ((flags & 2) && !(irt && rt !== 'Group')) continue; // hidden markups (status replies are hidden too; read them below)
+        if (irt && rt !== 'Group') {
+          // Review status replies (Acrobat/Revu): /StateModel /Review with /State on a reply to the markup.
+          var smod = textOf(ctx.lookup(dict.get(N('StateModel')))) || nameOf(dict.get(N('StateModel')));
+          if (smod === 'Review' && irt instanceof L.PDFRef) statusReplies.push({ parent: refKey(irt), state: textOf(ctx.lookup(dict.get(N('State')))) || nameOf(dict.get(N('State'))) || '', by: textOf(ctx.lookup(dict.get(N('T')))), at: parseDate(textOf(ctx.lookup(dict.get(N('M'))))) || '' });
+          continue; // replies stay in the file but are not markups
+        }
         var rect = numsOf(ctx, dict.get(N('Rect')));
         if (!rect || rect.length < 4) continue;
         var bs = ctx.lookup(dict.get(N('BS'))), lineWidth = 1;
@@ -947,6 +1014,10 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
         });
       }
     });
+    // Latest review state per markup.
+    statusReplies.sort(function (x, y) { return x.at < y.at ? -1 : x.at > y.at ? 1 : 0; });
+    var byIdMap = {}; out.forEach(function (a) { byIdMap[a.id] = a; });
+    statusReplies.forEach(function (r) { var a = byIdMap[r.parent]; if (a) { var st = String(r.state || '').toLowerCase(); a.status = st === 'none' ? '' : st; a.statusBy = r.by || ''; } });
     var ids = new Set(out.map(function (a) { return a.id; }));
     out.forEach(function (a) { if (a.parentId && !ids.has(a.parentId)) a.parentId = null; });
     return out;
@@ -1411,6 +1482,18 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       } else if (curRT === 'Group') { dict.delete(N('IRT')); dict.delete(N('RT')); }
     });
 
+    // 4b. Review status: a hidden reply with /StateModel /Review and /State, as Acrobat writes it.
+    annots.forEach(function (a) {
+      if (a.deleted || !a.statusDirty) return;
+      var ref = refOf.get(a.id), page = pages[a.pageIndex]; if (!ref || !page) return;
+      var st = a.status ? a.status.charAt(0).toUpperCase() + a.status.slice(1) : 'None', who = a.statusBy || author || '';
+      var reply = ctx.obj({ Type: 'Annot', Subtype: 'Text', Rect: [fix(a.rect[0]), fix(a.rect[3] - 20), fix(a.rect[0] + 20), fix(a.rect[3])], F: 30, P: page.ref, IRT: ref, Name: 'Comment' });
+      reply.set(N('StateModel'), L.PDFString.of('Review')); reply.set(N('State'), L.PDFString.of(st));
+      setText(reply, 'T', who); setText(reply, 'Contents', st + (who ? ' set by ' + who : ''));
+      reply.set(N('M'), L.PDFString.fromDate(now)); reply.set(N('CreationDate'), L.PDFString.fromDate(now)); reply.set(N('NM'), L.PDFString.of(makeNM()));
+      page.node.addAnnot(ctx.register(reply));
+    });
+
     // 5. Page scales (calibration) as a /VP viewport covering the page, the way Revu stores them
     var scales = opts.scales || {};
     Object.keys(scales).forEach(function (k) {
@@ -1640,7 +1723,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '2.3.0';
+var APP_VERSION = '2.4.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1684,7 +1767,7 @@ var state = {
   annots: [], sel: new Set(), history: [], future: [], fingerDraw: false, author: '',
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
   chestSets: [], chestTool: null, pendingSave: null,
-  scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null, docId: null, expanded: new Set(),
+  scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null, docId: null, expanded: new Set(), hideSubj: new Set(), hideAll: false, drawerTab: 'pages', textCache: [],
   sym: { shape: 'circle', size: 18, height: 12, angle: 0, label: 'A', textColor: null, stampText: 'APPROVED', stampSize: 20 }, textSize: 12, editing: null, snap: true, mset: null, cutFor: null, series: { defs: {}, cur: null }
 };
 
@@ -1723,6 +1806,9 @@ var TYPE_LABEL = { Circle: 'Ellipse', Square: 'Rectangle', Ink: 'Pen', FreeText:
 var INTENT_LABEL = { LineDimension: 'Length', PolyLineDimension: 'Perimeter', PolygonDimension: 'Area', PolygonCloud: 'Cloud', FreeTextCallout: 'Callout' };
 function typeLabel(sub, intent) { return INTENT_LABEL[intent] || TYPE_LABEL[sub] || sub || 'Markup'; }
 function pageLabel(i) { return (state.labels && state.labels[i]) ? state.labels[i] : String(i + 1); }
+var STATUS_LABEL = { accepted: 'Accepted', rejected: 'Rejected', cancelled: 'Cancelled', completed: 'Completed' };
+function subjKey(a) { return a.subject || typeLabel(a.subtype, a.intent); }
+function isVisible(a) { return !state.hideAll && !(state.hideSubj && state.hideSubj.has(subjKey(a))); }
 function byId(id) { for (var i = 0; i < state.annots.length; i++) if (state.annots[i].id === id) return state.annots[i]; return null; }
 function live() { return state.annots.filter(function (a) { return !a.deleted; }); }
 function selected() { return live().filter(function (a) { return state.sel.has(a.id); }); }
@@ -1966,17 +2052,192 @@ var idb = (function () {
   };
 })();
 var keep = { ok: true, timer: null, warned: false, restoring: false };
-async function storeDoc(bytes, name) {
-  state.docId = 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+/* Several files: each open file is kept as doc:<id> + session:<id>; 'tabs' lists them. */
+var tabs = { list: [], active: null };
+async function saveTabs() { try { await idb.set('tabs', JSON.parse(JSON.stringify(tabs))); } catch (e) { /* ignore */ } renderTabs(); }
+function renderTabs() {
+  var bar = $('#tabs');
+  bar.hidden = !tabs.list.length;
+  bar.innerHTML = tabs.list.map(function (t) {
+    return '<div class="tab' + (t.id === tabs.active ? ' on' : '') + '" data-tab="' + esc(t.id) + '" title="' + esc(t.name) + '"><span class="nm">' + esc(t.name.replace(/\.pdf$/i, '')) + '</span><button type="button" class="x" data-close="' + esc(t.id) + '" aria-label="Close ' + esc(t.name) + '">\u00d7</button></div>';
+  }).join('') + '<button type="button" class="tab add" id="tabAdd" title="Open another PDF" aria-label="Open another PDF">+</button>';
+}
+async function storeDoc(bytes, name, sameId) {
+  var id = sameId && state.docId ? state.docId : 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   try {
-    await idb.set('doc', { id: state.docId, name: name, bytes: bytes.slice(0), at: Date.now() });
-    keep.ok = true;
+    await idb.set('doc:' + id, { id: id, name: name, bytes: bytes.slice(0), at: Date.now() });
+    state.docId = id; keep.ok = true;
+    var t = tabs.list.filter(function (x) { return x.id === id; })[0];
+    if (t) t.name = name; else tabs.list.push({ id: id, name: name });
+    tabs.active = id; await saveTabs();
   } catch (e) {
     console.warn('Could not keep the file on this device', e);
     state.docId = null; keep.ok = false;
     if (!keep.warned) { keep.warned = true; toast('This PDF could not be kept on the device (storage is full or blocked), so it will not reopen automatically. Save it before updating.', 7000); }
   }
 }
+async function switchTab(id) {
+  if (id === tabs.active && state.pdf) return;
+  if (state.editing) closeTextEditor();
+  if (state.draft) finishDraft();
+  if (state.pdf && state.docId) await saveSession();
+  await loadKept(id);
+}
+async function closeTab(id) {
+  var t = tabs.list.filter(function (x) { return x.id === id; })[0]; if (!t) return;
+  var unsaved = id === tabs.active ? state.unsaved : false;
+  if (id !== tabs.active) { try { var ss = await idb.get('session:' + id); unsaved = !!(ss && ss.unsaved); } catch (e) { /* ignore */ } }
+  if (unsaved && !confirm('Close ' + t.name + '? Markups not yet saved into a PDF will be lost.')) return;
+  try { await idb.del('doc:' + id); await idb.del('session:' + id); } catch (e) { /* ignore */ }
+  tabs.list = tabs.list.filter(function (x) { return x.id !== id; });
+  if (id === tabs.active) {
+    tabs.active = null; await saveTabs();
+    if (tabs.list.length) await loadKept(tabs.list[tabs.list.length - 1].id); else closeDocument();
+  } else await saveTabs();
+}
+// Back to the empty start screen.
+function closeDocument() {
+  if (state.pdf) { try { state.pdf.destroy(); } catch (e) { /* ignore */ } }
+  state.pdf = null; state.pages = []; state.annots = []; state.sel = new Set(); state.docId = null; state.history = []; state.future = [];
+  $('#pages').innerHTML = ''; $('#empty').hidden = false; $('#btnSave').disabled = true; $('#saveBar').hidden = true; state.pendingSave = null;
+  thumbsFor = null; state.textCache = [];
+  markUnsaved(); renderList(); renderProps(); updateUndoButtons(); updateScaleButton(); updatePageInd();
+}
+$('#tabs').addEventListener('click', function (e) {
+  var x = e.target.closest ? e.target.closest('[data-close]') : null;
+  if (x) { e.stopPropagation(); closeTab(x.dataset.close); return; }
+  if (e.target.closest && e.target.closest('#tabAdd')) { $('#file').click(); return; }
+  var t = e.target.closest ? e.target.closest('[data-tab]') : null; if (t) switchTab(t.dataset.tab);
+});
+
+/* ---------- pages drawer: thumbnails, go to page, search ---------- */
+var thumbsFor = null, thumbObserver = null, searchToken = 0, searchHits = [];
+function openDrawer(tab) {
+  $('#drawer').hidden = false; setDrawerTab(tab || state.drawerTab || 'pages');
+  renderVisible();
+}
+function closeDrawer() { $('#drawer').hidden = true; renderVisible(); }
+function setDrawerTab(t) {
+  state.drawerTab = t;
+  $$('#drawerTabs .tb').forEach(function (b) { b.classList.toggle('on', b.dataset.dt === t); });
+  $('#dPages').hidden = t !== 'pages'; $('#dSearch').hidden = t !== 'search';
+  if (t === 'pages') buildThumbs(); else setTimeout(function () { $('#searchIn').focus(); }, 30);
+}
+function buildThumbs() {
+  if (!state.pdf) { $('#thumbs').innerHTML = '<p class="hint">Open a PDF.</p>'; return; }
+  if (thumbsFor === state.pdf) { markThumb(); return; }
+  thumbsFor = state.pdf;
+  if (thumbObserver) thumbObserver.disconnect();
+  $('#thumbs').innerHTML = state.pages.map(function (p) {
+    var v = p.page.view, ar = (v[3] - v[1]) / (v[2] - v[0]); if (p.page.rotate % 180) ar = 1 / ar;
+    return '<button type="button" class="thumb" data-pg="' + p.index + '"><span class="tc" style="aspect-ratio:' + (1 / ar).toFixed(4) + '"><canvas></canvas></span><span class="tl">' + esc(pageLabel(p.index)) + '</span></button>';
+  }).join('');
+  thumbObserver = new IntersectionObserver(function (ents) {
+    ents.forEach(function (en) { if (en.isIntersecting) { thumbObserver.unobserve(en.target); renderThumb(en.target); } });
+  }, { root: $('#thumbs'), rootMargin: '200px' });
+  $$('#thumbs .thumb').forEach(function (el) { thumbObserver.observe(el); });
+  markThumb();
+}
+function renderThumb(el) {
+  var p = state.pages[+el.dataset.pg]; if (!p) return;
+  var c = el.querySelector('canvas'), w = 160 * Math.min(window.devicePixelRatio || 1, 2), vp1 = p.page.getViewport({ scale: 1 }), sc0 = w / vp1.width, vp = p.page.getViewport({ scale: sc0 });
+  c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+  p.page.render({ canvasContext: c.getContext('2d'), viewport: vp, annotationMode: pdfjsLib.AnnotationMode.ENABLE_STORAGE }).promise.catch(function () { /* ignore */ });
+}
+function markThumb() {
+  var cur = currentPageIndex(), el = null;
+  $$('#thumbs .thumb').forEach(function (t) { var on = +t.dataset.pg === cur; t.classList.toggle('on', on); if (on) el = t; });
+  if (el && !$('#drawer').hidden && state.drawerTab === 'pages' && !state.thumbScrolled) { el.scrollIntoView({ block: 'nearest' }); }
+}
+function updatePageInd() {
+  $('#pageInd').textContent = state.pdf ? pageLabel(currentPageIndex()) + ' / ' + state.pages.length : 'Pages';
+  if (!$('#drawer').hidden && state.drawerTab === 'pages') markThumb();
+}
+function goToPage(i) {
+  var p = state.pages[i]; if (!p) return;
+  var v = $('#viewer'); v.scrollTop = p.el.offsetTop - 8; renderVisible();
+  if (window.matchMedia('(max-width: 899px)').matches) closeDrawer();
+}
+function findPage(q) {
+  q = String(q || '').trim(); if (!q) return -1;
+  for (var i = 0; i < state.pages.length; i++) if (String(pageLabel(i)).toLowerCase() === q.toLowerCase()) return i;
+  var n = parseInt(q, 10); return n >= 1 && n <= state.pages.length ? n - 1 : -1;
+}
+function flashAt(pageIndex, rect) {
+  var p = state.pages[pageIndex]; if (!p) return;
+  var vr = viewRect(p, rect), v = $('#viewer');
+  v.scrollTo({ left: p.el.offsetLeft + (vr[0] + vr[2]) / 2 - v.clientWidth / 2, top: p.el.offsetTop + (vr[1] + vr[3]) / 2 - v.clientHeight / 2, behavior: 'smooth' });
+  p.flash = rect; drawOverlay(p); setTimeout(renderVisible, 60); setTimeout(renderVisible, 600);
+  clearTimeout(p.flashT); p.flashT = setTimeout(function () { p.flash = null; drawOverlay(p); }, 2600);
+}
+function pageText(i) {
+  state.textCache = state.textCache || [];
+  if (!state.textCache[i]) state.textCache[i] = state.pages[i].page.getTextContent().then(function (tc) { return tc.items.filter(function (it) { return it.str; }); }, function () { return []; });
+  return state.textCache[i];
+}
+async function runSearch(qRaw) {
+  var tok = ++searchToken, q = String(qRaw || '').trim().toLowerCase(), box = $('#searchRes');
+  searchHits = [];
+  if (!state.pdf || q.length < 1) { box.innerHTML = '<p class="hint">Search the drawing text (room names, fixture tags, notes) and your markups (subject, label, comments, fields).</p>'; return; }
+  var mk = live().filter(function (a) {
+    return [a.subject, MarkupIO.symLabel(a), a.mtext, a.contents, STATUS_LABEL[a.status]].concat(a.fields ? Object.keys(a.fields).map(function (k) { return k + ' ' + a.fields[k]; }) : []).join(' ').toLowerCase().indexOf(q) >= 0;
+  }).slice(0, 100);
+  var head = '<h4>Markups (' + mk.length + ')</h4>' + mk.map(function (a) {
+    return '<button type="button" class="sres" data-mk="' + esc(a.id) + '"><span class="sp">p. ' + esc(pageLabel(a.pageIndex)) + '</span>' + esc(a.subject || typeLabel(a.subtype, a.intent)) + (MarkupIO.symLabel(a) || a.mtext ? ' <b>' + esc(MarkupIO.symLabel(a) || a.mtext) + '</b>' : '') + '</button>';
+  }).join('');
+  box.innerHTML = head + '<h4 id="txtHead">Drawing text (searching\u2026)</h4><div id="txtRes"></div>';
+  var html = '', count = 0;
+  for (var i = 0; i < state.pages.length && count < 300; i++) {
+    var items = await pageText(i); if (tok !== searchToken) return;
+    items.forEach(function (it) {
+      var low = it.str.toLowerCase(), at = low.indexOf(q);
+      while (at >= 0 && count < 300) {
+        searchHits.push({ page: i, item: it, at: at, len: q.length });
+        var a0 = Math.max(0, at - 24), snip = esc(it.str.slice(a0, at)) + '<mark>' + esc(it.str.slice(at, at + q.length)) + '</mark>' + esc(it.str.slice(at + q.length, at + q.length + 24));
+        html += '<button type="button" class="sres" data-hit="' + (searchHits.length - 1) + '"><span class="sp">p. ' + esc(pageLabel(i)) + '</span>' + (a0 ? '\u2026' : '') + snip + '</button>';
+        count++; at = low.indexOf(q, at + 1);
+      }
+    });
+    if (i % 4 === 3) { $('#txtRes').innerHTML = html; $('#txtHead').textContent = 'Drawing text (' + count + ', searching\u2026)'; }
+  }
+  if (tok !== searchToken) return;
+  $('#txtRes').innerHTML = html || '<p class="hint">No matches in the drawing text. (Scanned drawings have no text to search.)</p>';
+  $('#txtHead').textContent = 'Drawing text (' + count + (count >= 300 ? '+' : '') + ')';
+}
+$('#btnPages').addEventListener('click', function () { if ($('#drawer').hidden) openDrawer('pages'); else closeDrawer(); });
+$('#drawerClose').addEventListener('click', closeDrawer);
+$$('#drawerTabs .tb').forEach(function (b) { b.addEventListener('click', function () { setDrawerTab(b.dataset.dt); }); });
+$('#thumbs').addEventListener('click', function (e) { var t = e.target.closest ? e.target.closest('[data-pg]') : null; if (t) goToPage(+t.dataset.pg); });
+$('#gotoIn').addEventListener('keydown', function (e) { if (e.key === 'Enter') { var i = findPage(e.target.value); if (i >= 0) { goToPage(i); e.target.blur(); } else toast('No page ' + e.target.value + '.'); } });
+var searchTimer = null;
+$('#searchIn').addEventListener('input', function (e) { clearTimeout(searchTimer); var v = e.target.value; searchTimer = setTimeout(function () { runSearch(v); }, 250); });
+$('#searchRes').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('.sres') : null; if (!b) return;
+  if (b.dataset.mk) { var a = byId(b.dataset.mk); if (a) { state.sel = new Set([a.id]); afterSelectionChange(); flashAt(a.pageIndex, a.rect); } return; }
+  var h = searchHits[+b.dataset.hit]; if (!h) return;
+  var tr = h.item.transform, fs = Math.hypot(tr[2], tr[3]) || 10, L0 = h.item.str.length || 1, x0 = tr[4] + h.item.width * h.at / L0, w = Math.max(fs * 0.5, h.item.width * h.len / L0);
+  flashAt(h.page, [x0, tr[5] - fs * 0.25, x0 + w, tr[5] + fs * 0.85]);
+  if (window.matchMedia('(max-width: 899px)').matches) closeDrawer();
+});
+
+/* ---------- show / hide markups by subject ---------- */
+function openVis() {
+  var counts = {}, order = [];
+  live().forEach(function (a) { var k = subjKey(a); if (!counts[k]) { counts[k] = 0; order.push(k); } counts[k]++; });
+  order.sort();
+  var hs = state.hideSubj || (state.hideSubj = new Set());
+  $('#visList').innerHTML = order.length ? order.map(function (k) { return '<label class="vrow"><input type="checkbox" data-vis="' + esc(k) + '"' + (hs.has(k) ? '' : ' checked') + '><span>' + esc(k) + '</span><span class="n">' + counts[k] + '</span></label>'; }).join('') : '<p class="hint">No markups yet.</p>';
+  $('#visAll').checked = !state.hideAll;
+  $('#visModal').hidden = false;
+}
+function applyVis() { syncCanvasHidden(); state.pages.forEach(drawOverlay); renderList(); scheduleKeep(); }
+$('#visList').addEventListener('change', function (e) { var k = e.target.dataset.vis; if (k == null) return; if (e.target.checked) state.hideSubj.delete(k); else state.hideSubj.add(k); applyVis(); });
+$('#visAll').addEventListener('change', function (e) { state.hideAll = !e.target.checked; applyVis(); });
+$('#visShowAll').addEventListener('click', function () { state.hideSubj = new Set(); state.hideAll = false; openVis(); applyVis(); });
+$('#visHideAll').addEventListener('click', function () { live().forEach(function (a) { state.hideSubj.add(subjKey(a)); }); openVis(); applyVis(); });
+$('#visClose').addEventListener('click', function () { $('#visModal').hidden = true; });
+$('#visModal').addEventListener('pointerdown', function (e) { if (e.target === $('#visModal')) $('#visModal').hidden = true; });
+
 function scheduleKeep() {
   if (!state.pdf || !state.docId || keep.restoring) return;
   clearTimeout(keep.timer); keep.timer = setTimeout(saveSession, 900);
@@ -1990,16 +2251,31 @@ async function saveSession() {
     scaleDirty: Array.from(state.scaleDirty), series: state.series, nextId: state.nextId,
     history: state.history.slice(-25), future: state.future.slice(-25),
     zoom: state.zoom, sx: v.scrollWidth ? v.scrollLeft / v.scrollWidth : 0, sy: v.scrollHeight ? v.scrollTop / v.scrollHeight : 0,
-    pendingExport: !!state.pendingSave, at: Date.now()
+    pendingExport: !!state.pendingSave, unsaved: !!state.unsaved, hideSubj: Array.from(state.hideSubj || []), hideAll: !!state.hideAll, at: Date.now()
   };
-  try { await idb.set('session', JSON.parse(JSON.stringify(ses))); keep.ok = true; return true; }
+  try { await idb.set('session:' + state.docId, JSON.parse(JSON.stringify(ses))); keep.ok = true; return true; }
   catch (e) { console.warn('Could not keep the markups on this device', e); keep.ok = false; return false; }
 }
 async function restoreLast() {
+  try { var tl = await idb.get('tabs'); if (tl && tl.list) tabs = tl; } catch (e) { return; }
+  if (!tabs.list.length) {
+    // Kept by an earlier version as a single file: move it into the tabs.
+    var old = null; try { old = await idb.get('doc'); } catch (e) { old = null; }
+    if (old && old.bytes) {
+      var os = null; try { os = await idb.get('session'); } catch (e) { os = null; }
+      try { await idb.set('doc:' + old.id, old); if (os) await idb.set('session:' + old.id, os); await idb.del('doc'); await idb.del('session'); } catch (e) { /* ignore */ }
+      tabs = { list: [{ id: old.id, name: old.name }], active: old.id }; await saveTabs();
+    }
+  }
+  renderTabs();
+  if (tabs.active) await loadKept(tabs.active);
+}
+async function loadKept(id) {
   var doc = null, ses = null;
-  try { doc = await idb.get('doc'); } catch (e) { return; }
-  if (!doc || !doc.bytes) return;
-  try { ses = await idb.get('session'); } catch (e) { ses = null; }
+  try { doc = await idb.get('doc:' + id); } catch (e) { doc = null; }
+  if (!doc || !doc.bytes) { tabs.list = tabs.list.filter(function (t) { return t.id !== id; }); if (tabs.active === id) tabs.active = tabs.list.length ? tabs.list[tabs.list.length - 1].id : null; await saveTabs(); return; }
+  try { ses = await idb.get('session:' + id); } catch (e) { ses = null; }
+  tabs.active = id; await saveTabs();
   keep.restoring = true;
   setBusy('Reopening ' + doc.name + '…');
   try {
@@ -2013,9 +2289,10 @@ async function restoreLast() {
       if (ses.series) state.series = ses.series;
       if (ses.nextId) state.nextId = ses.nextId;
       state.history = ses.history || []; state.future = ses.future || []; updateUndoButtons();
+      state.hideSubj = new Set(ses.hideSubj || []); state.hideAll = !!ses.hideAll;
       if (ses.zoom && Math.abs(ses.zoom - state.zoom) > 0.001) setZoom(ses.zoom);
       var v = $('#viewer'); v.scrollLeft = (ses.sx || 0) * v.scrollWidth; v.scrollTop = (ses.sy || 0) * v.scrollHeight;
-      state.pages.forEach(drawOverlay);
+      syncCanvasHidden(); state.pages.forEach(drawOverlay);
       markUnsaved(); renderList(); renderProps(); updateScaleButton(); updateSeqBar(); renderVisible();
       if (ses.pendingExport) {
         state.pendingSave = { bytes: state.bytes, name: state.fileName.replace(/\.pdf$/i, '') + '.pdf' };
@@ -2025,8 +2302,9 @@ async function restoreLast() {
     }
     toast('Reopened ' + doc.name + (state.unsaved ? ' with your unsaved markups.' : '.'), 3500);
   } catch (e) {
-    console.warn('Could not reopen the last file', e);
-    try { await idb.del('doc'); await idb.del('session'); } catch (e2) { /* ignore */ }
+    console.warn('Could not reopen the file', e);
+    try { await idb.del('doc:' + id); await idb.del('session:' + id); } catch (e2) { /* ignore */ }
+    tabs.list = tabs.list.filter(function (t) { return t.id !== id; }); tabs.active = tabs.list.length ? tabs.list[0].id : null; await saveTabs();
   } finally { keep.restoring = false; setBusy(null); }
 }
 
@@ -2035,6 +2313,7 @@ async function openFile(file) {
   setBusy('Opening ' + file.name + '…');
   try {
     var buf = await file.arrayBuffer();
+    if (state.pdf && state.docId) await saveSession(); // the open file stays in its tab
     state.docId = null; // nothing is kept until the new file is stored
     await loadPdf(new Uint8Array(buf), file.name, {});
     $('#empty').hidden = true;
@@ -2051,7 +2330,8 @@ async function openFile(file) {
 async function loadPdf(bytes, name, opts) {
   if (state.pdf) { try { await state.pdf.destroy(); } catch (e) { /* ignore */ } }
   var pdf = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
-  hiddenOnCanvas = new Set();
+  hiddenOnCanvas = new Set(); state.textCache = []; thumbsFor = null;
+  if (!$('#drawer').hidden && state.drawerTab === 'pages') setTimeout(buildThumbs, 0);
   state.pdf = pdf; state.bytes = bytes; state.fileName = name || state.fileName;
   try { state.labels = await pdf.getPageLabels(); } catch (e) { state.labels = null; }
   var read = { annots: [], scales: [] };
@@ -2060,7 +2340,7 @@ async function loadPdf(bytes, name, opts) {
   state.annots = read.annots; state.scales = read.scales || []; state.scaleDirty = new Set();
   state.sel = new Set(); state.history = []; state.future = []; state.nextId = 1;
   if (state.draft) { state.draft = null; updatePolyBar(); }
-  state.series = { defs: {}, cur: null };
+  state.series = { defs: {}, cur: null }; state.hideSubj = new Set(); state.hideAll = false;
   groupBaseline = groupKey(); markUnsaved(); updateUndoButtons();
   await buildPages(opts && opts.keepScroll);
   // Measurement text and symbol labels are written ahead of any comment in /Contents; split them back off on read.
@@ -2159,7 +2439,7 @@ function renderVisible() {
       else if (far && (p.rendered || p.renderTask)) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; } p.rendered = false; p.canvas.width = 1; p.canvas.height = 1; dropDetail(p); }
     });
     scheduleDetail();
-    updateScaleButton();
+    updateScaleButton(); updatePageInd();
   });
 }
 /* The base canvas is capped in pixels; when the page is zoomed past that, a second
@@ -2202,7 +2482,7 @@ function pdfjsId(a) { return a.num + 'R' + (a.gen ? a.gen : ''); }
 function syncCanvasHidden() {
   var store = state.pdf && state.pdf.annotationStorage; if (!store || !state.pages.length) return;
   var want = new Set();
-  state.annots.forEach(function (a) { if (!a.isNew && a.num != null && (a.deleted || a.geomDirty || a.styleDirty)) want.add(a.id); });
+  state.annots.forEach(function (a) { if (!a.isNew && a.num != null && (a.deleted || a.geomDirty || a.styleDirty || !isVisible(a))) want.add(a.id); });
   var pages = new Set();
   want.forEach(function (id) { if (hiddenOnCanvas.has(id)) return; var a = byId(id); if (!a) return; store.setValue(pdfjsId(a), { noView: true }); pages.add(a.pageIndex); });
   hiddenOnCanvas.forEach(function (id) { if (want.has(id)) return; var a = byId(id); if (!a) return; store.setValue(pdfjsId(a), { noView: false }); pages.add(a.pageIndex); });
@@ -2384,7 +2664,7 @@ function selectionSVG(a, p, withHandles) {
 function drawOverlay(p) {
   var html = '', single = singleResizable();
   state.annots.forEach(function (a) {
-    if (a.deleted || a.pageIndex !== p.index) return;
+    if (a.deleted || a.pageIndex !== p.index || !isVisible(a)) return;
     if (a.isNew || a.geomDirty || a.styleDirty) html += shapeSVG(a, p, false);
   });
   state.annots.forEach(function (a) {
@@ -2392,6 +2672,7 @@ function drawOverlay(p) {
     html += selectionSVG(a, p, single === a);
   });
   if (p.temp) html += shapeSVG(p.temp, p, false);
+  if (p.flash) { var fr = viewRect(p, p.flash); html += '<rect x="' + (fr[0] - 3) + '" y="' + (fr[1] - 3) + '" width="' + (fr[2] - fr[0] + 6) + '" height="' + (fr[3] - fr[1] + 6) + '" rx="3" fill="rgba(255,152,0,.30)" stroke="#e65100" stroke-width="2"/>'; }
   if (p.snapMark) { var sv = toView(p, p.snapMark[0], p.snapMark[1]); html += '<rect x="' + (sv[0] - 6) + '" y="' + (sv[1] - 6) + '" width="12" height="12" fill="none" stroke="#e65100" stroke-width="2"/>'; }
   if (p.eraser) { var ev = toView(p, p.eraser[0], p.eraser[1]); html += '<circle cx="' + ev[0] + '" cy="' + ev[1] + '" r="10" fill="rgba(198,40,40,.08)" stroke="#c62828" stroke-width="1.5" stroke-dasharray="3 3"/>'; }
   if (p.marquee) {
@@ -2409,7 +2690,7 @@ function singleResizable() {
 function hitTest(p, pt) {
   var t = 8 / state.zoom, best = null, bestArea = Infinity;
   state.annots.forEach(function (a) {
-    if (a.deleted || a.pageIndex !== p.index) return;
+    if (a.deleted || a.pageIndex !== p.index || !isVisible(a)) return;
     var r = a.rect;
     if (pt[0] < r[0] - t || pt[0] > r[2] + t || pt[1] < r[1] - t || pt[1] > r[3] + t) return;
     var area = (r[2] - r[0]) * (r[3] - r[1]);
@@ -3056,6 +3337,7 @@ function applyToSelection(patch, tag) {
         else if (a.subtype === 'FreeText' && a.owned) { a.textColor = v; if (!a.isNew) a.styleDirty = true; }
       }
       else if (k === 'symAngle') { if (a.sym && a.owned) { var cen = symCentre(a); a.sym = Object.assign({}, a.sym, { angle: ((((+a.sym.angle || 0) + v) % 360) + 360) % 360 }); centerSym(a, cen); if (!a.isNew) { a.styleDirty = true; a.geomDirty = true; } } }
+      else if (k === 'status') { a.status = v || ''; a.statusDirty = true; a.statusBy = state.author || ''; }
       else if (k === 'field') { a.fields = Object.assign({}, a.fields || {}); if (v[1] === null) delete a.fields[v[0]]; else a.fields[v[0]] = v[1]; }
       else if (k === 'fillColor') { if (MarkupIO.FILLABLE.has(a.subtype)) { a.fillColor = v ? hexToRgb(v) : (a.color || hexToRgb(state.style.color)); if (!a.isNew) a.styleDirty = true; } }
       else if (k === 'subject' || k === 'contents') { a[k] = v; }
@@ -3307,6 +3589,8 @@ function renderProps() {
   if (document.activeElement !== sub) { sub.value = same('subject') ? (a.subject || '') : ''; sub.placeholder = same('subject') ? 'e.g. Ellipse, Issue, Verify' : 'Mixed'; }
   if (document.activeElement !== con) { con.value = same('contents') ? (a.contents || '') : ''; con.placeholder = same('contents') ? 'Shows in the Comments column' : 'Mixed'; }
   styleSel.sync();
+  var stv = s.every(function (x) { return (x.status || '') === (a.status || ''); }) ? (a.status || '') : '';
+  if (document.activeElement !== $('#pStatus')) $('#pStatus').value = stv;
   var rs = s.filter(function (x) { return x.sym && x.owned; });
   $('#pRotate').hidden = !rs.length;
   if (rs.length) $('#pAngle').textContent = (rs.every(function (x) { return (+x.sym.angle || 0) === (+rs[0].sym.angle || 0); }) ? (+rs[0].sym.angle || 0) + '\u00b0' : 'mixed');
@@ -3350,12 +3634,14 @@ $('#pAddField').addEventListener('click', function () {
 $('#pRotate').addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('[data-rot]') : null; if (b) { applyToSelection({ symAngle: +b.dataset.rot }, 'rotate'); renderProps(); } });
 $('#btnDuplicate').addEventListener('click', duplicateSelection);
 $('#btnExport').addEventListener('click', openExport);
+$('#btnVis').addEventListener('click', openVis);
 $('#exClose').addEventListener('click', closeExport);
 $('#exportModal').addEventListener('click', function (e) {
   if (e.target === $('#exportModal')) { closeExport(); return; }
   var b = e.target.closest ? e.target.closest('[data-ex],[data-legend]') : null; if (!b) return;
   if (b.dataset.ex) doExport(b.dataset.ex); else insertLegend(b.dataset.legend);
 });
+$('#pStatus').addEventListener('change', function (e) { applyToSelection({ status: e.target.value }, null); renderProps(); });
 $('#pSubject').addEventListener('input', function (e) { applyToSelection({ subject: e.target.value }, 'subject'); });
 $('#pContents').addEventListener('input', function (e) { applyToSelection({ contents: e.target.value }, 'contents'); });
 $('#btnGroup').addEventListener('click', groupSelection);
@@ -3377,12 +3663,13 @@ function sortVal(a, key) {
     case 'author': return (a.author || '').toLowerCase();
     case 'date': return a.date || '';
     case 'color': return hue(a.color);
+    case 'status': return a.status || '~';
     default: return 0;
   }
 }
 function matchesFilter(a) {
   var f = state.filter.trim().toLowerCase(); if (!f) return true;
-  return [a.subject, a.contents, a.mtext, MarkupIO.symLabel(a), a.author, pageLabel(a.pageIndex)].some(function (v) { return String(v || '').toLowerCase().indexOf(f) >= 0; });
+  return [a.subject, a.contents, a.mtext, MarkupIO.symLabel(a), a.author, pageLabel(a.pageIndex), STATUS_LABEL[a.status] || ''].concat(a.fields ? Object.keys(a.fields).map(function (k) { return a.fields[k]; }) : []).some(function (v) { return String(v || '').toLowerCase().indexOf(f) >= 0; });
 }
 // Counted: symbols and numbered markups (not stamps, not the symbols drawn inside a legend).
 function countable(a) { return !!a.sym && !a.sym.legend && a.sym.shape !== 'stamp'; }
@@ -3415,10 +3702,10 @@ function markupRows() {
   var list = live().filter(function (a) { return !(a.sym && a.sym.legend); });
   list.sort(function (a, b) { return a.pageIndex - b.pageIndex || String(a.subject).localeCompare(String(b.subject)); });
   var names = allFieldNames(list);
-  var head = ['Page', 'Subject', 'Type', 'Label / number', 'Measurement', 'Comments', 'Author', 'Date', 'Line colour', 'Fill colour', 'Group'].concat(names);
+  var head = ['Page', 'Subject', 'Type', 'Label / number', 'Measurement', 'Status', 'Comments', 'Author', 'Date', 'Line colour', 'Fill colour', 'Group'].concat(names);
   var rows = list.map(function (a) {
     var g = membersOf(a).length > 1 ? 'Group ' + (headOf(a).subject || '') + ' (' + membersOf(a).length + ')' : '';
-    return [pageLabel(a.pageIndex), a.subject || '', a.sym ? (a.sym.n != null ? 'Number' : a.sym.shape === 'stamp' ? 'Stamp' : 'Symbol') : typeLabel(a.subtype, a.intent), MarkupIO.symLabel(a), a.mtext || '', a.contents || '', a.author || '', a.date ? fmtDate(a.date) : '', hexOf(a.color), hexOf(a.fillColor), g]
+    return [pageLabel(a.pageIndex), a.subject || '', a.sym ? (a.sym.n != null ? 'Number' : a.sym.shape === 'stamp' ? 'Stamp' : 'Symbol') : typeLabel(a.subtype, a.intent), MarkupIO.symLabel(a), a.mtext || '', STATUS_LABEL[a.status] || '', a.contents || '', a.author || '', a.date ? fmtDate(a.date) : '', hexOf(a.color), hexOf(a.fillColor), g]
       .concat(names.map(function (n) { return a.fields && a.fields[n] != null ? a.fields[n] : ''; }));
   });
   return { head: head, rows: rows };
@@ -3544,7 +3831,7 @@ function renderList() {
     var meta = [a.author || '', fmtDay(a.date)].filter(Boolean).join(', ');
     return '<div class="row ' + cls + (state.sel.has(a.id) ? ' sel' : '') + '" data-id="' + esc(a.id) + '">' +
       '<span class="sw" style="--c:' + rgbToHex(a.color || [0.5, 0.5, 0.5]) + '"></span>' +
-      '<span class="subj">' + (a.subject ? esc(a.subject) : '<span class="muted">' + esc(typeLabel(a.subtype, a.intent)) + '</span>') + '</span>' +
+      '<span class="subj">' + (isVisible(a) ? '' : '<span class="muted" title="Hidden">\u25CC </span>') + (a.subject ? esc(a.subject) : '<span class="muted">' + esc(typeLabel(a.subtype, a.intent)) + '</span>') + (a.status ? ' <span class="st st-' + esc(a.status) + '">' + esc(STATUS_LABEL[a.status] || a.status) + '</span>' : '') + '</span>' +
       '<span class="pg">p. ' + esc(pageLabel(a.pageIndex)) + '</span>' +
       '<span class="comm">' + ((a.mtext || MarkupIO.symLabel(a)) ? '<b>' + esc(a.mtext || MarkupIO.symLabel(a)) + '</b>' + (a.contents ? ' · ' : '') : '') + esc(a.contents || '') + '</span>' +
       '<span class="meta">' + esc(meta) + '</span></div>';
@@ -3619,9 +3906,9 @@ async function savePdf() {
     state.scaleDirty.forEach(function (i) { scales[i] = state.scales[i] || null; });
     state.annots.forEach(function (a) { if (a.vertices && !a.deleted && (a.isNew || a.geomDirty || a.styleDirty)) updateGeom(a); });
     out = await MarkupIO.applyMarkups(state.bytes, state.annots, { author: state.author || '', scales: scales });
-    state.docId = null;
+    var keepId = state.docId; state.docId = null;
     await loadPdf(out, state.fileName, { keepScroll: true });
-    await storeDoc(out, state.fileName);
+    state.docId = keepId; await storeDoc(out, state.fileName, true);
   } catch (e) {
     console.error(e); setBusy(null);
     toast('The markups could not be written: ' + (e && e.message ? e.message : 'unknown error'), 6000); return;
@@ -4311,6 +4598,8 @@ document.addEventListener('keydown', function (e) {
   var tag = (e.target.tagName || '').toLowerCase();
   state.multi = e.shiftKey || e.metaKey || e.ctrlKey;
   if (!$('#exportModal').hidden) { if (e.key === 'Escape') closeExport(); return; }
+  if (!$('#visModal').hidden) { if (e.key === 'Escape') $('#visModal').hidden = true; return; }
+  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); openDrawer('search'); return; }
   if (!$('#toolModal').hidden) { if (e.key === 'Escape') closeToolEditor(); else if (e.key === 'Enter' && tag === 'input') { e.preventDefault(); saveToolFromEditor(); } return; }
   if (!$('#scaleModal').hidden) { if (e.key === 'Escape') closeScale(); else if (e.key === 'Enter' && tag !== 'select') { e.preventDefault(); applyScaleFromDialog(); } return; }
   if (e.key === 'Escape' && (tag === 'input' || tag === 'textarea' || tag === 'select')) {
