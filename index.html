@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.9.1">
+<meta name="app-version" content="1.9.2">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -103,10 +103,19 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .zoom-val { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; }
 .style-chip { padding-left: 8px; }
 .style-chip .preview { width: 34px; height: 22px; border-radius: 50%; border: 2.5px solid var(--c, #e53935); background: color-mix(in srgb, var(--f, var(--c, #e53935)) 35%, transparent); }
-.style .sub { font-size: 13px; color: var(--ink-2); margin-bottom: -4px; }
-.style .fld.fcrow { grid-template-columns: 96px 1fr; align-items: start; }
-.style .fld.fcrow > span { padding-top: 4px; }
-.style .fld.fcrow.off { opacity: .5; }
+/* One colour picker for line, fill and text: a Line | Fill | Text switch over a shared row of swatches. */
+.cpick { display: grid; gap: 8px; }
+.ctabs { display: inline-flex; justify-self: start; background: var(--surface-2); border-radius: 10px; padding: 3px; gap: 2px; }
+.ctab { display: inline-flex; align-items: center; gap: 6px; min-height: 32px; padding: 0 10px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-2); font-size: 13px; font-weight: 500; cursor: pointer; }
+.ctab.on { background: var(--surface); color: var(--ink); box-shadow: 0 1px 3px rgba(0,0,0,.14); }
+.ctab[hidden] { display: none; }
+.ctab .dot { width: 14px; height: 14px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(128,128,128,.45); flex: none; }
+.ctab .dot.none, .cswatches .swatch.none { background: linear-gradient(to top right, transparent calc(50% - 1px), #c62828 calc(50% - 1px), #c62828 calc(50% + 1px), transparent calc(50% + 1px)), #fff; }
+.ctab .dot.auto { background: var(--surface); color: var(--c); font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
+.cswatches { display: flex; flex-wrap: wrap; gap: 6px; }
+.cswatches .swatch { width: 28px; height: 28px; }
+.cswatches .swatch:not(.on) { box-shadow: inset 0 0 0 1px rgba(128,128,128,.65); }
+.cswatches .swatch.word { background: var(--surface-2); color: var(--ink-2); font-size: 10px; font-weight: 700; display: inline-flex; align-items: center; justify-content: center; }
 .style-chip.nofill .preview { background: transparent; }
 .toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 14px; padding: 0 6px; }
 .toggle input { width: 40px; height: 24px; appearance: none; -webkit-appearance: none; background: var(--line); border-radius: 12px; position: relative; margin: 0; cursor: pointer; }
@@ -170,7 +179,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .btn[disabled] { opacity: .4; pointer-events: none; }
 
 /* Style controls (shared by popover and properties) */
-.style { display: grid; gap: 10px; }
+.style { display: grid; gap: 8px; }
 .style.disabled { opacity: .45; pointer-events: none; }
 .swatches { display: flex; flex-wrap: wrap; gap: 8px; }
 .swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; background: var(--c); cursor: pointer; padding: 0; position: relative; box-shadow: inset 0 0 0 1px rgba(128,128,128,.35); }
@@ -414,7 +423,6 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <label class="fld range"><span data-size-lbl>Size</span><input type="range" min="4" max="96" step="1" data-s="size"><output></output></label>
       <label class="fld range" data-wide hidden><span>Height</span><input type="range" min="4" max="96" step="1" data-s="height"><output></output></label>
       <label class="fld" data-only="symbol"><span>Label</span><input type="text" data-s="label" maxlength="8" placeholder="e.g. A, L1"></label>
-      <div class="fld tcrow"><span>Text</span><div class="tswatches" data-tc-row></div></div>
     </div>
     <button class="btn style-save" id="btnSaveTool" type="button">Save as a tool…</button>
   </div>
@@ -505,9 +513,6 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <datalist id="subjects"><option value="Ellipse"><option value="Rectangle"><option value="Pen"><option value="Issue"><option value="Verify"><option value="RFI"><option value="Note"></datalist>
       <div class="measure" id="pMeasure" hidden></div>
       <label class="fld">Comments<textarea class="fld-ta" id="pContents" rows="2" placeholder="Shows in the Comments column"></textarea></label>
-      <div class="symset" id="pSymText" hidden style="margin-top:0;border-top:0;padding-top:0">
-      <div class="fld tcrow"><span>Text</span><div class="tswatches" data-tc-row></div></div>
-      </div>
       <div class="style" id="styleSel"></div>
       <div class="actions">
         <button class="btn" id="btnGroup" type="button">Group</button>
@@ -587,7 +592,6 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <label class="fld range"><span data-size-lbl>Size</span><input type="range" min="4" max="96" step="1" data-s="size"><output></output></label>
       <label class="fld range" data-wide hidden><span>Height</span><input type="range" min="4" max="96" step="1" data-s="height"><output></output></label>
       <label class="fld" data-only="symbol"><span>Label</span><input type="text" data-s="label" maxlength="8" placeholder="e.g. A, L1"></label>
-      <div class="fld tcrow"><span>Text</span><div class="tswatches" data-tc-row></div></div>
     </div>
     <label class="fld">Subject<input id="tSubject" list="subjects" placeholder="Shows as Subject in Revu"></label>
     <label class="fld">Comments<input id="tContents" placeholder="Optional default comment"></label>
@@ -1335,7 +1339,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.9.1';
+var APP_VERSION = '1.9.2';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2415,6 +2419,7 @@ function applyToSelection(patch, tag) {
         a.color = hexToRgb(v); if (follows) a.fillColor = hexToRgb(v); if (!a.isNew) a.styleDirty = true;
       }
       else if (k === 'fill') { if (MarkupIO.FILLABLE.has(a.subtype)) { a.fillColor = v ? (a.fillColor || a.color || hexToRgb(state.style.color)) : null; if (!a.isNew) a.styleDirty = true; } }
+      else if (k === 'textColor') { if (a.sym && a.owned) { a.sym = Object.assign({}, a.sym, { textColor: v }); if (!a.isNew) a.styleDirty = true; } }
       else if (k === 'fillColor') { if (MarkupIO.FILLABLE.has(a.subtype)) { a.fillColor = v ? hexToRgb(v) : (a.color || hexToRgb(state.style.color)); if (!a.isNew) a.styleDirty = true; } }
       else if (k === 'subject' || k === 'contents') { a[k] = v; }
       else { a[k] = v; if (!a.isNew) a.styleDirty = true; }
@@ -2491,29 +2496,49 @@ function paintRange(el) {
   el.style.setProperty('--p', clamp(p, 0, 100) + '%');
 }
 document.addEventListener('input', function (e) { if (e.target.type === 'range') paintRange(e.target); }, true);
+var SWATCHES = ['#FFFFFF', '#212121'].concat(PALETTE.filter(function (c) { return c !== '#212121'; }));
+/* Style controls used in the style menu, the properties panel and the tool editor.
+   get() returns { color, fill, fillColor (null = same as line), textColor (null = auto), hasText, highlight, fillOpacity, lineWidth, opacity };
+   set(patch) receives the changed keys. */
 function buildStyleControls(root, get, set, open) {
-  var fillSw = '<button type="button" class="swatch auto" data-fc="" title="Fill with the line colour" aria-label="Fill same as line">Line</button>' +
-    ['#FFFFFF'].concat(PALETTE).map(function (c) { return '<button type="button" class="swatch" data-fc="' + c + '" style="--c:' + c + '" aria-label="Fill colour ' + c + '"></button>'; }).join('') +
-    '<label class="swatch custom" title="Custom fill colour"><input type="color" data-fc-custom aria-label="Custom fill colour"></label>';
+  var target = 'color';
   root.innerHTML =
-    '<div class="sub">Line colour</div>' +
-    '<div class="swatches">' + PALETTE.map(function (c) { return '<button type="button" class="swatch" data-c="' + c + '" style="--c:' + c + '" aria-label="Color ' + c + '"></button>'; }).join('') +
-    '<label class="swatch custom" title="Custom color"><input type="color" data-k="color" aria-label="Custom color"></label></div>' +
-    '<div class="fld fcrow"><span>Fill colour</span><div class="tswatches">' + fillSw + '</div></div>' +
-    '<details class="more"' + (open ? ' open' : '') + '><summary>Fill, line and opacity</summary>' +
-    '<label class="fld"><span>Fill inside</span><input type="checkbox" data-k="fill"></label>' +
+    '<div class="cpick">' +
+      '<div class="ctabs" role="tablist" aria-label="Colour for">' +
+        '<button type="button" class="ctab" data-target="color" role="tab"><span class="dot"></span>Line</button>' +
+        '<button type="button" class="ctab" data-target="fill" role="tab"><span class="dot"></span>Fill</button>' +
+        '<button type="button" class="ctab" data-target="text" role="tab"><span class="dot"></span>Text</button>' +
+      '</div>' +
+      '<div class="cswatches" data-sw></div>' +
+    '</div>' +
+    '<details class="more"' + (open ? ' open' : '') + '><summary>Line width, opacity and highlight</summary>' +
     '<label class="fld"><span>Highlight (see through the fill)</span><input type="checkbox" data-k="highlight"></label>' +
     '<label class="fld range"><span>Fill opacity</span><input type="range" min="0.05" max="1" step="0.05" data-k="fillOpacity"><output></output></label>' +
     '<label class="fld range"><span>Line width</span><input type="range" min="0" max="12" step="0.5" data-k="lineWidth"><output></output></label>' +
     '<label class="fld range"><span>Line opacity</span><input type="range" min="0.1" max="1" step="0.05" data-k="opacity"><output></output></label></details>';
+  var swBox = root.querySelector('[data-sw]');
+  function swatchesFor(t) {
+    var specials = t === 'fill'
+      ? '<button type="button" class="swatch none" data-v="none" title="No fill" aria-label="No fill"></button><button type="button" class="swatch word" data-v="" title="Fill with the line colour" aria-label="Fill same as line">Line</button>'
+      : t === 'text' ? '<button type="button" class="swatch word" data-v="" title="Automatic: white on a strong fill, otherwise the line colour" aria-label="Automatic text colour">Auto</button>' : '';
+    var name = t === 'color' ? 'Line' : t === 'fill' ? 'Fill' : 'Text';
+    return specials + SWATCHES.map(function (c) { return '<button type="button" class="swatch" data-v="' + c + '" style="--c:' + c + '" aria-label="' + name + ' colour ' + c + '"></button>'; }).join('') +
+      '<label class="swatch custom" title="Custom colour"><input type="color" data-custom aria-label="Custom ' + name.toLowerCase() + ' colour"></label>';
+  }
+  function apply(v) {
+    if (target === 'color') set({ color: v });
+    else if (target === 'fill') set(v === 'none' ? { fill: false } : { fill: true, fillColor: v || null });
+    else set({ textColor: v || null });
+    sync();
+  }
   root.addEventListener('click', function (e) {
-    var f = e.target.closest ? e.target.closest('[data-fc]') : null;
-    if (f) { set({ fill: true, fillColor: f.dataset.fc || null }); sync(); return; }
-    var b = e.target.closest ? e.target.closest('.swatch[data-c]') : null; if (!b) return;
-    set({ color: b.dataset.c }); sync();
+    var t = e.target.closest ? e.target.closest('[data-target]') : null;
+    if (t) { target = t.dataset.target; sync(); return; }
+    var b = e.target.closest ? e.target.closest('.cswatches [data-v]') : null;
+    if (b) apply(b.dataset.v);
   });
   root.addEventListener('input', function (e) {
-    if (e.target.hasAttribute('data-fc-custom')) { set({ fill: true, fillColor: e.target.value.toUpperCase() }); sync(); return; }
+    if (e.target.hasAttribute('data-custom')) { apply(e.target.value.toUpperCase()); return; }
     var k = e.target.dataset.k; if (!k) return;
     var v = e.target.type === 'checkbox' ? e.target.checked : e.target.type === 'range' ? +e.target.value : e.target.value;
     set({ [k]: v }); sync();
@@ -2522,11 +2547,25 @@ function buildStyleControls(root, get, set, open) {
     var s = get();
     root.classList.toggle('disabled', !s);
     if (!s) return;
-    root.querySelectorAll('.swatch[data-c]').forEach(function (b) { b.classList.toggle('on', b.dataset.c.toLowerCase() === String(s.color || '').toLowerCase()); });
-    var fc = String(s.fillColor || '').toUpperCase(), fcs = root.querySelectorAll('[data-fc]'), known = false;
-    fcs.forEach(function (b) { var on = s.fill && b.dataset.fc.toUpperCase() === fc; if (on) known = true; b.classList.toggle('on', on); });
-    var fcu = root.querySelector('[data-fc-custom]'); fcu.value = fc || String(s.color || '#000000'); fcu.parentNode.classList.toggle('on', !!s.fill && !!fc && !known);
-    root.querySelector('.fcrow').classList.toggle('off', !s.fill);
+    if (target === 'text' && !s.hasText) target = 'color';
+    var line = String(s.color || '#000000').toUpperCase();
+    var cur = target === 'color' ? line : target === 'fill' ? (s.fill ? String(s.fillColor || '').toUpperCase() : 'none') : String(s.textColor || '').toUpperCase();
+    // Tabs: each shows its current colour.
+    root.querySelectorAll('.ctab').forEach(function (b) {
+      var t = b.dataset.target, dot = b.querySelector('.dot');
+      b.classList.toggle('on', t === target); b.setAttribute('aria-selected', t === target);
+      if (t === 'text') b.hidden = !s.hasText;
+      dot.className = 'dot'; dot.textContent = '';
+      if (t === 'color') dot.style.setProperty('--c', line);
+      else if (t === 'fill') { if (!s.fill) dot.classList.add('none'); else dot.style.setProperty('--c', s.fillColor || line); }
+      else if (s.textColor) dot.style.setProperty('--c', s.textColor);
+      else { dot.classList.add('auto'); dot.style.setProperty('--c', line); dot.textContent = 'A'; }
+    });
+    if (swBox.dataset.t !== target) { swBox.innerHTML = swatchesFor(target); swBox.dataset.t = target; }
+    var known = false;
+    swBox.querySelectorAll('[data-v]').forEach(function (b) { var on = b.dataset.v.toUpperCase() === cur; if (on) known = true; b.classList.toggle('on', on); });
+    var cu = swBox.querySelector('[data-custom]'); cu.value = /^#[0-9A-F]{6}$/.test(cur) ? cur.toLowerCase() : line.toLowerCase();
+    cu.parentNode.classList.toggle('on', !known && /^#[0-9A-F]{6}$/.test(cur));
     root.querySelectorAll('[data-k]').forEach(function (el) {
       var k = el.dataset.k;
       if (el.type === 'checkbox') el.checked = !!s[k];
@@ -2536,40 +2575,26 @@ function buildStyleControls(root, get, set, open) {
   }
   return { sync: sync };
 }
-var styleNew = buildStyleControls($('#styleNew'), function () { return state.style; }, function (patch) {
+var styleNew = buildStyleControls($('#styleNew'), function () {
+  return Object.assign({}, state.style, { textColor: state.sym.textColor || null, hasText: !!(TOOLS[state.tool] && TOOLS[state.tool].symbol) });
+}, function (patch) {
+  if ('textColor' in patch) { state.sym.textColor = patch.textColor; delete patch.textColor; }
   Object.assign(state.style, patch); savePrefs(); updateStyleChip();
 }, true);
 var styleSel = buildStyleControls($('#styleSel'), function () {
   var s = selected(); if (!s.length) return null; var a = s[0];
   var lineHex = rgbToHex(a.color || [0, 0, 0]), fillHex = a.fillColor ? rgbToHex(a.fillColor) : null;
-  return { color: lineHex, fill: !!a.fillColor, fillColor: fillHex && fillHex.toUpperCase() !== lineHex.toUpperCase() ? fillHex.toUpperCase() : null, highlight: !!a.highlight, fillOpacity: a.fillOpacity, lineWidth: a.lineWidth, opacity: a.opacity };
+  var syms = s.filter(function (x) { return x.sym && x.owned; });
+  return { textColor: syms.length ? syms[0].sym.textColor || null : null, hasText: syms.length > 0,
+    color: lineHex, fill: !!a.fillColor, fillColor: fillHex && fillHex.toUpperCase() !== lineHex.toUpperCase() ? fillHex.toUpperCase() : null, highlight: !!a.highlight, fillOpacity: a.fillOpacity, lineWidth: a.lineWidth, opacity: a.opacity };
 }, function (patch) { applyToSelection(patch, 'style:' + Object.keys(patch)[0]); }, false);
-var TEXT_COLORS = ['#FFFFFF', '#212121'].concat(PALETTE.filter(function (c) { return c !== '#212121'; }));
-function textSwatchesHTML() {
-  return '<button type="button" class="swatch auto" data-tc="" title="Automatic: white on a strong fill, otherwise the line colour" aria-label="Automatic text colour">Auto</button>' +
-    TEXT_COLORS.map(function (c) { return '<button type="button" class="swatch" data-tc="' + c + '" style="--c:' + c + '" aria-label="Text colour ' + c + '"></button>'; }).join('') +
-    '<label class="swatch custom" title="Custom text colour"><input type="color" data-tc-custom aria-label="Custom text colour"></label>';
-}
-$$('[data-tc-row]').forEach(function (el) { el.innerHTML = textSwatchesHTML(); });
-function syncTextSwatches(root, value) {
-  var v = String(value || '').toUpperCase();
-  root.querySelectorAll('[data-tc]').forEach(function (b) { b.classList.toggle('on', b.dataset.tc.toUpperCase() === v); });
-  var cu = root.querySelector('[data-tc-custom]'); if (cu) { cu.value = v || '#000000'; cu.parentNode.classList.toggle('on', !!v && TEXT_COLORS.indexOf(v) < 0); }
-}
-/* Wires a text colour row: calls pick(hex or null) when a swatch or the custom picker is used. */
-function bindTextColorRow(root, pick) {
-  root.addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('[data-tc]') : null; if (b) pick(b.dataset.tc || null); });
-  root.addEventListener('input', function (e) { if (e.target.hasAttribute('data-tc-custom')) pick(e.target.value.toUpperCase()); });
-}
 function bindSymControls(root, get, set) {
   root.addEventListener('input', function (e) {
     var k = e.target.dataset.s; if (!k) return;
     set(k, k === 'size' || k === 'height' ? +e.target.value : e.target.value); sync();
   });
-  bindTextColorRow(root, function (v) { set('textColor', v); sync(); });
   function sync(tool) {
     var s = get(); if (!s) return;
-    syncTextSwatches(root, s.textColor);
     if (!s.height) s.height = Math.round((+s.size || 18) * 0.6);
     root.querySelectorAll('[data-s]').forEach(function (el) { var k = el.dataset.s; if (document.activeElement !== el) el.value = s[k] == null ? '' : s[k]; if (el.type === 'range') { paintRange(el); el.nextElementSibling.value = s[k] + ' pt'; } });
     if (tool) root.querySelectorAll('[data-only]').forEach(function (el) { el.hidden = el.dataset.only !== tool; });
@@ -2596,9 +2621,6 @@ function renderProps() {
   if (document.activeElement !== sub) { sub.value = same('subject') ? (a.subject || '') : ''; sub.placeholder = same('subject') ? 'e.g. Ellipse, Issue, Verify' : 'Mixed'; }
   if (document.activeElement !== con) { con.value = same('contents') ? (a.contents || '') : ''; con.placeholder = same('contents') ? 'Shows in the Comments column' : 'Mixed'; }
   styleSel.sync();
-  var syms = s.filter(function (x) { return x.sym && x.owned; }), pst = $('#pSymText');
-  pst.hidden = !syms.length;
-  if (syms.length) syncTextSwatches(pst, syms.every(function (x) { return (x.sym.textColor || '') === (syms[0].sym.textColor || ''); }) ? syms[0].sym.textColor : 'mixed');
   var pm = $('#pMeasure'), mk = s.length === 1 ? measureKind(a) : null;
   pm.hidden = !mk && !(s.length === 1 && a.sym);
   if (!mk && s.length === 1 && a.sym) {
@@ -2615,13 +2637,6 @@ function renderProps() {
   $('#btnRemoveFromGroup').hidden = !gcount;
   if (s.length === 1 && inGroup(a)) $('#propsMeta').textContent += ' · in a group of ' + membersOf(a).length + ' (tap Remove from group to take it out)';
 }
-bindTextColorRow($('#pSymText'), function (v) {
-  var syms = selected().filter(function (x) { return x.sym && x.owned; }); if (!syms.length) return;
-  pushHistory('symtext');
-  syms.forEach(function (a) { a.sym = Object.assign({}, a.sym, { textColor: v }); if (!a.isNew) { a.styleDirty = true; a.dirty = true; } });
-  new Set(syms.map(function (a) { return a.pageIndex; })).forEach(function (i) { drawOverlay(state.pages[i]); });
-  markUnsaved(); renderList(); renderProps();
-});
 $('#pSubject').addEventListener('input', function (e) { applyToSelection({ subject: e.target.value }, 'subject'); });
 $('#pContents').addEventListener('input', function (e) { applyToSelection({ contents: e.target.value }, 'contents'); });
 $('#btnGroup').addEventListener('click', groupSelection);
@@ -2996,11 +3011,18 @@ $('#btnSaveTool').addEventListener('click', function () { $('#stylePop').hidden 
 var DRAWABLE = ['circle', 'rect', 'polygon', 'pen', 'length', 'area', 'perimeter', 'symbol', 'numbered'];
 var editor = null;
 $('#tType').innerHTML = DRAWABLE.map(function (k) { return '<option value="' + k + '">' + esc(TOOLS[k].name) + '</option>'; }).join('');
-var styleTool = buildStyleControls($('#styleTool'), function () { return editor && editor.style; }, function (patch) { if (editor) Object.assign(editor.style, patch); }, true);
+var styleTool = buildStyleControls($('#styleTool'), function () {
+  return editor && Object.assign({}, editor.style, { textColor: editor.sym.textColor || null, hasText: !!TOOLS[$('#tType').value].symbol });
+}, function (patch) {
+  if (!editor) return;
+  if ('textColor' in patch) { editor.sym.textColor = patch.textColor; delete patch.textColor; }
+  Object.assign(editor.style, patch);
+}, true);
 var symTool = bindSymControls($('#tSym'), function () { return editor && editor.sym; }, function (k, v) { if (editor) editor.sym[k] = v; });
 function syncEditorType() {
   var ty = $('#tType').value, isSym = !!TOOLS[ty].symbol;
   $('#tSym').hidden = !isSym; if (isSym) symTool.sync(ty);
+  styleTool.sync();
 }
 function styleFromTool(t) {
   return { color: rgbToHex(t.color || [0, 0, 0]), fill: !!t.fillColor, fillColor: ownFill(t), fillOpacity: clamp(t.fillOpacity || 0.35, 0.05, 1), opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth == null ? 1 : t.lineWidth, 0, 12), highlight: !!t.highlight };

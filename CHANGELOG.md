@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 1.9.2
+**Improved**
+- One compact colour picker everywhere (style menu, properties panel, tool editor): a *Line | Fill | Text* switch, each showing its current colour, over one shared row of colours. *Fill* has *None* and *Line* (same as the line); *Text* (symbols only) has *Auto*. Replaces the separate Text, Line colour and Fill colour rows and the *Fill inside* checkbox.
+
 ## 1.9.1
 **Improved**
 - Markups list: grouped markups collapse into one row ("Group of 4", the subjects and numbers in it, page). Tap ▸ to list the markups underneath, tap the row to select the whole group. Picking one markup inside a group on the page opens its group in the list.

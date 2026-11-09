@@ -1,5 +1,5 @@
 {
-  "version": "1.9.1",
+  "version": "1.9.2",
   "date": "2026-11-09",
-  "notes": "Markups list: grouped markups collapse into one row. Tap the arrow to list them, or the row to select the whole group."
+  "notes": "One compact colour picker everywhere: choose Line, Fill or Text, then a colour. Fill has None and Line; Text has Auto."
 }
