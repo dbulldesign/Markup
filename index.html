@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Pencil Markup</title>
@@ -43,7 +43,7 @@
   color-scheme: dark;
 }
 *, *::before, *::after { box-sizing: inherit; }
-html, body { height: 100%; margin: 0; }
+html, body { height: 100%; margin: 0; touch-action: pan-x pan-y; }
 html { scroll-padding-top: var(--safe-top); }
 body {
   font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
@@ -53,7 +53,7 @@ body {
   display: flex; flex-direction: column; overflow: hidden;
 }
 input, textarea { -webkit-user-select: text; user-select: text; font: inherit; color: inherit; }
-button { font: inherit; color: inherit; touch-action: manipulation; }
+button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
 
 /* Toolbar */
@@ -76,6 +76,13 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .tb .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); display: none; margin-left: -2px; }
 .tb.unsaved .dot { display: inline-block; }
 .tb[disabled] { opacity: .4; pointer-events: none; }
+@media (max-width: 1500px) {
+  .topbar { gap: 6px; padding-left: 8px; padding-right: 8px; }
+  .tb { padding: 0 9px; }
+  .tb .lbl:not(.keep) { display: none; }
+  .tb svg + .lbl { margin-left: 0; }
+}
+@media (max-width: 700px) { .toggle .lbl { display: none; } }
 .spacer { flex: 1 1 0; }
 .zoom-val { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; }
 .style-chip { padding-left: 8px; }
@@ -94,9 +101,10 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
   flex: 1 1 auto; min-width: 0; overflow: auto; touch-action: none; position: relative;
   -webkit-overflow-scrolling: touch; padding-bottom: var(--safe-bottom);
 }
-.pages { transform-origin: 0 0; will-change: transform; padding: 16px 0 60px; min-width: 100%; width: max-content; margin: 0 auto; }
-.page { position: relative; margin: 0 auto 16px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
-.page canvas { display: block; width: 100%; height: 100%; }
+.pages { padding: 16px 0 60px; min-width: 100%; width: max-content; margin: 0 auto; }
+.page { position: relative; margin: 0 auto 16px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.25); transform-origin: 0 0; }
+.page canvas.base { display: block; width: 100%; height: 100%; }
+.page canvas.detail { position: absolute; display: block; pointer-events: none; }
 .page svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .page .pnum { position: absolute; left: 0; bottom: -15px; font-size: 11px; color: var(--ink-2); }
 .hl { mix-blend-mode: multiply; }
@@ -198,6 +206,7 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 .row.sel { background: var(--accent-soft); }
 .row .sw { grid-area: sw; width: 14px; height: 14px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(128,128,128,.4); align-self: center; }
 .row .subj { grid-area: subj; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .subj .muted { color: var(--ink-2); font-weight: 400; }
 .row .pg { grid-area: pg; color: var(--ink-2); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .row .comm { grid-area: comm; color: var(--ink-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.2em; }
 .row .meta { grid-area: meta; color: var(--ink-2); font-size: 12px; white-space: nowrap; text-align: right; }
@@ -222,37 +231,37 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
 </head>
 <body>
 <header class="topbar">
-  <button class="tb" id="btnOpen" type="button" title="Open a PDF">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Open
+  <button class="tb" id="btnOpen" type="button" title="Open a PDF" aria-label="Open">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg><span class="lbl">Open</span>
   </button>
   <input id="file" type="file" accept="application/pdf,.pdf" hidden>
   <button class="tb primary" id="btnSave" type="button" disabled title="Write markups into the PDF and save a copy">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Save PDF<span class="dot"></span>
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg><span class="lbl keep">Save PDF</span><span class="dot"></span>
   </button>
 
   <div class="seg" id="tools">
-    <button class="tb" type="button" data-tool="select" title="Select and move markups">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3l14 8-6 2-3 6z"/></svg>Select
+    <button class="tb" type="button" data-tool="select" title="Select and move markups" aria-label="Select">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3l14 8-6 2-3 6z"/></svg><span class="lbl">Select</span>
     </button>
-    <button class="tb on" type="button" data-tool="circle" title="Draw a highlighted circle">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="9" ry="7"/></svg>Circle
+    <button class="tb on" type="button" data-tool="circle" title="Draw a highlighted circle" aria-label="Circle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="9" ry="7"/></svg><span class="lbl">Circle</span>
     </button>
-    <button class="tb" type="button" data-tool="rect" title="Draw a rectangle">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/></svg>Rectangle
+    <button class="tb" type="button" data-tool="rect" title="Draw a rectangle" aria-label="Rectangle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/></svg><span class="lbl">Rectangle</span>
     </button>
-    <button class="tb" type="button" data-tool="pen" title="Freehand pen">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 5-9 8-9s2 5 4 5 3-4 4-6"/></svg>Pen
+    <button class="tb" type="button" data-tool="pen" title="Freehand pen" aria-label="Pen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 5-9 8-9s2 5 4 5 3-4 4-6"/></svg><span class="lbl">Pen</span>
     </button>
   </div>
 
-  <button class="tb style-chip" id="btnStyle" type="button" title="Markup style" aria-haspopup="true"><span class="preview"></span></button>
+  <button class="tb style-chip" id="btnStyle" type="button" title="Markup style" aria-label="Markup style" aria-haspopup="true"><span class="preview"></span></button>
   <div class="pop" id="stylePop" hidden>
     <h3>Style for new markups</h3>
     <div class="style" id="styleNew"></div>
   </div>
 
-  <button class="tb" id="btnChest" type="button" title="Bluebeam tool sets (.btx)" aria-haspopup="true">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 9l2-4h14l2 4M10 13h4"/></svg>Tool Chest
+  <button class="tb" id="btnChest" type="button" title="Bluebeam tool sets (.btx)" aria-label="Tool Chest" aria-haspopup="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 9l2-4h14l2 4M10 13h4"/></svg><span class="lbl">Tool Chest</span>
   </button>
   <div class="pop chest" id="chestPop" hidden>
     <div class="chest-head">
@@ -263,23 +272,23 @@ button { font: inherit; color: inherit; touch-action: manipulation; }
     <div id="chestSets" class="chest-sets"></div>
   </div>
 
-  <label class="toggle" title="Let a finger draw as well as the Pencil"><input type="checkbox" id="fingerDraw">Finger draws</label>
-  <label class="toggle" title="Tap markups to add them to the selection, then Group"><input type="checkbox" id="multiSel">Multi-select</label>
+  <label class="toggle" title="Let a finger draw as well as the Pencil"><input type="checkbox" id="fingerDraw"><span class="lbl keep">Finger draws</span></label>
+  <label class="toggle" title="Tap markups to add them to the selection, then Group"><input type="checkbox" id="multiSel"><span class="lbl keep">Multi-select</span></label>
 
   <span class="spacer"></span>
 
   <div class="seg">
-    <button class="tb" id="zoomOut" type="button" title="Zoom out">−</button>
-    <span class="tb zoom-val" id="zoomVal">100%</span>
-    <button class="tb" id="zoomIn" type="button" title="Zoom in">+</button>
-    <button class="tb" id="zoomFit" type="button" title="Fit page width">Fit</button>
+    <button class="tb" id="btnUndo" type="button" title="Undo" aria-label="Undo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 14 4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg></button>
+    <button class="tb" id="btnRedo" type="button" title="Redo" aria-label="Redo" disabled><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 14 5-5-5-5"/><path d="M20 9H9a5 5 0 0 0 0 10h3"/></svg></button>
   </div>
   <div class="seg">
-    <button class="tb" id="btnUndo" type="button" title="Undo" disabled>Undo</button>
-    <button class="tb" id="btnRedo" type="button" title="Redo" disabled>Redo</button>
+    <button class="tb" id="zoomOut" type="button" title="Zoom out" aria-label="Zoom out">−</button>
+    <span class="tb zoom-val" id="zoomVal">100%</span>
+    <button class="tb" id="zoomIn" type="button" title="Zoom in" aria-label="Zoom in">+</button>
+    <button class="tb" id="zoomFit" type="button" title="Fit page width">Fit</button>
   </div>
-  <button class="tb" id="btnPanel" type="button" title="Show the markups list">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Markups <span id="count">0</span>
+  <button class="tb" id="btnPanel" type="button" title="Show the markups list" aria-label="Markups list">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span class="lbl">Markups</span><span id="count">0</span>
   </button>
 </header>
 
@@ -811,6 +820,7 @@ var $$ = function (s) { return Array.prototype.slice.call(document.querySelector
 
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 
+var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari on iPad inside its memory budget
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 var SUBJECT_DEFAULT = { circle: 'Ellipse', rect: 'Rectangle', pen: 'Pen' };
 var SUBTYPE_OF = { circle: 'Circle', rect: 'Square', pen: 'Ink' };
@@ -856,6 +866,8 @@ function fmtDate(iso) {
   var d = new Date(iso); if (isNaN(d)) return '';
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
+var TYPE_LABEL = { Circle: 'Ellipse', Square: 'Rectangle', Ink: 'Pen', FreeText: 'Text', Text: 'Note', Line: 'Line', Polygon: 'Polygon', PolyLine: 'Polyline', Highlight: 'Highlight', Underline: 'Underline', StrikeOut: 'Strikeout', Squiggly: 'Squiggly', Stamp: 'Stamp', FileAttachment: 'Attachment', Caret: 'Caret' };
+function typeLabel(sub) { return TYPE_LABEL[sub] || sub || 'Markup'; }
 function pageLabel(i) { return (state.labels && state.labels[i]) ? state.labels[i] : String(i + 1); }
 function byId(id) { for (var i = 0; i < state.annots.length; i++) if (state.annots[i].id === id) return state.annots[i]; return null; }
 function live() { return state.annots.filter(function (a) { return !a.deleted; }); }
@@ -964,11 +976,11 @@ async function buildPages(keepScroll) {
   for (var i = 1; i <= state.pdf.numPages; i++) {
     var page = i === 1 ? first : await state.pdf.getPage(i);
     var el = document.createElement('div'); el.className = 'page'; el.dataset.index = String(i - 1);
-    var canvas = document.createElement('canvas');
+    var canvas = document.createElement('canvas'); canvas.className = 'base';
     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
     var num = document.createElement('span'); num.className = 'pnum'; num.textContent = pageLabel(i - 1);
     el.appendChild(canvas); el.appendChild(svg); el.appendChild(num); cont.appendChild(el);
-    var p = { index: i - 1, page: page, vp: null, el: el, canvas: canvas, svg: svg, rendered: false, renderTask: null, temp: null };
+    var p = { index: i - 1, page: page, vp: null, el: el, canvas: canvas, svg: svg, rendered: false, renderTask: null, temp: null, baseScale: null, detailEl: null, detailRect: null, detailScale: 0, detailTask: null };
     state.pages.push(p);
     sizePage(p);
   }
@@ -990,6 +1002,12 @@ function sizePage(p) {
   p.rendered = false;
   if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; }
   p.canvas.width = 1; p.canvas.height = 1;
+  dropDetail(p);
+}
+function dropDetail(p) {
+  if (p.detailTask) { try { p.detailTask.cancel(); } catch (e) { /* ignore */ } p.detailTask = null; }
+  if (p.detailEl) { p.detailEl.width = 1; p.detailEl.height = 1; p.detailEl.remove(); p.detailEl = null; }
+  p.detailRect = null;
 }
 function setZoom(z, anchor) {
   var viewer = $('#viewer');
@@ -1015,20 +1033,55 @@ function renderVisible() {
       var near = pb > top - h * 1.2 && pt < bottom + h * 1.2;
       var far = pb < top - h * 3 || pt > bottom + h * 3;
       if (near) renderPage(p);
-      else if (far && (p.rendered || p.renderTask)) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; } p.rendered = false; p.canvas.width = 1; p.canvas.height = 1; }
+      else if (far && (p.rendered || p.renderTask)) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; } p.rendered = false; p.canvas.width = 1; p.canvas.height = 1; dropDetail(p); }
     });
+    scheduleDetail();
+  });
+}
+/* The base canvas is capped in pixels; when the page is zoomed past that, a second
+   canvas renders just the visible part at full resolution on top of it. */
+var detailTimer = null;
+function scheduleDetail() { clearTimeout(detailTimer); detailTimer = setTimeout(renderDetails, 160); }
+function renderDetails() {
+  if (!state.pdf || (gesture && gesture.mode === 'pinch')) return;
+  var v = $('#viewer'), vt = v.scrollTop, vl = v.scrollLeft, vw = v.clientWidth, vh = v.clientHeight;
+  state.pages.forEach(function (p) {
+    var pt = p.el.offsetTop, pl = p.el.offsetLeft, pw = p.vp.width, ph = p.vp.height;
+    var ix0 = Math.max(vl, pl) - pl, iy0 = Math.max(vt, pt) - pt, ix1 = Math.min(vl + vw, pl + pw) - pl, iy1 = Math.min(vt + vh, pt + ph) - pt;
+    var visible = ix1 > ix0 && iy1 > iy0;
+    var need = p.rendered && p.baseScale != null && state.dpr > p.baseScale + 0.05;
+    if (!visible || !need) { if (!visible) dropDetail(p); return; }
+    if (p.detailRect && p.detailScale === state.dpr && p.detailRect[0] <= ix0 && p.detailRect[1] <= iy0 && p.detailRect[2] >= ix1 && p.detailRect[3] >= iy1) return;
+    var mx = (ix1 - ix0) * 0.35, my = (iy1 - iy0) * 0.35;
+    var rx0 = Math.max(0, ix0 - mx), ry0 = Math.max(0, iy0 - my), rx1 = Math.min(pw, ix1 + mx), ry1 = Math.min(ph, iy1 + my);
+    var w = rx1 - rx0, hgt = ry1 - ry0, s = state.dpr;
+    if (w * hgt * s * s > MAX_DETAIL_PIXELS) s = Math.sqrt(MAX_DETAIL_PIXELS / (w * hgt));
+    if (s <= p.baseScale + 0.05) return;
+    if (p.detailTask) { try { p.detailTask.cancel(); } catch (e) { /* ignore */ } p.detailTask = null; }
+    var c = document.createElement('canvas'); c.className = 'detail';
+    c.width = Math.max(1, Math.floor(w * s)); c.height = Math.max(1, Math.floor(hgt * s));
+    c.style.left = rx0 + 'px'; c.style.top = ry0 + 'px'; c.style.width = w + 'px'; c.style.height = hgt + 'px';
+    var task = p.page.render({ canvasContext: c.getContext('2d'), viewport: p.vp, transform: [s, 0, 0, s, -rx0 * s, -ry0 * s], annotationMode: pdfjsLib.AnnotationMode.ENABLE });
+    p.detailTask = task;
+    task.promise.then(function () {
+      if (p.detailTask !== task) { c.width = 1; return; }
+      p.detailTask = null;
+      if (p.detailEl) { p.detailEl.width = 1; p.detailEl.remove(); }
+      p.el.insertBefore(c, p.svg); p.detailEl = c; p.detailRect = [rx0, ry0, rx1, ry1]; p.detailScale = state.dpr;
+    }, function (err) { if (p.detailTask === task) p.detailTask = null; c.width = 1; if (!err || err.name !== 'RenderingCancelledException') console.warn(err); });
   });
 }
 function renderPage(p) {
   if (p.rendered || p.renderTask) return;
-  var dpr = state.dpr, vp = p.vp;
-  p.canvas.width = Math.floor(vp.width * dpr); p.canvas.height = Math.floor(vp.height * dpr);
+  var vp = p.vp, s = Math.min(state.dpr, Math.sqrt(MAX_BASE_PIXELS / (vp.width * vp.height)));
+  p.baseScale = s;
+  p.canvas.width = Math.max(1, Math.floor(vp.width * s)); p.canvas.height = Math.max(1, Math.floor(vp.height * s));
   var c2d = p.canvas.getContext('2d');
   var params = { canvasContext: c2d, viewport: vp, annotationMode: pdfjsLib.AnnotationMode.ENABLE };
-  if (dpr !== 1) params.transform = [dpr, 0, 0, dpr, 0, 0];
+  if (Math.abs(s - 1) > 1e-4) params.transform = [s, 0, 0, s, 0, 0];
   var task = p.page.render(params);
   p.renderTask = task;
-  task.promise.then(function () { if (p.renderTask === task) { p.rendered = true; p.renderTask = null; } },
+  task.promise.then(function () { if (p.renderTask === task) { p.rendered = true; p.renderTask = null; scheduleDetail(); } },
     function (err) { if (p.renderTask === task) p.renderTask = null; if (!err || err.name !== 'RenderingCancelledException') console.warn(err); });
 }
 
@@ -1147,10 +1200,22 @@ window.addEventListener('resize', function () { renderVisible(); });
 
 function startPinch() {
   var ids = Array.from(ptrs.keys()).slice(0, 2), a = ptrs.get(ids[0]), b = ptrs.get(ids[1]);
-  var vr = viewer.getBoundingClientRect(), pr = $('#pages').getBoundingClientRect();
-  var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
-  $('#pages').style.transformOrigin = (mx - pr.left) + 'px ' + (my - pr.top) + 'px';
-  gesture = { mode: 'pinch', ids: ids, startDist: Math.hypot(a.x - b.x, a.y - b.y), startZoom: state.zoom, scale: 1, anchor: { x: mx - vr.left, y: my - vr.top } };
+  var vr = viewer.getBoundingClientRect();
+  var mx = (a.x + b.x) / 2 - vr.left, my = (a.y + b.y) / 2 - vr.top;
+  var cx = viewer.scrollLeft + mx, cy = viewer.scrollTop + my;
+  var top = viewer.scrollTop - viewer.clientHeight, bottom = viewer.scrollTop + 2 * viewer.clientHeight;
+  var pages = state.pages.filter(function (p) { var t = p.el.offsetTop; return t + p.el.offsetHeight > top && t < bottom; });
+  pages.forEach(function (p) { p.el.style.zIndex = '2'; });
+  gesture = { mode: 'pinch', ids: ids, startDist: Math.hypot(a.x - b.x, a.y - b.y), startZoom: state.zoom, scale: 1, anchor: { x: mx, y: my }, cx: cx, cy: cy, pages: pages };
+}
+function pinchApply(g) {
+  g.pages.forEach(function (p) {
+    var dx = (p.el.offsetLeft - g.cx) * (g.scale - 1), dy = (p.el.offsetTop - g.cy) * (g.scale - 1);
+    p.el.style.transform = 'translate(' + dx + 'px,' + dy + 'px) scale(' + g.scale + ')';
+  });
+}
+function pinchClear(g) {
+  g.pages.forEach(function (p) { p.el.style.transform = ''; p.el.style.zIndex = ''; });
 }
 function onDown(e) {
   if (!state.pdf) return;
@@ -1196,7 +1261,7 @@ function onMove(e) {
   if (gesture.mode === 'pinch') {
     var a = ptrs.get(gesture.ids[0]), b = ptrs.get(gesture.ids[1]); if (!a || !b) return;
     gesture.scale = clamp(Math.hypot(a.x - b.x, a.y - b.y) / gesture.startDist, 0.3, 4);
-    $('#pages').style.transform = 'scale(' + gesture.scale + ')'; return;
+    pinchApply(gesture); return;
   }
   if (gesture.id !== e.pointerId) return;
   e.preventDefault();
@@ -1240,7 +1305,7 @@ function onUp(e) {
   if (gesture.mode === 'pan') { if (gesture.id === e.pointerId) gesture = null; return; }
   if (gesture.mode === 'pinch') {
     var touches = Array.from(ptrs.values()).filter(function (q) { return q.type === 'touch'; }).length;
-    if (touches < 2) { $('#pages').style.transform = ''; var g = gesture; gesture = null; if (Math.abs(g.scale - 1) > 0.02) setZoom(g.startZoom * g.scale, g.anchor); }
+    if (touches < 2) { var g = gesture; gesture = null; pinchClear(g); if (Math.abs(g.scale - 1) > 0.02) setZoom(g.startZoom * g.scale, g.anchor); else scheduleDetail(); }
     return;
   }
   if (gesture.id !== e.pointerId) return;
@@ -1375,7 +1440,7 @@ function renderProps() {
   box.hidden = !s.length;
   if (!s.length) return;
   var a = s[0], same = function (k) { return s.every(function (x) { return x[k] === a[k]; }); };
-  $('#propsTitle').textContent = s.length === 1 ? (a.subtype === 'Square' ? 'Rectangle' : a.subtype === 'Ink' ? 'Pen' : a.subtype === 'Circle' ? 'Ellipse' : a.subtype) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
+  $('#propsTitle').textContent = s.length === 1 ? typeLabel(a.subtype) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
   $('#propsMeta').textContent = s.length === 1 ? ((a.author ? a.author + ', ' : '') + (fmtDate(a.date) || 'new')) : (new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length ? 'one group' : '');
   var sub = $('#pSubject'), con = $('#pContents');
   if (document.activeElement !== sub) { sub.value = same('subject') ? (a.subject || '') : ''; sub.placeholder = same('subject') ? 'e.g. Ellipse, Issue, Verify' : 'Mixed'; }
@@ -1421,7 +1486,7 @@ function renderList() {
     var meta = [a.author || '', fmtDay(a.date)].filter(Boolean).join(', ');
     return '<div class="row ' + cls + (state.sel.has(a.id) ? ' sel' : '') + '" data-id="' + esc(a.id) + '">' +
       '<span class="sw" style="--c:' + rgbToHex(a.color || [0.5, 0.5, 0.5]) + '"></span>' +
-      '<span class="subj">' + esc(a.subject || '(no subject)') + '</span>' +
+      '<span class="subj">' + (a.subject ? esc(a.subject) : '<span class="muted">' + esc(typeLabel(a.subtype)) + '</span>') + '</span>' +
       '<span class="pg">p. ' + esc(pageLabel(a.pageIndex)) + '</span>' +
       '<span class="comm">' + esc(a.contents || '') + '</span>' +
       '<span class="meta">' + esc(meta) + '</span></div>';
@@ -1648,6 +1713,13 @@ document.addEventListener('drop', function (e) {
 });
 
 window.addEventListener('beforeunload', function (e) { if (state.unsaved) { e.preventDefault(); e.returnValue = ''; } });
+/* iOS scrolls the whole app when the keyboard opens; put it back when the field closes. */
+function resetWindowScroll() { if (window.scrollX || window.scrollY) window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; }
+document.addEventListener('focusout', function () { setTimeout(resetWindowScroll, 60); setTimeout(resetWindowScroll, 400); });
+if (window.visualViewport) window.visualViewport.addEventListener('resize', function () {
+  var el = document.activeElement; if (!el || !/^(INPUT|TEXTAREA)$/.test(el.tagName)) resetWindowScroll();
+});
+['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) { document.addEventListener(t, function (e) { e.preventDefault(); }, { passive: false }); });
 
 /* ---------- init ---------- */
 loadPrefs(); loadChest();
