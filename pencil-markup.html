@@ -1,0 +1,1662 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Pencil Markup</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pako/2.1.0/pako.min.js"></script>
+<style>
+:root {
+  --bg: #d6d9d3;
+  --surface: #f7f8f5;
+  --surface-2: #eceeea;
+  --surface-3: #e0e3dd;
+  --ink: #1b1f24;
+  --ink-2: #5c6570;
+  --line: #c6cbc2;
+  --accent: #2a5bd7;
+  --accent-soft: #dbe5fb;
+  --on-accent: #ffffff;
+  --danger: #c62828;
+  --shadow: 0 8px 24px rgba(20, 25, 30, .18);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  color-scheme: light;
+  box-sizing: border-box;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #111417; --surface: #1c2024; --surface-2: #262b31; --surface-3: #30363d;
+    --ink: #e8eaed; --ink-2: #9aa3ae; --line: #3a4149; --accent: #6b9af5; --accent-soft: #24334f;
+    --on-accent: #0d1117; --danger: #ff6b6b; --shadow: 0 8px 24px rgba(0, 0, 0, .5);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #111417; --surface: #1c2024; --surface-2: #262b31; --surface-3: #30363d;
+  --ink: #e8eaed; --ink-2: #9aa3ae; --line: #3a4149; --accent: #6b9af5; --accent-soft: #24334f;
+  --on-accent: #0d1117; --danger: #ff6b6b; --shadow: 0 8px 24px rgba(0, 0, 0, .5);
+  color-scheme: dark;
+}
+*, *::before, *::after { box-sizing: inherit; }
+html, body { height: 100%; margin: 0; }
+html { scroll-padding-top: var(--safe-top); }
+body {
+  font-family: -apple-system, "SF Pro Text", "Helvetica Neue", "Segoe UI", Roboto, sans-serif;
+  font-size: 15px; line-height: 1.35; color: var(--ink); background: var(--bg);
+  overscroll-behavior: none; -webkit-text-size-adjust: 100%;
+  -webkit-touch-callout: none; -webkit-user-select: none; user-select: none;
+  display: flex; flex-direction: column; overflow: hidden;
+}
+input, textarea { -webkit-user-select: text; user-select: text; font: inherit; color: inherit; }
+button { font: inherit; color: inherit; touch-action: manipulation; }
+:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Toolbar */
+.topbar {
+  flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  padding: calc(8px + var(--safe-top)) 12px 8px; background: var(--surface);
+  border-bottom: 1px solid var(--line); position: relative; z-index: 5;
+}
+.seg { display: inline-flex; background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 2px; }
+.tb {
+  min-height: 42px; min-width: 42px; padding: 0 12px; border: 0; border-radius: 10px;
+  background: transparent; display: inline-flex; align-items: center; gap: 7px; cursor: pointer;
+  white-space: nowrap; font-weight: 500;
+}
+.tb:active { background: var(--surface-3); }
+.tb.on { background: var(--surface); box-shadow: 0 1px 3px rgba(0,0,0,.12); color: var(--accent); }
+.tb.primary { background: var(--accent); color: var(--on-accent); }
+.tb.primary:active { filter: brightness(.92); }
+.tb svg { width: 20px; height: 20px; flex: none; }
+.tb .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--danger); display: none; margin-left: -2px; }
+.tb.unsaved .dot { display: inline-block; }
+.tb[disabled] { opacity: .4; pointer-events: none; }
+.spacer { flex: 1 1 0; }
+.zoom-val { min-width: 48px; text-align: center; font-variant-numeric: tabular-nums; color: var(--ink-2); font-size: 14px; }
+.style-chip { padding-left: 8px; }
+.style-chip .preview { width: 34px; height: 22px; border-radius: 50%; border: 2.5px solid var(--c, #e53935); background: color-mix(in srgb, var(--c, #e53935) 35%, transparent); }
+.style-chip.nofill .preview { background: transparent; }
+.toggle { display: inline-flex; align-items: center; gap: 8px; color: var(--ink-2); font-size: 14px; padding: 0 6px; }
+.toggle input { width: 40px; height: 24px; appearance: none; -webkit-appearance: none; background: var(--line); border-radius: 12px; position: relative; margin: 0; cursor: pointer; }
+.toggle input::after { content: ""; position: absolute; top: 3px; left: 3px; width: 18px; height: 18px; border-radius: 50%; background: #fff; transition: transform .15s; }
+.toggle input:checked { background: var(--accent); }
+.toggle input:checked::after { transform: translateX(16px); }
+@media (prefers-reduced-motion: reduce) { .toggle input::after { transition: none; } }
+
+/* Workspace */
+.work { flex: 1 1 auto; min-height: 0; display: flex; position: relative; }
+.viewer {
+  flex: 1 1 auto; min-width: 0; overflow: auto; touch-action: none; position: relative;
+  -webkit-overflow-scrolling: touch; padding-bottom: var(--safe-bottom);
+}
+.pages { transform-origin: 0 0; will-change: transform; padding: 16px 0 60px; min-width: 100%; width: max-content; margin: 0 auto; }
+.page { position: relative; margin: 0 auto 16px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.25); }
+.page canvas { display: block; width: 100%; height: 100%; }
+.page svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
+.page .pnum { position: absolute; left: 0; bottom: -15px; font-size: 11px; color: var(--ink-2); }
+.hl { mix-blend-mode: multiply; }
+
+.empty {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 24px;
+  text-align: center; color: var(--ink-2);
+}
+.empty[hidden] { display: none; }
+.empty .card { max-width: 420px; background: var(--surface); border: 1.5px dashed var(--line); border-radius: 18px; padding: 32px 28px; }
+.empty h1 { font-size: 22px; font-weight: 600; color: var(--ink); margin: 0 0 8px; letter-spacing: -.01em; }
+.empty p { margin: 0 0 18px; max-width: 36ch; margin-inline: auto; }
+.empty.drag .card { border-color: var(--accent); background: var(--accent-soft); }
+
+/* Side panel */
+.panel {
+  flex: none; width: 380px; max-width: 100%; background: var(--surface); border-left: 1px solid var(--line);
+  display: flex; flex-direction: column; min-height: 0; padding-bottom: var(--safe-bottom);
+}
+.panel[hidden] { display: none; }
+.panel-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
+.panel-head h2 { font-size: 16px; margin: 0; font-weight: 600; }
+.panel-head .count { color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.panel-head .x { margin-left: auto; }
+.author-row { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--ink-2); }
+.author-row input { flex: 1; min-width: 0; }
+.fld-in, .fld-ta, .author-row input, .filter input {
+  border: 1px solid var(--line); background: var(--surface-2); border-radius: 9px; padding: 8px 10px; font-size: 15px; width: 100%;
+}
+.fld-ta { resize: vertical; min-height: 44px; }
+.props { padding: 10px 14px; border-bottom: 1px solid var(--line); display: grid; gap: 8px; flex: none; max-height: 48%; overflow: auto; }
+.style details { border-top: 1px solid var(--line); padding-top: 6px; display: grid; gap: 8px; }
+.style summary { cursor: pointer; font-size: 14px; color: var(--ink-2); min-height: 32px; display: flex; align-items: center; }
+.style details[open] summary { color: var(--ink); }
+.props[hidden] { display: none; }
+.props .title { font-weight: 600; display: flex; align-items: center; gap: 8px; }
+.props .title .meta { color: var(--ink-2); font-weight: 400; font-size: 13px; }
+.props label.fld { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); }
+.actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.btn { min-height: 38px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--line); background: var(--surface-2); cursor: pointer; font-weight: 500; }
+.btn:active { background: var(--surface-3); }
+.btn.danger { color: var(--danger); }
+.btn[disabled] { opacity: .4; pointer-events: none; }
+
+/* Style controls (shared by popover and properties) */
+.style { display: grid; gap: 10px; }
+.style.disabled { opacity: .45; pointer-events: none; }
+.swatches { display: flex; flex-wrap: wrap; gap: 8px; }
+.swatch { width: 34px; height: 34px; border-radius: 50%; border: 2px solid transparent; background: var(--c); cursor: pointer; padding: 0; position: relative; box-shadow: inset 0 0 0 1px rgba(128,128,128,.35); }
+.swatch.on { border-color: var(--ink); box-shadow: inset 0 0 0 3px var(--surface), inset 0 0 0 4px rgba(128,128,128,.35); }
+.swatch.custom { background: conic-gradient(#e53935, #fdd835, #43a047, #1e88e5, #8e24aa, #e53935); display: inline-block; overflow: hidden; }
+.swatch.custom input { opacity: 0; width: 100%; height: 100%; cursor: pointer; }
+.style .fld { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; font-size: 14px; color: var(--ink-2); }
+.style .fld.range { grid-template-columns: 96px 1fr 50px; }
+.style .fld output { text-align: right; font-variant-numeric: tabular-nums; font-size: 13px; }
+.style input[type=range] { width: 100%; min-height: 32px; }
+.style input[type=checkbox] { width: 22px; height: 22px; margin: 0; }
+.pop {
+  position: absolute; z-index: 20; top: 100%; left: 12px; margin-top: 6px; width: min(360px, calc(100vw - 24px));
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 14px;
+}
+.pop[hidden] { display: none; }
+.pop h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
+
+/* Tool Chest popover */
+.pop.chest { width: min(440px, calc(100vw - 24px)); max-height: 70vh; overflow: auto; }
+.chest-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.chest-head h3 { margin: 0; flex: 1; }
+.chest-empty { color: var(--ink-2); font-size: 14px; line-height: 1.45; }
+.chest-set { margin-top: 12px; }
+.chest-set .set-title { display: flex; align-items: center; gap: 8px; font-weight: 600; margin-bottom: 6px; }
+.chest-set .set-title .n { color: var(--ink-2); font-weight: 400; font-size: 13px; flex: 1; }
+.chest-set .set-title button { background: none; border: 0; color: var(--ink-2); cursor: pointer; padding: 4px 6px; font-size: 13px; }
+.chips { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 8px; }
+.chip { min-height: 78px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface-2); display: grid; grid-template-rows: 40px auto; justify-items: center; align-items: center; padding: 6px 4px 4px; cursor: pointer; text-align: center; font-size: 12px; line-height: 1.2; gap: 4px; }
+.chip svg, .chip img { width: 56px; height: 36px; object-fit: contain; }
+.chip .t { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 100%; }
+.chip.on { border-color: var(--accent); background: var(--accent-soft); box-shadow: inset 0 0 0 1px var(--accent); }
+.chip.off { opacity: .45; cursor: not-allowed; }
+.chip .hl { mix-blend-mode: multiply; }
+
+/* Save bar (fallback outside claude.ai) */
+.savebar { position: fixed; left: 50%; bottom: calc(16px + var(--safe-bottom)); transform: translateX(-50%); z-index: 55; display: flex; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px 10px 16px; box-shadow: var(--shadow); max-width: min(92vw, 560px); }
+.savebar[hidden] { display: none; }
+.savebar .btn:first-of-type { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+
+/* Markups list */
+.filter { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.list-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; padding: 4px 10px; font-size: 12px; color: var(--ink-2); border-bottom: 1px solid var(--line); background: var(--surface-2); }
+.list-head .lbl { padding: 0 4px; }
+.list-head button { background: none; border: 0; padding: 6px 8px; color: inherit; cursor: pointer; font-size: 13px; min-height: 34px; border-radius: 8px; }
+.list-head button.on { color: var(--accent); font-weight: 600; background: var(--surface); }
+.rows { overflow: auto; flex: 1 1 auto; min-height: 0; }
+.row {
+  display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; grid-template-areas: "sw subj pg" "sw comm meta";
+  column-gap: 10px; row-gap: 1px; align-items: baseline; padding: 8px 14px; border-bottom: 1px solid var(--line); cursor: pointer; font-size: 15px;
+}
+.row:active { background: var(--surface-2); }
+.row.sel { background: var(--accent-soft); }
+.row .sw { grid-area: sw; width: 14px; height: 14px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(128,128,128,.4); align-self: center; }
+.row .subj { grid-area: subj; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.row .pg { grid-area: pg; color: var(--ink-2); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.row .comm { grid-area: comm; color: var(--ink-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.2em; }
+.row .meta { grid-area: meta; color: var(--ink-2); font-size: 12px; white-space: nowrap; text-align: right; }
+.row.member { padding-left: 30px; }
+.row.g { display: flex; gap: 8px; align-items: center; color: var(--ink-2); font-size: 13px; font-weight: 600; padding: 6px 14px; background: var(--surface-2); }
+.row.g .hint { font-weight: 400; }
+.rows .none { padding: 24px 14px; color: var(--ink-2); text-align: center; }
+
+/* Panel as bottom sheet on narrow screens */
+@media (max-width: 899px) {
+  .work { flex-direction: column; }
+  .panel { width: 100%; height: 46%; border-left: 0; border-top: 1px solid var(--line); }
+}
+
+/* Busy + toast */
+.busy { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.28); }
+.busy[hidden] { display: none; }
+.busy div { background: var(--surface); padding: 16px 22px; border-radius: 12px; box-shadow: var(--shadow); font-weight: 500; }
+.toast { position: fixed; left: 50%; bottom: calc(20px + var(--safe-bottom)); transform: translateX(-50%); z-index: 60; background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 10px; max-width: min(90vw, 480px); text-align: center; box-shadow: var(--shadow); }
+.toast[hidden] { display: none; }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <button class="tb" id="btnOpen" type="button" title="Open a PDF">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/></svg>Open
+  </button>
+  <input id="file" type="file" accept="application/pdf,.pdf" hidden>
+  <button class="tb primary" id="btnSave" type="button" disabled title="Write markups into the PDF and save a copy">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0 4-4m-4 4-4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2"/></svg>Save PDF<span class="dot"></span>
+  </button>
+
+  <div class="seg" id="tools">
+    <button class="tb" type="button" data-tool="select" title="Select and move markups">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3l14 8-6 2-3 6z"/></svg>Select
+    </button>
+    <button class="tb on" type="button" data-tool="circle" title="Draw a highlighted circle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="9" ry="7"/></svg>Circle
+    </button>
+    <button class="tb" type="button" data-tool="rect" title="Draw a rectangle">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3.5" y="5.5" width="17" height="13" rx="1.5"/></svg>Rectangle
+    </button>
+    <button class="tb" type="button" data-tool="pen" title="Freehand pen">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20c2-6 5-9 8-9s2 5 4 5 3-4 4-6"/></svg>Pen
+    </button>
+  </div>
+
+  <button class="tb style-chip" id="btnStyle" type="button" title="Markup style" aria-haspopup="true"><span class="preview"></span></button>
+  <div class="pop" id="stylePop" hidden>
+    <h3>Style for new markups</h3>
+    <div class="style" id="styleNew"></div>
+  </div>
+
+  <button class="tb" id="btnChest" type="button" title="Bluebeam tool sets (.btx)" aria-haspopup="true">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M3 9h18v10a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1zM3 9l2-4h14l2 4M10 13h4"/></svg>Tool Chest
+  </button>
+  <div class="pop chest" id="chestPop" hidden>
+    <div class="chest-head">
+      <h3>Tool Chest</h3>
+      <button class="btn" id="btnImportBtx" type="button">Import .btx</button>
+      <input id="btxFile" type="file" multiple hidden>
+    </div>
+    <div id="chestSets" class="chest-sets"></div>
+  </div>
+
+  <label class="toggle" title="Let a finger draw as well as the Pencil"><input type="checkbox" id="fingerDraw">Finger draws</label>
+  <label class="toggle" title="Tap markups to add them to the selection, then Group"><input type="checkbox" id="multiSel">Multi-select</label>
+
+  <span class="spacer"></span>
+
+  <div class="seg">
+    <button class="tb" id="zoomOut" type="button" title="Zoom out">−</button>
+    <span class="tb zoom-val" id="zoomVal">100%</span>
+    <button class="tb" id="zoomIn" type="button" title="Zoom in">+</button>
+    <button class="tb" id="zoomFit" type="button" title="Fit page width">Fit</button>
+  </div>
+  <div class="seg">
+    <button class="tb" id="btnUndo" type="button" title="Undo" disabled>Undo</button>
+    <button class="tb" id="btnRedo" type="button" title="Redo" disabled>Redo</button>
+  </div>
+  <button class="tb" id="btnPanel" type="button" title="Show the markups list">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Markups <span id="count">0</span>
+  </button>
+</header>
+
+<div class="work">
+  <div class="viewer" id="viewer">
+    <div class="pages" id="pages"></div>
+    <div class="empty" id="empty">
+      <div class="card">
+        <h1>Open a PDF to mark it up</h1>
+        <p>Apple Pencil draws, a finger pans, pinch to zoom. Every markup gets a Subject, Comments and Color that Bluebeam Revu reads, and markups already in the file show up in the list.</p>
+        <button class="btn" id="btnOpen2" type="button">Choose a PDF</button>
+      </div>
+    </div>
+  </div>
+
+  <aside class="panel" id="panel" hidden>
+    <div class="panel-head">
+      <h2>Markups</h2><span class="count" id="count2">0</span>
+      <button class="btn x" id="btnClosePanel" type="button">Close</button>
+    </div>
+    <label class="author-row">Author <input id="author" placeholder="Your name (shows in Revu)" autocomplete="name"></label>
+    <section class="props" id="props" hidden>
+      <div class="title"><span id="propsTitle">1 markup</span><span class="meta" id="propsMeta"></span></div>
+      <label class="fld">Subject<input class="fld-in" id="pSubject" list="subjects" placeholder="e.g. Ellipse, Issue, Verify"></label>
+      <datalist id="subjects"><option value="Ellipse"><option value="Rectangle"><option value="Pen"><option value="Issue"><option value="Verify"><option value="RFI"><option value="Note"></datalist>
+      <label class="fld">Comments<textarea class="fld-ta" id="pContents" rows="2" placeholder="Shows in the Comments column"></textarea></label>
+      <div class="style" id="styleSel"></div>
+      <div class="actions">
+        <button class="btn" id="btnGroup" type="button">Group</button>
+        <button class="btn" id="btnUngroup" type="button">Ungroup</button>
+        <button class="btn danger" id="btnDelete" type="button">Delete</button>
+      </div>
+    </section>
+    <div class="filter"><input id="filter" placeholder="Filter by subject, comment, page or author" type="search"></div>
+    <div class="list-head">
+      <span class="lbl">Sort by</span>
+      <button type="button" data-key="subject">Subject</button>
+      <button type="button" data-key="page">Page</button>
+      <button type="button" data-key="comments">Comments</button>
+      <button type="button" data-key="author">Author</button>
+      <button type="button" data-key="date">Date</button>
+      <button type="button" data-key="color">Color</button>
+    </div>
+    <div class="rows" id="rows"><div class="none">No markups yet.</div></div>
+  </aside>
+</div>
+
+<div class="savebar" id="saveBar" hidden><span id="saveBarText">Markups written into the PDF.</span><button class="btn" id="btnSaveFile" type="button">Save file</button><button class="btn" id="btnSaveBarClose" type="button">Later</button></div>
+<div class="busy" id="busy" hidden><div id="busyText">Working…</div></div>
+<div class="toast" id="toast" hidden></div>
+<script>
+/* MarkupIO: reads and writes PDF markup annotations with pdf-lib.
+   Writes the standard keys Bluebeam Revu and Acrobat read:
+   /Subj (Subject), /Contents (Comments), /T (Author), /C (Color), /IC (Fill),
+   /CA (Opacity), /M and /CreationDate (Dates), /NM (unique id),
+   /RT /Group + /IRT (grouping). */
+(function (root) {
+  'use strict';
+  var OWNED = new Set(['Circle', 'Square', 'Ink']);
+  var SKIP = new Set(['Popup', 'Link', 'Widget', 'Screen', 'PrinterMark', 'TrapNet', 'Watermark', '3D', 'RichMedia', 'Projection']);
+
+  function lib() { var L = root.PDFLib; if (!L) throw new Error('pdf-lib is not loaded'); return L; }
+  function fmt(n) { if (!isFinite(n)) return '0'; return String(Math.round(n * 1000) / 1000); }
+  function fix(v, d) { return +(+v).toFixed(d == null ? 3 : d); }
+
+  function nameOf(o) {
+    var L = lib();
+    if (!(o instanceof L.PDFName)) return null;
+    var s = o.asString();
+    if (s.charAt(0) === '/') s = s.slice(1);
+    return s.replace(/#([0-9A-Fa-f]{2})/g, function (_, h) { return String.fromCharCode(parseInt(h, 16)); });
+  }
+  function textOf(o) {
+    var L = lib();
+    if (o instanceof L.PDFString || o instanceof L.PDFHexString) { try { return o.decodeText(); } catch (e) { return ''; } }
+    return '';
+  }
+  function numOf(o, d) { var L = lib(); return o instanceof L.PDFNumber ? o.asNumber() : (d == null ? null : d); }
+  function numsOf(ctx, o) {
+    var L = lib(); o = ctx.lookup(o);
+    if (!(o instanceof L.PDFArray)) return null;
+    var out = [];
+    for (var i = 0; i < o.size(); i++) { var v = ctx.lookup(o.get(i)); if (v instanceof L.PDFNumber) out.push(v.asNumber()); }
+    return out;
+  }
+  function colorOf(ctx, o) {
+    var c = numsOf(ctx, o);
+    if (!c || c.length === 0) return null;
+    if (c.length === 3) return c;
+    if (c.length === 1) return [c[0], c[0], c[0]];
+    if (c.length === 4) return [(1 - c[0]) * (1 - c[3]), (1 - c[1]) * (1 - c[3]), (1 - c[2]) * (1 - c[3])];
+    return null;
+  }
+  function parseDate(s) {
+    var m = /^D:(\d{4})(\d{2})?(\d{2})?(\d{2})?(\d{2})?(\d{2})?([Zz+\-])?(\d{2})?'?(\d{2})?/.exec(s || '');
+    if (!m) return null;
+    var iso = m[1] + '-' + (m[2] || '01') + '-' + (m[3] || '01') + 'T' + (m[4] || '00') + ':' + (m[5] || '00') + ':' + (m[6] || '00');
+    if (m[7] === 'Z' || m[7] === 'z') iso += 'Z';
+    else if (m[7] === '+' || m[7] === '-') iso += m[7] + (m[8] || '00') + ':' + (m[9] || '00');
+    var d = new Date(iso);
+    return isNaN(d.getTime()) ? null : d.toISOString();
+  }
+  function refKey(r) { return r.objectNumber + ' ' + r.generationNumber + ' R'; }
+  function sameRef(a, b) { return a && b && a.objectNumber === b.objectNumber && a.generationNumber === b.generationNumber; }
+  function makeNM() {
+    var h = function (n) { var s = ''; for (var i = 0; i < n; i++) s += Math.floor(Math.random() * 16).toString(16).toUpperCase(); return s; };
+    return h(8) + '-' + h(4) + '-' + h(4) + '-' + h(4) + '-' + h(12);
+  }
+
+  async function readMarkups(bytes) {
+    var L = lib();
+    var doc = await L.PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+    var ctx = doc.context, pages = doc.getPages(), out = [];
+    var N = function (k) { return L.PDFName.of(k); };
+    pages.forEach(function (page, pageIndex) {
+      var arr = null; try { arr = page.node.Annots(); } catch (e) { arr = null; }
+      if (!arr) return;
+      for (var i = 0; i < arr.size(); i++) {
+        var raw = arr.get(i), ref = raw instanceof L.PDFRef ? raw : null, dict;
+        try { dict = ctx.lookup(raw); } catch (e) { continue; }
+        if (!(dict instanceof L.PDFDict)) continue;
+        var subtype = nameOf(dict.get(N('Subtype')));
+        if (!subtype || SKIP.has(subtype)) continue;
+        var flags = numOf(ctx.lookup(dict.get(N('F'))), 0);
+        if (flags & 2) continue;
+        var irt = dict.get(N('IRT'));
+        var rt = nameOf(dict.get(N('RT'))) || (irt ? 'R' : null);
+        if (irt && rt !== 'Group') continue; // review replies stay in the file but are not markups
+        var rect = numsOf(ctx, dict.get(N('Rect')));
+        if (!rect || rect.length < 4) continue;
+        var bs = ctx.lookup(dict.get(N('BS'))), lineWidth = 1;
+        if (bs instanceof L.PDFDict) lineWidth = numOf(ctx.lookup(bs.get(N('W'))), 1);
+        else { var border = numsOf(ctx, dict.get(N('Border'))); if (border && border.length >= 3) lineWidth = border[2]; }
+        var opacity = numOf(ctx.lookup(dict.get(N('CA'))), 1);
+        var inkList = null;
+        if (subtype === 'Ink') {
+          var il = ctx.lookup(dict.get(N('InkList')));
+          if (il instanceof L.PDFArray) {
+            inkList = [];
+            for (var k = 0; k < il.size(); k++) {
+              var flat = numsOf(ctx, il.get(k)); if (!flat) continue;
+              var pts = []; for (var q = 0; q + 1 < flat.length; q += 2) pts.push([flat[q], flat[q + 1]]);
+              if (pts.length) inkList.push(pts);
+            }
+          }
+        }
+        var fillOpacity = opacity, highlight = false;
+        var fo = numOf(ctx.lookup(dict.get(N('FillOpacity'))), null);
+        if (fo != null) fillOpacity = fo;
+        try {
+          var ap = ctx.lookup(dict.get(N('AP')));
+          var n = ap instanceof L.PDFDict ? ctx.lookup(ap.get(N('N'))) : null;
+          var sd = n && n.dict instanceof L.PDFDict ? n.dict : (n instanceof L.PDFDict ? n : null);
+          var res = sd ? ctx.lookup(sd.get(N('Resources'))) : null;
+          var eg = res instanceof L.PDFDict ? ctx.lookup(res.get(N('ExtGState'))) : null;
+          if (eg instanceof L.PDFDict) eg.entries().forEach(function (kv) {
+            var g = ctx.lookup(kv[1]); if (!(g instanceof L.PDFDict)) return;
+            if (nameOf(g.get(N('BM'))) === 'Multiply') highlight = true;
+            var ca = numOf(ctx.lookup(g.get(N('ca'))), null); if (fo == null && ca != null && ca < fillOpacity) fillOpacity = ca;
+          });
+        } catch (e) { /* appearance details are optional */ }
+        var id = ref ? refKey(ref) : ('inline-' + pageIndex + '-' + i);
+        out.push({
+          id: id, num: ref ? ref.objectNumber : null, gen: ref ? ref.generationNumber : 0, inline: !ref,
+          isNew: false, deleted: false, dirty: false, geomDirty: false, styleDirty: false,
+          owned: !!ref && OWNED.has(subtype), subtype: subtype, pageIndex: pageIndex,
+          rect: [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])],
+          inkList: inkList,
+          color: colorOf(ctx, dict.get(N('C'))), fillColor: colorOf(ctx, dict.get(N('IC'))),
+          fillOpacity: fillOpacity, highlight: highlight, opacity: opacity, lineWidth: lineWidth,
+          subject: textOf(ctx.lookup(dict.get(N('Subj')))), contents: textOf(ctx.lookup(dict.get(N('Contents')))),
+          author: textOf(ctx.lookup(dict.get(N('T')))),
+          date: parseDate(textOf(ctx.lookup(dict.get(N('M'))))) || parseDate(textOf(ctx.lookup(dict.get(N('CreationDate'))))),
+          parentId: (irt instanceof L.PDFRef && rt === 'Group') ? refKey(irt) : null,
+          nm: textOf(ctx.lookup(dict.get(N('NM'))))
+        });
+      }
+    });
+    var ids = new Set(out.map(function (a) { return a.id; }));
+    out.forEach(function (a) { if (a.parentId && !ids.has(a.parentId)) a.parentId = null; });
+    return out;
+  }
+
+  function ellipsePath(x0, y0, x1, y1) {
+    var k = 0.5523, cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, rx = (x1 - x0) / 2, ry = (y1 - y0) / 2, f = fmt;
+    return [
+      f(cx + rx) + ' ' + f(cy) + ' m',
+      f(cx + rx) + ' ' + f(cy + ry * k) + ' ' + f(cx + rx * k) + ' ' + f(cy + ry) + ' ' + f(cx) + ' ' + f(cy + ry) + ' c',
+      f(cx - rx * k) + ' ' + f(cy + ry) + ' ' + f(cx - rx) + ' ' + f(cy + ry * k) + ' ' + f(cx - rx) + ' ' + f(cy) + ' c',
+      f(cx - rx) + ' ' + f(cy - ry * k) + ' ' + f(cx - rx * k) + ' ' + f(cy - ry) + ' ' + f(cx) + ' ' + f(cy - ry) + ' c',
+      f(cx + rx * k) + ' ' + f(cy - ry) + ' ' + f(cx + rx) + ' ' + f(cy - ry * k) + ' ' + f(cx + rx) + ' ' + f(cy) + ' c',
+      'h'
+    ].join('\n');
+  }
+
+  function buildAppearance(ctx, a) {
+    var x0 = a.rect[0], y0 = a.rect[1], x1 = a.rect[2], y1 = a.rect[3];
+    var lw = Math.max(0, +a.lineWidth || 0), f = fmt;
+    var col = function (c) { return c.map(f).join(' '); };
+    var gs = { GSs: { Type: 'ExtGState', CA: fix(a.opacity, 3), ca: fix(a.opacity, 3) } };
+    var parts = [];
+    if (a.subtype === 'Circle' || a.subtype === 'Square') {
+      var h = lw / 2, ix0 = x0 + h, iy0 = y0 + h, ix1 = Math.max(x1 - h, ix0 + 0.01), iy1 = Math.max(y1 - h, iy0 + 0.01);
+      var path = a.subtype === 'Circle' ? ellipsePath(ix0, iy0, ix1, iy1)
+        : f(ix0) + ' ' + f(iy0) + ' ' + f(ix1 - ix0) + ' ' + f(iy1 - iy0) + ' re';
+      if (a.fillColor) {
+        gs.GSf = { Type: 'ExtGState', CA: fix(a.fillOpacity, 3), ca: fix(a.fillOpacity, 3), BM: a.highlight ? 'Multiply' : 'Normal' };
+        parts.push('q\n/GSf gs\n' + col(a.fillColor) + ' rg\n' + path + '\nf\nQ');
+      }
+      if (a.color && lw > 0) parts.push('q\n/GSs gs\n' + col(a.color) + ' RG\n' + f(lw) + ' w\n' + path + '\nS\nQ');
+    } else if (a.subtype === 'Ink') {
+      var d = (a.inkList || []).map(function (pts) {
+        return pts.map(function (p, i) { return f(p[0]) + ' ' + f(p[1]) + (i ? ' l' : ' m'); }).join('\n');
+      }).join('\n');
+      parts.push('q\n/GSs gs\n' + col(a.color || [0, 0, 0]) + ' RG\n' + f(lw || 1) + ' w\n1 J\n1 j\n' + d + '\nS\nQ');
+    }
+    var stream = ctx.stream(parts.join('\n'), {
+      Type: 'XObject', Subtype: 'Form', FormType: 1,
+      BBox: [fix(x0), fix(y0), fix(x1), fix(y1)], Matrix: [1, 0, 0, 1, 0, 0],
+      Resources: { ExtGState: gs }
+    });
+    return ctx.register(stream);
+  }
+
+  function findIndex(arr, ref) {
+    var L = lib();
+    for (var i = 0; i < arr.size(); i++) { var el = arr.get(i); if (el instanceof L.PDFRef && sameRef(el, ref)) return i; }
+    return -1;
+  }
+
+  async function applyMarkups(bytes, annots, opts) {
+    opts = opts || {};
+    var L = lib(), author = opts.author || '';
+    var N = function (k) { return L.PDFName.of(k); };
+    var doc = await L.PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
+    var ctx = doc.context, pages = doc.getPages(), now = new Date();
+    var refOf = new Map();
+    var setText = function (dict, key, text) { dict.set(N(key), L.PDFHexString.fromText(text == null ? '' : String(text))); };
+    var colorArr = function (c) { return ctx.obj(c ? c.map(function (v) { return fix(v, 4); }) : []); };
+    var inkArr = function (a) { return ctx.obj((a.inkList || []).map(function (pts) { return pts.reduce(function (acc, p) { acc.push(fix(p[0]), fix(p[1])); return acc; }, []); })); };
+
+    annots.forEach(function (a) { if (!a.isNew && a.num != null) refOf.set(a.id, L.PDFRef.of(a.num, a.gen || 0)); });
+
+    // 1. Deletions (annotation, its popup, and any dangling group/reply links)
+    var deletedRefs = [];
+    annots.forEach(function (a) {
+      if (!a.deleted || a.isNew) return;
+      var ref = refOf.get(a.id); if (!ref) return;
+      var page = pages[a.pageIndex]; var arr = page ? page.node.Annots() : null; if (!arr) return;
+      var dict = null; try { dict = ctx.lookup(ref); } catch (e) { dict = null; }
+      var popup = dict instanceof L.PDFDict ? dict.get(N('Popup')) : null;
+      var i = findIndex(arr, ref); if (i >= 0) arr.remove(i);
+      if (popup instanceof L.PDFRef) { var j = findIndex(arr, popup); if (j >= 0) arr.remove(j); ctx.delete(popup); }
+      ctx.delete(ref); deletedRefs.push(ref); refOf.delete(a.id);
+    });
+    if (deletedRefs.length) {
+      pages.forEach(function (page) {
+        var arr = page.node.Annots(); if (!arr) return;
+        for (var i = 0; i < arr.size(); i++) {
+          var d; try { d = ctx.lookup(arr.get(i)); } catch (e) { continue; }
+          if (!(d instanceof L.PDFDict)) continue;
+          var irt = d.get(N('IRT'));
+          if (irt instanceof L.PDFRef && deletedRefs.some(function (r) { return sameRef(r, irt); })) { d.delete(N('IRT')); d.delete(N('RT')); }
+        }
+      });
+    }
+
+    // 2. New markups
+    annots.forEach(function (a) {
+      if (!a.isNew || a.deleted) return;
+      var page = pages[a.pageIndex]; if (!page) return;
+      var lw = +a.lineWidth || 0;
+      var apRef = buildAppearance(ctx, a);
+      var dict = ctx.obj({
+        Type: 'Annot', Subtype: a.subtype, Rect: a.rect.map(function (v) { return fix(v); }), F: 4, P: page.ref,
+        CA: fix(a.opacity, 3), BS: { Type: 'Border', W: lw, S: 'S' }, AP: { N: apRef }
+      });
+      dict.set(N('C'), colorArr(a.color));
+      dict.set(N('NM'), L.PDFString.of(a.nm || makeNM()));
+      dict.set(N('M'), L.PDFString.fromDate(now));
+      dict.set(N('CreationDate'), L.PDFString.fromDate(a.date ? new Date(a.date) : now));
+      setText(dict, 'T', a.author || author);
+      setText(dict, 'Subj', a.subject);
+      setText(dict, 'Contents', a.contents);
+      if (a.fillColor && a.subtype !== 'Ink') { dict.set(N('IC'), colorArr(a.fillColor)); dict.set(N('FillOpacity'), L.PDFNumber.of(fix(a.fillOpacity, 3))); }
+      if (a.subtype === 'Ink') dict.set(N('InkList'), inkArr(a));
+      var ref = ctx.register(dict);
+      page.node.addAnnot(ref);
+      refOf.set(a.id, ref);
+    });
+
+    // 3. Edited existing markups
+    annots.forEach(function (a) {
+      if (a.isNew || a.deleted || !a.dirty) return;
+      var ref = refOf.get(a.id); if (!ref) return;
+      var dict; try { dict = ctx.lookup(ref); } catch (e) { return; }
+      if (!(dict instanceof L.PDFDict)) return;
+      setText(dict, 'Subj', a.subject);
+      setText(dict, 'Contents', a.contents);
+      dict.set(N('M'), L.PDFString.fromDate(now));
+      dict.set(N('C'), colorArr(a.color));
+      if (a.subtype !== 'Ink') {
+        if (a.fillColor) { dict.set(N('IC'), colorArr(a.fillColor)); dict.set(N('FillOpacity'), L.PDFNumber.of(fix(a.fillOpacity, 3))); }
+        else { dict.delete(N('IC')); dict.delete(N('FillOpacity')); }
+      }
+      dict.set(N('CA'), L.PDFNumber.of(fix(a.opacity, 3)));
+      var bs = ctx.lookup(dict.get(N('BS')));
+      if (bs instanceof L.PDFDict) bs.set(N('W'), L.PDFNumber.of(+a.lineWidth || 0));
+      else dict.set(N('BS'), ctx.obj({ Type: 'Border', W: +a.lineWidth || 0, S: 'S' }));
+      if (a.owned && (a.geomDirty || a.styleDirty)) {
+        dict.set(N('Rect'), ctx.obj(a.rect.map(function (v) { return fix(v); })));
+        if (a.subtype === 'Ink') dict.set(N('InkList'), inkArr(a));
+        dict.set(N('AP'), ctx.obj({ N: buildAppearance(ctx, a) }));
+        dict.delete(N('RD'));
+      }
+    });
+
+    // 4. Groups: /RT /Group with /IRT pointing at the group's first markup
+    annots.forEach(function (a) {
+      if (a.deleted) return;
+      var ref = refOf.get(a.id); if (!ref) return;
+      var dict; try { dict = ctx.lookup(ref); } catch (e) { return; }
+      if (!(dict instanceof L.PDFDict)) return;
+      var want = (a.parentId && a.parentId !== a.id) ? refOf.get(a.parentId) : null;
+      var cur = dict.get(N('IRT')), curRT = nameOf(dict.get(N('RT')));
+      if (want) {
+        if (!(cur instanceof L.PDFRef) || !sameRef(cur, want) || curRT !== 'Group') { dict.set(N('RT'), N('Group')); dict.set(N('IRT'), want); }
+      } else if (curRT === 'Group') { dict.delete(N('IRT')); dict.delete(N('RT')); }
+    });
+
+    return await doc.save({ useObjectStreams: false });
+  }
+
+  root.MarkupIO = { readMarkups: readMarkups, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+/* ToolChest: reads Bluebeam Revu tool set files (.btx).
+   A .btx is XML; each <ToolChestItem> carries a <Raw> field that is hex text of a
+   zlib stream whose payload is a PDF annotation dictionary such as
+   <</Subtype/Circle/C[1 0 0]/IC[1 0 0]/FillOpacity 0.35/Subj(Issue)...>>. */
+(function (root) {
+  'use strict';
+  var SUPPORTED = { Circle: 'circle', Square: 'rect', Ink: 'pen' };
+
+  function hexToBytes(h) {
+    var out = new Uint8Array(h.length >> 1);
+    for (var i = 0; i < out.length; i++) out[i] = parseInt(h.substr(i * 2, 2), 16);
+    return out;
+  }
+  function inflate(bytes) {
+    var p = root.pako; if (!p) return null;
+    try { return p.inflate(bytes); } catch (e) { /* not zlib */ }
+    try { return p.inflateRaw(bytes); } catch (e) { /* not deflate */ }
+    return null;
+  }
+  function bytesToText(b) {
+    try { return new TextDecoder('utf-8').decode(b); } catch (e) { return ''; }
+  }
+  // Leaf fields are either plain text or hex of a zlib stream.
+  function decodeField(text) {
+    if (text == null) return { text: '', bytes: null };
+    var t = String(text).trim();
+    if (/^[0-9a-fA-F]+$/.test(t) && t.length % 2 === 0 && t.length >= 8) {
+      var b = hexToBytes(t);
+      var inf = inflate(b);
+      if (inf) return { text: bytesToText(inf), bytes: inf };
+      return { text: bytesToText(b), bytes: b };
+    }
+    return { text: t, bytes: null };
+  }
+  function isPng(b) { return b && b.length > 8 && b[0] === 0x89 && b[1] === 0x50 && b[2] === 0x4e && b[3] === 0x47; }
+  function toDataUrl(b) {
+    var s = ''; for (var i = 0; i < b.length; i++) s += String.fromCharCode(b[i]);
+    return 'data:image/png;base64,' + btoa(s);
+  }
+
+  // Minimal parser for PDF object syntax in text form.
+  function PName(n) { this.name = n; }
+  function parsePdfText(src) {
+    var i = 0, n = src.length;
+    function ws() {
+      while (i < n) {
+        var c = src[i];
+        if (c === ' ' || c === '\n' || c === '\r' || c === '\t' || c === '\f' || c === '\0') i++;
+        else if (c === '%') { while (i < n && src[i] !== '\n') i++; }
+        else break;
+      }
+    }
+    function name() {
+      i++; var s = i;
+      while (i < n && !/[\s\/\[\]<>(){}%]/.test(src[i])) i++;
+      return src.slice(s, i).replace(/#([0-9A-Fa-f]{2})/g, function (_, h) { return String.fromCharCode(parseInt(h, 16)); });
+    }
+    function decodeText(s) {
+      if (s.length >= 2 && s.charCodeAt(0) === 0xFE && s.charCodeAt(1) === 0xFF) {
+        var out = ''; for (var k = 2; k + 1 < s.length; k += 2) out += String.fromCharCode((s.charCodeAt(k) << 8) | s.charCodeAt(k + 1));
+        return out;
+      }
+      return s;
+    }
+    function value() {
+      ws(); if (i >= n) return undefined;
+      var c = src[i];
+      if (c === '<') {
+        if (src[i + 1] === '<') {
+          i += 2; var d = {};
+          for (;;) {
+            ws();
+            if (src.substr(i, 2) === '>>') { i += 2; return d; }
+            if (i >= n) return d;
+            if (src[i] !== '/') { if (value() === undefined) return d; continue; }
+            var k = name(); d[k] = value();
+          }
+        }
+        i++; var s = i; while (i < n && src[i] !== '>') i++;
+        var hex = src.slice(s, i).replace(/\s+/g, ''); i++;
+        var str = ''; for (var h = 0; h + 1 < hex.length; h += 2) str += String.fromCharCode(parseInt(hex.substr(h, 2), 16));
+        return decodeText(str);
+      }
+      if (c === '[') {
+        i++; var a = [];
+        for (;;) { ws(); if (src[i] === ']') { i++; return a; } if (i >= n) return a; var v = value(); if (v === undefined) return a; a.push(v); }
+      }
+      if (c === '(') {
+        i++; var depth = 1, out = '';
+        while (i < n) {
+          var ch = src[i++];
+          if (ch === '\\') {
+            var e = src[i++];
+            if (e === 'n') out += '\n'; else if (e === 'r') out += '\r'; else if (e === 't') out += '\t'; else if (e === 'b') out += '\b'; else if (e === 'f') out += '\f';
+            else if (/[0-7]/.test(e)) { var oct = e; while (oct.length < 3 && /[0-7]/.test(src[i])) oct += src[i++]; out += String.fromCharCode(parseInt(oct, 8)); }
+            else if (e === '\n' || e === '\r') { /* line continuation */ }
+            else out += e;
+          } else if (ch === '(') { depth++; out += ch; }
+          else if (ch === ')') { depth--; if (!depth) break; out += ch; }
+          else out += ch;
+        }
+        return decodeText(out);
+      }
+      if (c === '/') return new PName(name());
+      if (src.substr(i, 4) === 'true') { i += 4; return true; }
+      if (src.substr(i, 5) === 'false') { i += 5; return false; }
+      if (src.substr(i, 4) === 'null') { i += 4; return null; }
+      var m = /^[+-]?(\d+\.?\d*|\.\d+)/.exec(src.substr(i, 40));
+      if (m) { i += m[0].length; return parseFloat(m[0]); }
+      if (c === '}' || c === ']' || c === '>' || c === ')') { i++; return undefined; }
+      i++; return undefined;
+    }
+    var v = value();
+    return v;
+  }
+  function nm(v) { return v instanceof PName ? v.name : null; }
+  function colorOf(v) {
+    if (!Array.isArray(v) || !v.length) return null;
+    var c = v.filter(function (x) { return typeof x === 'number'; });
+    if (c.length === 3) return c;
+    if (c.length === 1) return [c[0], c[0], c[0]];
+    if (c.length === 4) return [(1 - c[0]) * (1 - c[3]), (1 - c[1]) * (1 - c[3]), (1 - c[2]) * (1 - c[3])];
+    return null;
+  }
+  function str(v) { return typeof v === 'string' ? v : ''; }
+  function num(v, d) { return typeof v === 'number' && isFinite(v) ? v : d; }
+
+  function itemToTool(fields, index) {
+    var rawText = decodeField(fields.Raw).text;
+    var dict = null;
+    if (rawText) { try { dict = parsePdfText(rawText); } catch (e) { dict = null; } }
+    if (!dict || typeof dict !== 'object' || Array.isArray(dict)) dict = {};
+    var typeClass = str(fields.Type), typeGuess = (/Annotation(\w+)$/.exec(typeClass) || [])[1] || '';
+    var subtype = nm(dict.Subtype) || typeGuess || 'Unknown';
+    var it = nm(dict.IT) || '';
+    var color = colorOf(dict.C), fill = colorOf(dict.IC);
+    var opacity = num(dict.CA, 1), fillOpacity = num(dict.FillOpacity, opacity);
+    var lw = dict.BS && typeof dict.BS === 'object' ? num(dict.BS.W, 1) : (Array.isArray(dict.Border) ? num(dict.Border[2], 1) : 1);
+    var highlight = dict.Highlight === true || nm(dict.BM) === 'Multiply';
+    var icon = null;
+    ['Data', 'Icon', 'Image'].forEach(function (k) { if (icon || !fields[k]) return; var d = decodeField(fields[k]); if (isPng(d.bytes)) icon = toDataUrl(d.bytes); });
+    var subject = str(dict.Subj);
+    var label = subject || (it ? subtype + ' (' + it.replace(/^Polygon|^PolyLine/, '') + ')' : subtype);
+    return {
+      id: 't' + index + '-' + (str(fields.Name) || Math.random().toString(36).slice(2)),
+      title: label, subtype: subtype, intent: it, typeClass: typeClass, mode: str(fields.Mode),
+      supported: !!SUPPORTED[subtype], drawTool: SUPPORTED[subtype] || null,
+      color: color, fillColor: fill, opacity: opacity, fillOpacity: fillOpacity, lineWidth: lw, highlight: highlight,
+      subject: subject, contents: str(dict.Contents), layer: str(dict.OC), icon: icon
+    };
+  }
+
+  function childText(el, tag) {
+    for (var k = 0; k < el.children.length; k++) if (el.children[k].tagName === tag) return el.children[k].textContent;
+    return null;
+  }
+  function parseBtx(buf, fileName) {
+    var u8 = new Uint8Array(buf), enc = 'utf-8';
+    if (u8[0] === 0xFF && u8[1] === 0xFE) enc = 'utf-16le'; else if (u8[0] === 0xFE && u8[1] === 0xFF) enc = 'utf-16be';
+    var text = new TextDecoder(enc).decode(u8).replace(/^\uFEFF/, '');
+    var items = [], title = '';
+    var doc = null;
+    try { doc = new DOMParser().parseFromString(text, 'text/xml'); } catch (e) { doc = null; }
+    if (doc && !doc.getElementsByTagName('parsererror').length && doc.documentElement) {
+      title = decodeField(childText(doc.documentElement, 'Title')).text;
+      Array.prototype.forEach.call(doc.getElementsByTagName('ToolChestItem'), function (el, idx) {
+        var f = {}; for (var k = 0; k < el.children.length; k++) f[el.children[k].tagName] = el.children[k].textContent;
+        items.push(itemToTool(f, idx));
+      });
+    } else {
+      var re = /<ToolChestItem[^>]*>([\s\S]*?)<\/ToolChestItem>/g, m, idx = 0;
+      while ((m = re.exec(text))) {
+        var f = {}, inner = m[1], tre = /<(\w+)>([\s\S]*?)<\/\1>/g, t;
+        while ((t = tre.exec(inner))) f[t[1]] = t[2];
+        items.push(itemToTool(f, idx++));
+      }
+      var tm = /<Title>([\s\S]*?)<\/Title>/.exec(text); if (tm) title = decodeField(tm[1]).text;
+    }
+    if (!items.length) throw new Error('No tools found. Is this a Bluebeam tool set (.btx) file?');
+    title = (title || '').replace(/[^\x20-\x7E\u00A0-\uFFFF]/g, '').trim() || String(fileName || 'Tool set').replace(/\.btx$/i, '');
+    return { id: 'set-' + Date.now().toString(36), title: title, tools: items };
+  }
+
+  root.ToolChest = { parseBtx: parseBtx, parsePdfText: parsePdfText, decodeField: decodeField, SUPPORTED: SUPPORTED };
+})(typeof window !== 'undefined' ? window : globalThis);
+</script>
+<script>
+(function () {
+'use strict';
+var $ = function (s) { return document.querySelector(s); };
+var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
+
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
+var SUBJECT_DEFAULT = { circle: 'Ellipse', rect: 'Rectangle', pen: 'Pen' };
+var SUBTYPE_OF = { circle: 'Circle', rect: 'Square', pen: 'Ink' };
+
+var state = {
+  fileName: 'document.pdf', bytes: null, pdf: null, labels: null, pages: [], zoom: 1,
+  dpr: Math.min(window.devicePixelRatio || 1, 2),
+  tool: 'circle',
+  style: { color: '#E53935', fill: true, fillOpacity: 0.35, opacity: 1, lineWidth: 2, highlight: true },
+  annots: [], sel: new Set(), history: [], future: [], fingerDraw: false, author: '',
+  sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
+  chestSets: [], chestTool: null, pendingSave: null
+};
+
+/* ---------- small helpers ---------- */
+function hexToRgb(hex) {
+  var m = /^#?([0-9a-f]{6})$/i.exec(hex || '');
+  if (!m) return [0, 0, 0];
+  var n = parseInt(m[1], 16);
+  return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255];
+}
+function rgbToHex(c) {
+  if (!c) return '#000000';
+  var h = function (v) { var s = Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16); return s.length < 2 ? '0' + s : s; };
+  return '#' + h(c[0]) + h(c[1]) + h(c[2]);
+}
+function hue(c) {
+  if (!c) return 999;
+  var r = c[0], g = c[1], b = c[2], mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn;
+  if (d < 0.08) return 400 + (1 - mx) * 10; // greys after colors, dark last
+  var h = mx === r ? ((g - b) / d) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return (h * 60 + 360) % 360;
+}
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function fmtDay(iso) {
+  if (!iso) return '';
+  var d = new Date(iso); if (isNaN(d)) return '';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+}
+function fmtDate(iso) {
+  if (!iso) return '';
+  var d = new Date(iso); if (isNaN(d)) return '';
+  return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+}
+function pageLabel(i) { return (state.labels && state.labels[i]) ? state.labels[i] : String(i + 1); }
+function byId(id) { for (var i = 0; i < state.annots.length; i++) if (state.annots[i].id === id) return state.annots[i]; return null; }
+function live() { return state.annots.filter(function (a) { return !a.deleted; }); }
+function selected() { return live().filter(function (a) { return state.sel.has(a.id); }); }
+function headOf(a) { if (a.parentId) { var h = byId(a.parentId); if (h && !h.deleted) return h; } return a; }
+function membersOf(a) { var h = headOf(a); return live().filter(function (x) { return x === h || x.parentId === h.id; }); }
+
+var toastTimer = null;
+function toast(msg, ms) {
+  var t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(function () { t.hidden = true; }, ms || 3200);
+}
+function setBusy(text) { $('#busy').hidden = !text; if (text) $('#busyText').textContent = text; }
+function nextFrame() { return new Promise(function (r) { requestAnimationFrame(function () { setTimeout(r, 0); }); }); }
+
+/* ---------- preferences (per-device conveniences only) ---------- */
+function loadPrefs() {
+  try {
+    var p = JSON.parse(localStorage.getItem('pencil-markup-prefs') || '{}');
+    if (p.author) state.author = p.author;
+    if (p.style) state.style = Object.assign(state.style, p.style);
+    if (typeof p.fingerDraw === 'boolean') state.fingerDraw = p.fingerDraw;
+  } catch (e) { /* storage may be empty or blocked */ }
+}
+function savePrefs() {
+  try { localStorage.setItem('pencil-markup-prefs', JSON.stringify({ author: state.author, style: state.style, fingerDraw: state.fingerDraw })); } catch (e) { /* ignore */ }
+}
+function loadChest() {
+  try { var s = JSON.parse(localStorage.getItem('pencil-markup-toolsets') || '[]'); if (Array.isArray(s)) state.chestSets = s; } catch (e) { state.chestSets = []; }
+}
+function saveChest() {
+  try {
+    var json = JSON.stringify(state.chestSets);
+    if (json.length > 1500000) json = JSON.stringify(state.chestSets.map(function (s) { return Object.assign({}, s, { tools: s.tools.map(function (t) { return Object.assign({}, t, { icon: null }); }) }); }));
+    localStorage.setItem('pencil-markup-toolsets', json);
+  } catch (e) { toast('Tool sets could not be remembered on this device (storage is full or blocked).', 5000); }
+}
+
+/* ---------- history ---------- */
+var lastTag = null, lastTagTime = 0;
+function pushHistory(tag) {
+  var now = Date.now();
+  if (tag && tag === lastTag && now - lastTagTime < 900) { lastTagTime = now; return; }
+  lastTag = tag || null; lastTagTime = now;
+  state.history.push(JSON.stringify(state.annots));
+  if (state.history.length > 60) state.history.shift();
+  state.future = [];
+  updateUndoButtons();
+}
+function restore(json) {
+  var touched = new Set(live().map(function (a) { return a.pageIndex; }));
+  state.annots = JSON.parse(json);
+  live().forEach(function (a) { touched.add(a.pageIndex); });
+  var ids = new Set(live().map(function (a) { return a.id; }));
+  state.sel = new Set(Array.from(state.sel).filter(function (id) { return ids.has(id); }));
+  touched.forEach(function (i) { if (state.pages[i]) drawOverlay(state.pages[i]); });
+  markUnsaved(); renderList(); renderProps(); updateUndoButtons();
+}
+function undo() { if (!state.history.length) return; state.future.push(JSON.stringify(state.annots)); restore(state.history.pop()); lastTag = null; }
+function redo() { if (!state.future.length) return; state.history.push(JSON.stringify(state.annots)); restore(state.future.pop()); lastTag = null; }
+function updateUndoButtons() { $('#btnUndo').disabled = !state.history.length; $('#btnRedo').disabled = !state.future.length; }
+function markUnsaved() {
+  state.unsaved = state.annots.some(function (a) { return a.isNew ? !a.deleted : (a.dirty || a.deleted); }) || groupsChanged();
+  $('#btnSave').classList.toggle('unsaved', state.unsaved);
+}
+var groupBaseline = '';
+function groupKey() { return live().map(function (a) { return a.id + '>' + (a.parentId || ''); }).sort().join('|'); }
+function groupsChanged() { return groupKey() !== groupBaseline; }
+
+/* ---------- loading and layout ---------- */
+async function openFile(file) {
+  if (!file) return;
+  setBusy('Opening ' + file.name + '…');
+  try {
+    var buf = await file.arrayBuffer();
+    await loadPdf(new Uint8Array(buf), file.name, {});
+    $('#empty').hidden = true;
+    $('#btnSave').disabled = false;
+    toast(state.pdf.numPages + (state.pdf.numPages === 1 ? ' page, ' : ' pages, ') + live().length + ' existing markups');
+  } catch (e) {
+    console.error(e);
+    toast('That file could not be opened as a PDF. ' + (e && e.message ? e.message : ''), 6000);
+  } finally { setBusy(null); }
+}
+
+async function loadPdf(bytes, name, opts) {
+  if (state.pdf) { try { await state.pdf.destroy(); } catch (e) { /* ignore */ } }
+  var pdf = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
+  state.pdf = pdf; state.bytes = bytes; state.fileName = name || state.fileName;
+  try { state.labels = await pdf.getPageLabels(); } catch (e) { state.labels = null; }
+  try { state.annots = await MarkupIO.readMarkups(bytes); }
+  catch (e) { console.warn(e); state.annots = []; toast('Existing markups in this file could not be read. New markups still work.', 5000); }
+  state.sel = new Set(); state.history = []; state.future = []; state.nextId = 1;
+  groupBaseline = groupKey(); markUnsaved(); updateUndoButtons();
+  await buildPages(opts && opts.keepScroll);
+  renderList(); renderProps();
+}
+
+async function buildPages(keepScroll) {
+  var viewer = $('#viewer'), cont = $('#pages');
+  var frac = viewer.scrollHeight ? viewer.scrollTop / viewer.scrollHeight : 0, left = viewer.scrollLeft;
+  state.pages.forEach(function (p) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } } });
+  cont.innerHTML = ''; state.pages = [];
+  var first = await state.pdf.getPage(1);
+  if (!keepScroll) state.zoom = fitZoomFor(first);
+  for (var i = 1; i <= state.pdf.numPages; i++) {
+    var page = i === 1 ? first : await state.pdf.getPage(i);
+    var el = document.createElement('div'); el.className = 'page'; el.dataset.index = String(i - 1);
+    var canvas = document.createElement('canvas');
+    var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    var num = document.createElement('span'); num.className = 'pnum'; num.textContent = pageLabel(i - 1);
+    el.appendChild(canvas); el.appendChild(svg); el.appendChild(num); cont.appendChild(el);
+    var p = { index: i - 1, page: page, vp: null, el: el, canvas: canvas, svg: svg, rendered: false, renderTask: null, temp: null };
+    state.pages.push(p);
+    sizePage(p);
+  }
+  updateZoomLabel();
+  if (keepScroll) { viewer.scrollTop = frac * viewer.scrollHeight; viewer.scrollLeft = left; }
+  else viewer.scrollTop = 0;
+  renderVisible();
+  state.pages.forEach(drawOverlay);
+}
+function fitZoomFor(page) {
+  var w = $('#viewer').clientWidth - 32;
+  var vp1 = page.getViewport({ scale: 1 });
+  return clamp(w / vp1.width, 0.2, 6);
+}
+function sizePage(p) {
+  p.vp = p.page.getViewport({ scale: state.zoom });
+  p.el.style.width = p.vp.width + 'px'; p.el.style.height = p.vp.height + 'px';
+  p.svg.setAttribute('viewBox', '0 0 ' + p.vp.width + ' ' + p.vp.height);
+  p.rendered = false;
+  if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; }
+  p.canvas.width = 1; p.canvas.height = 1;
+}
+function setZoom(z, anchor) {
+  var viewer = $('#viewer');
+  z = clamp(z, 0.2, 6);
+  var old = state.zoom, ratio = z / old;
+  var ax = anchor ? anchor.x : viewer.clientWidth / 2, ay = anchor ? anchor.y : viewer.clientHeight / 2;
+  var cx = viewer.scrollLeft + ax, cy = viewer.scrollTop + ay;
+  state.zoom = z;
+  state.pages.forEach(sizePage);
+  viewer.scrollLeft = cx * ratio - ax; viewer.scrollTop = cy * ratio - ay;
+  updateZoomLabel(); renderVisible(); state.pages.forEach(drawOverlay);
+}
+function updateZoomLabel() { $('#zoomVal').textContent = Math.round(state.zoom * 100) + '%'; }
+
+var renderQueued = false;
+function renderVisible() {
+  if (renderQueued) return; renderQueued = true;
+  requestAnimationFrame(function () {
+    renderQueued = false;
+    var viewer = $('#viewer'), top = viewer.scrollTop, bottom = top + viewer.clientHeight, h = viewer.clientHeight;
+    state.pages.forEach(function (p) {
+      var pt = p.el.offsetTop, pb = pt + p.el.offsetHeight;
+      var near = pb > top - h * 1.2 && pt < bottom + h * 1.2;
+      var far = pb < top - h * 3 || pt > bottom + h * 3;
+      if (near) renderPage(p);
+      else if (far && (p.rendered || p.renderTask)) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; } p.rendered = false; p.canvas.width = 1; p.canvas.height = 1; }
+    });
+  });
+}
+function renderPage(p) {
+  if (p.rendered || p.renderTask) return;
+  var dpr = state.dpr, vp = p.vp;
+  p.canvas.width = Math.floor(vp.width * dpr); p.canvas.height = Math.floor(vp.height * dpr);
+  var c2d = p.canvas.getContext('2d');
+  var params = { canvasContext: c2d, viewport: vp, annotationMode: pdfjsLib.AnnotationMode.ENABLE };
+  if (dpr !== 1) params.transform = [dpr, 0, 0, dpr, 0, 0];
+  var task = p.page.render(params);
+  p.renderTask = task;
+  task.promise.then(function () { if (p.renderTask === task) { p.rendered = true; p.renderTask = null; } },
+    function (err) { if (p.renderTask === task) p.renderTask = null; if (!err || err.name !== 'RenderingCancelledException') console.warn(err); });
+}
+
+/* ---------- coordinates ---------- */
+function toPdf(p, clientX, clientY) {
+  var r = p.el.getBoundingClientRect(), s = r.width / p.vp.width || 1;
+  return p.vp.convertToPdfPoint((clientX - r.left) / s, (clientY - r.top) / s);
+}
+function toView(p, x, y) { return p.vp.convertToViewportPoint(x, y); }
+function viewRect(p, rect) {
+  var a = toView(p, rect[0], rect[1]), b = toView(p, rect[2], rect[3]);
+  return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
+}
+function pdfRectFromView(p, vr) {
+  var a = p.vp.convertToPdfPoint(vr[0], vr[1]), b = p.vp.convertToPdfPoint(vr[2], vr[3]);
+  return [Math.min(a[0], b[0]), Math.min(a[1], b[1]), Math.max(a[0], b[0]), Math.max(a[1], b[1])];
+}
+function inkBounds(a) {
+  var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+  (a.inkList || []).forEach(function (l) { l.forEach(function (q) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); }); });
+  var pad = (a.lineWidth || 1) / 2 + 1;
+  return isFinite(x0) ? [x0 - pad, y0 - pad, x1 + pad, y1 + pad] : a.rect;
+}
+
+/* ---------- overlay drawing ---------- */
+function shapeSVG(a, p, ghost) {
+  var vr = viewRect(p, a.rect), z = state.zoom, lw = Math.max(0.5, (a.lineWidth || 1) * z);
+  var stroke = rgbToHex(a.color || [0, 0, 0]), out = '';
+  var so = a.color ? a.opacity : 0;
+  if (a.subtype === 'Circle' || a.subtype === 'Square') {
+    var h = lw / 2, x = vr[0] + h, y = vr[1] + h, w = Math.max(0.5, vr[2] - vr[0] - lw), hh = Math.max(0.5, vr[3] - vr[1] - lw);
+    var geo = a.subtype === 'Circle'
+      ? '<ellipse cx="' + (x + w / 2) + '" cy="' + (y + hh / 2) + '" rx="' + (w / 2) + '" ry="' + (hh / 2) + '"'
+      : '<rect x="' + x + '" y="' + y + '" width="' + w + '" height="' + hh + '"';
+    if (a.fillColor) out += geo + ' fill="' + rgbToHex(a.fillColor) + '" fill-opacity="' + a.fillOpacity + '"' + (a.highlight ? ' class="hl"' : '') + ' stroke="none"/>';
+    out += geo + ' fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '"/>';
+  } else if (a.subtype === 'Ink') {
+    var d = (a.inkList || []).map(function (l) { return l.map(function (q, i) { var v = toView(p, q[0], q[1]); return (i ? 'L' : 'M') + v[0].toFixed(1) + ' ' + v[1].toFixed(1); }).join(' '); }).join(' ');
+    out += '<path d="' + d + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + a.opacity + '" stroke-width="' + lw + '" stroke-linecap="round" stroke-linejoin="round"/>';
+  } else {
+    out += '<rect x="' + vr[0] + '" y="' + vr[1] + '" width="' + (vr[2] - vr[0]) + '" height="' + (vr[3] - vr[1]) + '" fill="none" stroke="' + stroke + '" stroke-width="1" stroke-dasharray="3 3" opacity=".6"/>';
+  }
+  return ghost ? '<g opacity=".55">' + out + '</g>' : out;
+}
+function selectionSVG(a, p, withHandles) {
+  var vr = viewRect(p, a.rect), m = 4;
+  var out = '<rect x="' + (vr[0] - m) + '" y="' + (vr[1] - m) + '" width="' + (vr[2] - vr[0] + 2 * m) + '" height="' + (vr[3] - vr[1] + 2 * m) + '" fill="none" stroke="#2a5bd7" stroke-width="1.5" stroke-dasharray="5 4" vector-effect="non-scaling-stroke"/>';
+  if (withHandles) {
+    [[vr[0], vr[1]], [vr[2], vr[1]], [vr[0], vr[3]], [vr[2], vr[3]]].forEach(function (c) {
+      out += '<rect x="' + (c[0] - 7) + '" y="' + (c[1] - 7) + '" width="14" height="14" rx="3" fill="#fff" stroke="#2a5bd7" stroke-width="1.5"/>';
+    });
+  }
+  return out;
+}
+function drawOverlay(p) {
+  var html = '', single = singleResizable();
+  state.annots.forEach(function (a) {
+    if (a.deleted || a.pageIndex !== p.index) return;
+    if (a.isNew || a.geomDirty || a.styleDirty) html += shapeSVG(a, p, false);
+  });
+  state.annots.forEach(function (a) {
+    if (a.deleted || a.pageIndex !== p.index || !state.sel.has(a.id)) return;
+    html += selectionSVG(a, p, single === a);
+  });
+  if (p.temp) html += shapeSVG(p.temp, p, false);
+  p.svg.innerHTML = html;
+}
+function singleResizable() {
+  var s = selected();
+  return (s.length === 1 && s[0].owned && (s[0].subtype === 'Circle' || s[0].subtype === 'Square')) ? s[0] : null;
+}
+
+/* ---------- selection and hit testing ---------- */
+function hitTest(p, pt) {
+  var t = 8 / state.zoom, best = null, bestArea = Infinity;
+  state.annots.forEach(function (a) {
+    if (a.deleted || a.pageIndex !== p.index) return;
+    var r = a.rect;
+    if (pt[0] < r[0] - t || pt[0] > r[2] + t || pt[1] < r[1] - t || pt[1] > r[3] + t) return;
+    var area = (r[2] - r[0]) * (r[3] - r[1]);
+    if (area < bestArea) { best = a; bestArea = area; }
+  });
+  return best;
+}
+function handleAt(a, p, clientX, clientY) {
+  var r = p.el.getBoundingClientRect(), s = r.width / p.vp.width || 1;
+  var vx = (clientX - r.left) / s, vy = (clientY - r.top) / s, vr = viewRect(p, a.rect);
+  var hs = [['nw', vr[0], vr[1]], ['ne', vr[2], vr[1]], ['sw', vr[0], vr[3]], ['se', vr[2], vr[3]]];
+  for (var i = 0; i < hs.length; i++) if (Math.abs(vx - hs[i][1]) <= 12 && Math.abs(vy - hs[i][2]) <= 12) return hs[i][0];
+  return null;
+}
+function isMulti() { return state.multi || state.multiToggle; }
+function selectAnnot(a, add) {
+  var members = membersOf(a), allIn = members.every(function (m) { return state.sel.has(m.id); });
+  if (!add) state.sel = new Set();
+  if (add && allIn) members.forEach(function (m) { state.sel.delete(m.id); });
+  else members.forEach(function (m) { state.sel.add(m.id); });
+  afterSelectionChange();
+}
+function clearSel() { if (!state.sel.size) return; state.sel = new Set(); afterSelectionChange(); }
+function afterSelectionChange() {
+  state.pages.forEach(drawOverlay); renderProps();
+  $$('#rows .row').forEach(function (r) { r.classList.toggle('sel', !!r.dataset.id && state.sel.has(r.dataset.id)); });
+}
+
+/* ---------- pointer input ---------- */
+var ptrs = new Map(), gesture = null;
+var viewer = $('#viewer');
+viewer.addEventListener('contextmenu', function (e) { e.preventDefault(); });
+viewer.addEventListener('pointerdown', onDown);
+viewer.addEventListener('pointermove', onMove);
+viewer.addEventListener('pointerup', onUp);
+viewer.addEventListener('pointercancel', onUp);
+viewer.addEventListener('scroll', renderVisible, { passive: true });
+window.addEventListener('resize', function () { renderVisible(); });
+
+function startPinch() {
+  var ids = Array.from(ptrs.keys()).slice(0, 2), a = ptrs.get(ids[0]), b = ptrs.get(ids[1]);
+  var vr = viewer.getBoundingClientRect(), pr = $('#pages').getBoundingClientRect();
+  var mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2;
+  $('#pages').style.transformOrigin = (mx - pr.left) + 'px ' + (my - pr.top) + 'px';
+  gesture = { mode: 'pinch', ids: ids, startDist: Math.hypot(a.x - b.x, a.y - b.y), startZoom: state.zoom, scale: 1, anchor: { x: mx - vr.left, y: my - vr.top } };
+}
+function onDown(e) {
+  if (!state.pdf) return;
+  var isTouch = e.pointerType === 'touch';
+  ptrs.set(e.pointerId, { x: e.clientX, y: e.clientY, type: e.pointerType });
+  try { viewer.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ }
+  if (isTouch) {
+    var touches = Array.from(ptrs.values()).filter(function (q) { return q.type === 'touch'; }).length;
+    if (touches >= 2) { if (gesture && gesture.mode === 'draw') { gesture.p.temp = null; drawOverlay(gesture.p); } startPinch(); return; }
+    if (!state.fingerDraw) { gesture = { mode: 'pan', id: e.pointerId, lastX: e.clientX, lastY: e.clientY }; return; }
+  }
+  if (gesture && gesture.mode !== 'pan') return;
+  e.preventDefault();
+  var pageEl = e.target.closest ? e.target.closest('.page') : null;
+  if (!pageEl) { if (state.tool === 'select' && !isMulti()) clearSel(); gesture = { mode: 'tap', id: e.pointerId }; return; }
+  var p = state.pages[+pageEl.dataset.index], pt = toPdf(p, e.clientX, e.clientY);
+  if (state.tool === 'select') {
+    var single = singleResizable(), h = single && single.pageIndex === p.index ? handleAt(single, p, e.clientX, e.clientY) : null;
+    if (h) { pushHistory(); gesture = { mode: 'resize', id: e.pointerId, a: single, handle: h, p: p, vr0: viewRect(p, single.rect) }; return; }
+    var hit = hitTest(p, pt);
+    if (hit) {
+      if (!state.sel.has(hit.id)) selectAnnot(hit, isMulti());
+      var items = selected().filter(function (a) { return a.owned && a.pageIndex === p.index; }).map(function (a) {
+        return { a: a, rect0: a.rect.slice(), ink0: a.inkList ? a.inkList.map(function (l) { return l.map(function (q) { return q.slice(); }); }) : null };
+      });
+      gesture = { mode: 'move', id: e.pointerId, p: p, start: pt, items: items, moved: false };
+    } else { if (!isMulti()) clearSel(); gesture = { mode: 'tap', id: e.pointerId }; }
+  } else {
+    var a = newAnnot(state.tool, p.index, pt);
+    p.temp = a; gesture = { mode: 'draw', id: e.pointerId, p: p, start: pt, a: a, last: pt };
+    drawOverlay(p);
+  }
+}
+function onMove(e) {
+  var pr = ptrs.get(e.pointerId); if (!pr) return;
+  pr.x = e.clientX; pr.y = e.clientY;
+  if (!gesture) return;
+  if (gesture.mode === 'pan') {
+    if (gesture.id !== e.pointerId) return;
+    viewer.scrollLeft -= e.clientX - gesture.lastX; viewer.scrollTop -= e.clientY - gesture.lastY;
+    gesture.lastX = e.clientX; gesture.lastY = e.clientY; return;
+  }
+  if (gesture.mode === 'pinch') {
+    var a = ptrs.get(gesture.ids[0]), b = ptrs.get(gesture.ids[1]); if (!a || !b) return;
+    gesture.scale = clamp(Math.hypot(a.x - b.x, a.y - b.y) / gesture.startDist, 0.3, 4);
+    $('#pages').style.transform = 'scale(' + gesture.scale + ')'; return;
+  }
+  if (gesture.id !== e.pointerId) return;
+  e.preventDefault();
+  var p = gesture.p;
+  if (gesture.mode === 'draw') {
+    var an = gesture.a;
+    if (an.subtype === 'Ink') {
+      var evs = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; if (!evs.length) evs = [e];
+      var minD = 0.75 / state.zoom, path = an.inkList[0];
+      evs.forEach(function (ev) { var q = toPdf(p, ev.clientX, ev.clientY); var l = path[path.length - 1]; if (Math.hypot(q[0] - l[0], q[1] - l[1]) >= minD) path.push(q); });
+      an.rect = inkBounds(an);
+    } else {
+      var q2 = toPdf(p, e.clientX, e.clientY), s = gesture.start;
+      an.rect = [Math.min(s[0], q2[0]), Math.min(s[1], q2[1]), Math.max(s[0], q2[0]), Math.max(s[1], q2[1])];
+    }
+    drawOverlay(p);
+  } else if (gesture.mode === 'move') {
+    var q3 = toPdf(p, e.clientX, e.clientY), dx = q3[0] - gesture.start[0], dy = q3[1] - gesture.start[1];
+    if (!gesture.moved && Math.hypot(dx, dy) * state.zoom > 3) { gesture.moved = true; pushHistory(); }
+    if (!gesture.moved) return;
+    gesture.items.forEach(function (it) {
+      it.a.rect = [it.rect0[0] + dx, it.rect0[1] + dy, it.rect0[2] + dx, it.rect0[3] + dy];
+      if (it.ink0) it.a.inkList = it.ink0.map(function (l) { return l.map(function (q) { return [q[0] + dx, q[1] + dy]; }); });
+      if (!it.a.isNew) { it.a.geomDirty = true; it.a.dirty = true; }
+    });
+    drawOverlay(p);
+  } else if (gesture.mode === 'resize') {
+    var r = p.el.getBoundingClientRect(), sc = r.width / p.vp.width || 1;
+    var vx = (e.clientX - r.left) / sc, vy = (e.clientY - r.top) / sc, vr = gesture.vr0.slice(), hnd = gesture.handle;
+    if (hnd.indexOf('w') >= 0) vr[0] = vx; else vr[2] = vx;
+    if (hnd.indexOf('n') >= 0) vr[1] = vy; else vr[3] = vy;
+    var nr = pdfRectFromView(p, vr), an2 = gesture.a;
+    if (nr[2] - nr[0] < 2) nr[2] = nr[0] + 2; if (nr[3] - nr[1] < 2) nr[3] = nr[1] + 2;
+    an2.rect = nr; if (!an2.isNew) { an2.geomDirty = true; an2.dirty = true; }
+    drawOverlay(p);
+  }
+}
+function onUp(e) {
+  ptrs.delete(e.pointerId);
+  if (!gesture) return;
+  if (gesture.mode === 'pan') { if (gesture.id === e.pointerId) gesture = null; return; }
+  if (gesture.mode === 'pinch') {
+    var touches = Array.from(ptrs.values()).filter(function (q) { return q.type === 'touch'; }).length;
+    if (touches < 2) { $('#pages').style.transform = ''; var g = gesture; gesture = null; if (Math.abs(g.scale - 1) > 0.02) setZoom(g.startZoom * g.scale, g.anchor); }
+    return;
+  }
+  if (gesture.id !== e.pointerId) return;
+  var g2 = gesture; gesture = null;
+  if (g2.mode === 'draw') finishDraw(g2);
+  else if (g2.mode === 'move' || g2.mode === 'resize') { if (g2.mode === 'resize' || g2.moved) { markUnsaved(); renderList(); } }
+}
+function newAnnot(tool, pageIndex, pt) {
+  var st = state.style, sub = SUBTYPE_OF[tool];
+  return {
+    id: 'n' + (state.nextId++), isNew: true, deleted: false, dirty: true, geomDirty: false, styleDirty: false, owned: true,
+    subtype: sub, pageIndex: pageIndex, rect: [pt[0], pt[1], pt[0], pt[1]], inkList: sub === 'Ink' ? [[pt]] : null,
+    color: hexToRgb(st.color), fillColor: (st.fill && sub !== 'Ink') ? hexToRgb(st.color) : null,
+    fillOpacity: st.fillOpacity, highlight: st.highlight, opacity: st.opacity, lineWidth: st.lineWidth,
+    subject: state.chestTool && state.chestTool.drawTool === tool ? (state.chestTool.subject || SUBJECT_DEFAULT[tool]) : SUBJECT_DEFAULT[tool],
+    contents: state.chestTool && state.chestTool.drawTool === tool ? (state.chestTool.contents || '') : '',
+    author: state.author, date: new Date().toISOString(), parentId: null, nm: MarkupIO.makeNM()
+  };
+}
+function finishDraw(g) {
+  var a = g.a, p = g.p; p.temp = null;
+  var min = 6 / state.zoom, ok;
+  if (a.subtype === 'Ink') { ok = a.inkList[0].length >= 2 && (a.rect[2] - a.rect[0] > min || a.rect[3] - a.rect[1] > min); }
+  else ok = (a.rect[2] - a.rect[0]) > min && (a.rect[3] - a.rect[1]) > min;
+  if (!ok) { drawOverlay(p); return; }
+  pushHistory();
+  state.annots.push(a);
+  state.sel = new Set([a.id]);
+  markUnsaved(); renderList(); afterSelectionChange();
+}
+
+/* ---------- editing ---------- */
+function applyToSelection(patch, tag) {
+  var s = selected(); if (!s.length) return;
+  pushHistory(tag);
+  s.forEach(function (a) {
+    Object.keys(patch).forEach(function (k) {
+      var v = patch[k];
+      if (k === 'color') { a.color = hexToRgb(v); if (a.fillColor) a.fillColor = hexToRgb(v); if (!a.isNew) a.styleDirty = true; }
+      else if (k === 'fill') { if (a.subtype !== 'Ink') { a.fillColor = v ? (a.color || hexToRgb(state.style.color)) : null; if (!a.isNew) a.styleDirty = true; } }
+      else if (k === 'subject' || k === 'contents') { a[k] = v; }
+      else { a[k] = v; if (!a.isNew) a.styleDirty = true; }
+    });
+    if (!a.isNew) a.dirty = true;
+  });
+  var pages = new Set(s.map(function (a) { return a.pageIndex; }));
+  pages.forEach(function (i) { drawOverlay(state.pages[i]); });
+  markUnsaved(); renderList();
+}
+function groupSelection() {
+  var s = selected(); if (s.length < 2) return;
+  pushHistory();
+  s.sort(function (a, b) { return a.pageIndex - b.pageIndex || state.annots.indexOf(a) - state.annots.indexOf(b); });
+  var head = s[0]; head.parentId = null;
+  var ids = new Set(s.map(function (a) { return a.id; }));
+  s.slice(1).forEach(function (a) { a.parentId = head.id; });
+  live().forEach(function (x) { if (x !== head && x.parentId && ids.has(x.parentId)) x.parentId = head.id; });
+  markUnsaved(); renderList(); renderProps();
+}
+function ungroupSelection() {
+  var s = selected(); if (!s.length) return;
+  pushHistory();
+  s.forEach(function (a) { a.parentId = null; });
+  markUnsaved(); renderList(); renderProps();
+}
+function deleteSelection() {
+  var s = selected(); if (!s.length) return;
+  pushHistory();
+  var pages = new Set();
+  s.forEach(function (a) { pages.add(a.pageIndex); if (a.isNew) state.annots.splice(state.annots.indexOf(a), 1); else a.deleted = true; });
+  live().forEach(function (a) {
+    if (!a.parentId) return;
+    var h = byId(a.parentId);
+    if (h && !h.deleted) return;
+    var rest = live().filter(function (x) { return x.parentId === a.parentId; });
+    var newHead = rest[0]; newHead.parentId = null;
+    rest.slice(1).forEach(function (x) { x.parentId = newHead.id; });
+  });
+  state.sel = new Set();
+  pages.forEach(function (i) { drawOverlay(state.pages[i]); });
+  markUnsaved(); renderList(); renderProps();
+}
+
+/* ---------- style controls ---------- */
+function buildStyleControls(root, get, set, open) {
+  root.innerHTML =
+    '<div class="swatches">' + PALETTE.map(function (c) { return '<button type="button" class="swatch" data-c="' + c + '" style="--c:' + c + '" aria-label="Color ' + c + '"></button>'; }).join('') +
+    '<label class="swatch custom" title="Custom color"><input type="color" data-k="color" aria-label="Custom color"></label></div>' +
+    '<details class="more"' + (open ? ' open' : '') + '><summary>Fill, line and opacity</summary>' +
+    '<label class="fld"><span>Fill inside</span><input type="checkbox" data-k="fill"></label>' +
+    '<label class="fld"><span>Highlight (see through the fill)</span><input type="checkbox" data-k="highlight"></label>' +
+    '<label class="fld range"><span>Fill opacity</span><input type="range" min="0.05" max="1" step="0.05" data-k="fillOpacity"><output></output></label>' +
+    '<label class="fld range"><span>Line width</span><input type="range" min="0" max="12" step="0.5" data-k="lineWidth"><output></output></label>' +
+    '<label class="fld range"><span>Line opacity</span><input type="range" min="0.1" max="1" step="0.05" data-k="opacity"><output></output></label></details>';
+  root.addEventListener('click', function (e) {
+    var b = e.target.closest ? e.target.closest('.swatch[data-c]') : null; if (!b) return;
+    set({ color: b.dataset.c }); sync();
+  });
+  root.addEventListener('input', function (e) {
+    var k = e.target.dataset.k; if (!k) return;
+    var v = e.target.type === 'checkbox' ? e.target.checked : e.target.type === 'range' ? +e.target.value : e.target.value;
+    set({ [k]: v }); sync();
+  });
+  function sync() {
+    var s = get();
+    root.classList.toggle('disabled', !s);
+    if (!s) return;
+    root.querySelectorAll('.swatch[data-c]').forEach(function (b) { b.classList.toggle('on', b.dataset.c.toLowerCase() === String(s.color || '').toLowerCase()); });
+    root.querySelectorAll('[data-k]').forEach(function (el) {
+      var k = el.dataset.k;
+      if (el.type === 'checkbox') el.checked = !!s[k];
+      else if (el.type === 'range') { el.value = s[k]; var o = el.nextElementSibling; if (o) o.value = k === 'lineWidth' ? s[k] + ' pt' : Math.round(s[k] * 100) + '%'; }
+      else el.value = s[k];
+    });
+  }
+  return { sync: sync };
+}
+var styleNew = buildStyleControls($('#styleNew'), function () { return state.style; }, function (patch) {
+  Object.assign(state.style, patch); savePrefs(); updateStyleChip();
+}, true);
+var styleSel = buildStyleControls($('#styleSel'), function () {
+  var s = selected(); if (!s.length) return null; var a = s[0];
+  return { color: rgbToHex(a.color || [0, 0, 0]), fill: !!a.fillColor, highlight: !!a.highlight, fillOpacity: a.fillOpacity, lineWidth: a.lineWidth, opacity: a.opacity };
+}, function (patch) { applyToSelection(patch, 'style:' + Object.keys(patch)[0]); }, false);
+function updateStyleChip() {
+  var chip = $('#btnStyle'); chip.style.setProperty('--c', state.style.color); chip.classList.toggle('nofill', !state.style.fill);
+}
+
+/* ---------- properties panel ---------- */
+function renderProps() {
+  var s = selected(), box = $('#props');
+  box.hidden = !s.length;
+  if (!s.length) return;
+  var a = s[0], same = function (k) { return s.every(function (x) { return x[k] === a[k]; }); };
+  $('#propsTitle').textContent = s.length === 1 ? (a.subtype === 'Square' ? 'Rectangle' : a.subtype === 'Ink' ? 'Pen' : a.subtype === 'Circle' ? 'Ellipse' : a.subtype) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
+  $('#propsMeta').textContent = s.length === 1 ? ((a.author ? a.author + ', ' : '') + (fmtDate(a.date) || 'new')) : (new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length ? 'one group' : '');
+  var sub = $('#pSubject'), con = $('#pContents');
+  if (document.activeElement !== sub) { sub.value = same('subject') ? (a.subject || '') : ''; sub.placeholder = same('subject') ? 'e.g. Ellipse, Issue, Verify' : 'Mixed'; }
+  if (document.activeElement !== con) { con.value = same('contents') ? (a.contents || '') : ''; con.placeholder = same('contents') ? 'Shows in the Comments column' : 'Mixed'; }
+  styleSel.sync();
+  $('#btnGroup').disabled = s.length < 2;
+  $('#btnUngroup').disabled = !s.some(function (x) { return x.parentId || live().some(function (y) { return y.parentId === x.id; }); });
+}
+$('#pSubject').addEventListener('input', function (e) { applyToSelection({ subject: e.target.value }, 'subject'); });
+$('#pContents').addEventListener('input', function (e) { applyToSelection({ contents: e.target.value }, 'contents'); });
+$('#btnGroup').addEventListener('click', groupSelection);
+$('#btnUngroup').addEventListener('click', ungroupSelection);
+$('#btnDelete').addEventListener('click', deleteSelection);
+
+/* ---------- markups list ---------- */
+function sortVal(a, key) {
+  switch (key) {
+    case 'subject': return (a.subject || '').toLowerCase();
+    case 'page': return a.pageIndex;
+    case 'comments': return (a.contents || '').toLowerCase();
+    case 'author': return (a.author || '').toLowerCase();
+    case 'date': return a.date || '';
+    case 'color': return hue(a.color);
+    default: return 0;
+  }
+}
+function matchesFilter(a) {
+  var f = state.filter.trim().toLowerCase(); if (!f) return true;
+  return [a.subject, a.contents, a.author, pageLabel(a.pageIndex)].some(function (v) { return String(v || '').toLowerCase().indexOf(f) >= 0; });
+}
+function renderList() {
+  var all = live(), rowsEl = $('#rows');
+  $('#count').textContent = all.length; $('#count2').textContent = all.length;
+  if (!all.length) { rowsEl.innerHTML = '<div class="none">' + (state.pdf ? 'No markups yet. Draw one with the Pencil.' : 'Open a PDF to see its markups.') + '</div>'; return; }
+  var heads = all.filter(function (a) { return !a.parentId || !byId(a.parentId) || byId(a.parentId).deleted; });
+  var groups = heads.map(function (h) { return { head: h, members: all.filter(function (x) { return x.parentId === h.id; }) }; });
+  groups = groups.filter(function (g) { return [g.head].concat(g.members).some(matchesFilter); });
+  var k = state.sort.key, dir = state.sort.dir;
+  var cmp = function (a, b) { var va = sortVal(a, k), vb = sortVal(b, k); return (va < vb ? -1 : va > vb ? 1 : 0) * dir || a.pageIndex - b.pageIndex; };
+  groups.sort(function (x, y) { return cmp(x.head, y.head); });
+  var html = '';
+  var row = function (a, cls) {
+    var meta = [a.author || '', fmtDay(a.date)].filter(Boolean).join(', ');
+    return '<div class="row ' + cls + (state.sel.has(a.id) ? ' sel' : '') + '" data-id="' + esc(a.id) + '">' +
+      '<span class="sw" style="--c:' + rgbToHex(a.color || [0.5, 0.5, 0.5]) + '"></span>' +
+      '<span class="subj">' + esc(a.subject || '(no subject)') + '</span>' +
+      '<span class="pg">p. ' + esc(pageLabel(a.pageIndex)) + '</span>' +
+      '<span class="comm">' + esc(a.contents || '') + '</span>' +
+      '<span class="meta">' + esc(meta) + '</span></div>';
+  };
+  groups.forEach(function (g) {
+    if (g.members.length) {
+      var ms = g.members.slice().sort(cmp);
+      html += '<div class="row g" data-group="' + esc(g.head.id) + '"><span>Group of ' + (ms.length + 1) + '</span><span class="hint">tap to select all</span></div>';
+      html += row(g.head, 'member');
+      ms.forEach(function (m) { html += row(m, 'member'); });
+    } else html += row(g.head, '');
+  });
+  rowsEl.innerHTML = html || '<div class="none">Nothing matches that filter.</div>';
+  $$('.list-head button').forEach(function (b) { b.classList.toggle('on', b.dataset.key === k); b.textContent = b.textContent.replace(/[▲▼]\s*$/, '').trim() + (b.dataset.key === k ? (dir > 0 ? ' ▲' : ' ▼') : ''); });
+}
+$('#rows').addEventListener('click', function (e) {
+  var g = e.target.closest ? e.target.closest('.row[data-group]') : null;
+  if (g) { var h = byId(g.dataset.group); if (h) { selectAnnot(h, false); jumpTo(h); } return; }
+  var r = e.target.closest ? e.target.closest('.row[data-id]') : null; if (!r) return;
+  var a = byId(r.dataset.id); if (!a) return;
+  if (isMulti()) selectAnnot(a, true); else { state.sel = new Set(membersOf(a).map(function (m) { return m.id; })); afterSelectionChange(); }
+  jumpTo(a);
+});
+$('#rows').addEventListener('dblclick', function (e) {
+  var r = e.target.closest ? e.target.closest('.row[data-id]') : null; if (!r) return;
+  var a = byId(r.dataset.id); if (!a) return;
+  state.sel = new Set([a.id]); afterSelectionChange(); jumpTo(a);
+});
+function jumpTo(a) {
+  var p = state.pages[a.pageIndex]; if (!p) return;
+  var vr = viewRect(p, a.rect), v = $('#viewer');
+  var cx = p.el.offsetLeft + (vr[0] + vr[2]) / 2, cy = p.el.offsetTop + (vr[1] + vr[3]) / 2;
+  v.scrollTo({ left: cx - v.clientWidth / 2, top: cy - v.clientHeight / 2, behavior: 'smooth' });
+  setTimeout(renderVisible, 50); setTimeout(renderVisible, 600);
+}
+$$('.list-head button').forEach(function (b) {
+  b.addEventListener('click', function () {
+    var key = b.dataset.key;
+    if (state.sort.key === key) state.sort.dir *= -1; else state.sort = { key: key, dir: 1 };
+    renderList();
+  });
+});
+$('#filter').addEventListener('input', function (e) { state.filter = e.target.value; renderList(); });
+
+/* ---------- save ---------- */
+async function savePdf() {
+  if (!state.pdf) return;
+  setBusy('Writing markups into the PDF…'); await nextFrame();
+  var out;
+  try {
+    out = await MarkupIO.applyMarkups(state.bytes, state.annots, { author: state.author || '' });
+    await loadPdf(out, state.fileName, { keepScroll: true });
+  } catch (e) {
+    console.error(e); setBusy(null);
+    toast('The markups could not be written: ' + (e && e.message ? e.message : 'unknown error'), 6000); return;
+  }
+  setBusy(null);
+  var outName = state.fileName.replace(/\.pdf$/i, '') + '.pdf';
+  if (!(window.claude && window.claude.use)) {
+    // Hosted outside claude.ai (for example GitHub Pages): share or download directly, from a tap.
+    state.pendingSave = { bytes: out, name: outName };
+    $('#saveBar').hidden = false;
+    return;
+  }
+  var dl = null;
+  try { dl = await window.claude.use('downloads'); } catch (e) { dl = null; }
+  if (!dl) { toast('Markups are written into the open document, but saving a file is not available in this view. Open the artifact on claude.ai to save.', 7000); return; }
+  try {
+    await dl.save({ filename: outName, data: new Blob([out], { type: 'application/pdf' }) });
+    toast('Saved. Open it in Revu to see the same markups.');
+  } catch (err) {
+    var code = err && err.code;
+    if (code === 'declined') toast('Save cancelled. The markups stay in the open document.');
+    else if (code === 'rate_limited') toast('A save prompt is already open. Try again in a moment.');
+    else toast('The file could not be saved (' + (code || 'unavailable') + '). The markups stay in the open document.', 6000);
+  }
+}
+
+/* ---------- direct save (outside claude.ai) ---------- */
+async function saveDirect() {
+  var p = state.pendingSave; if (!p) return;
+  var blob = new Blob([p.bytes], { type: 'application/pdf' });
+  try {
+    if (navigator.canShare && typeof File === 'function') {
+      var file = new File([blob], p.name, { type: 'application/pdf' });
+      if (navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: p.name }); $('#saveBar').hidden = true; state.pendingSave = null; toast('Shared. Open it in Revu to see the same markups.'); return; }
+    }
+  } catch (e) { if (e && e.name === 'AbortError') { toast('Share cancelled. The markups stay in the open document.'); return; } }
+  var url = URL.createObjectURL(blob), link = document.createElement('a');
+  link.href = url; link.download = p.name; document.body.appendChild(link); link.click();
+  setTimeout(function () { URL.revokeObjectURL(url); link.remove(); }, 5000);
+  $('#saveBar').hidden = true; state.pendingSave = null; toast('Downloaded. Open it in Revu to see the same markups.');
+}
+$('#btnSaveFile').addEventListener('click', saveDirect);
+$('#btnSaveBarClose').addEventListener('click', function () { $('#saveBar').hidden = true; });
+
+/* ---------- Bluebeam Tool Chest (.btx) ---------- */
+function toolPreview(t) {
+  if (t.icon) return '<img src="' + t.icon + '" alt="">';
+  var stroke = rgbToHex(t.color || [0.4, 0.4, 0.4]), fill = t.fillColor ? rgbToHex(t.fillColor) : 'none';
+  var lw = Math.max(1, Math.min(4, t.lineWidth || 1)), fo = t.fillColor ? t.fillOpacity : 0;
+  var fillAttr = ' fill="' + fill + '" fill-opacity="' + fo + '"' + (t.highlight ? ' class="hl"' : '');
+  var strokeAttr = ' stroke="' + stroke + '" stroke-opacity="' + (t.opacity || 1) + '" stroke-width="' + lw + '"';
+  var body;
+  switch (t.subtype) {
+    case 'Circle': body = '<ellipse cx="28" cy="18" rx="22" ry="12"' + fillAttr + strokeAttr + '/>'; break;
+    case 'Square': body = '<rect x="6" y="6" width="44" height="24" rx="1"' + fillAttr + strokeAttr + '/>'; break;
+    case 'Ink': body = '<path d="M5 26 C 14 4, 22 32, 30 14 S 46 22, 51 8" fill="none"' + strokeAttr + ' stroke-linecap="round"/>'; break;
+    case 'Line': body = '<path d="M6 28 L50 8" fill="none"' + strokeAttr + ' stroke-linecap="round"/>'; break;
+    case 'Polygon': body = '<path d="M8 28 L14 8 L42 6 L50 20 L34 30 Z"' + fillAttr + strokeAttr + ' stroke-linejoin="round"/>'; break;
+    case 'PolyLine': body = '<path d="M6 28 L18 10 L30 24 L42 8 L50 20" fill="none"' + strokeAttr + '/>'; break;
+    case 'FreeText': body = '<rect x="10" y="7" width="40" height="22" rx="2"' + fillAttr + strokeAttr + '/><text x="30" y="23" text-anchor="middle" font-size="13" font-family="sans-serif" fill="' + stroke + '">Aa</text>'; break;
+    case 'Highlight': body = '<rect x="6" y="12" width="44" height="12"' + ' fill="' + stroke + '" fill-opacity=".5" class="hl"/>'; break;
+    default: body = '<rect x="12" y="6" width="32" height="24" rx="3" fill="none"' + strokeAttr + ' stroke-dasharray="3 2"/>';
+  }
+  return '<svg viewBox="0 0 56 36" xmlns="http://www.w3.org/2000/svg">' + body + '</svg>';
+}
+function renderChest() {
+  var box = $('#chestSets');
+  if (!state.chestSets.length) {
+    box.innerHTML = '<p class="chest-empty">Import a tool set exported from Revu (Tool Chest, tool set settings, Export). Circle, rectangle and pen tools become drawable here with their subject, color, fill, opacity and line width. Other tool types are listed but cannot be drawn in this app.</p>';
+    return;
+  }
+  box.innerHTML = state.chestSets.map(function (s) {
+    var n = s.tools.filter(function (t) { return t.supported; }).length;
+    return '<section class="chest-set" data-set="' + esc(s.id) + '"><div class="set-title"><span>' + esc(s.title) + '</span><span class="n">' + n + ' of ' + s.tools.length + ' drawable</span><button type="button" data-remove="' + esc(s.id) + '">Remove</button></div><div class="chips">' +
+      s.tools.map(function (t) {
+        var on = state.chestTool && state.chestTool.id === t.id && state.chestTool.setId === s.id;
+        return '<button type="button" class="chip' + (t.supported ? '' : ' off') + (on ? ' on' : '') + '" data-tool="' + esc(t.id) + '" title="' + esc(t.title + (t.supported ? '' : ' (' + t.subtype + ' tools cannot be drawn here)')) + '"' + (t.supported ? '' : ' aria-disabled="true"') + '>' + toolPreview(t) + '<span class="t">' + esc(t.title) + '</span></button>';
+      }).join('') + '</div></section>';
+  }).join('');
+  $('#btnChest').classList.toggle('on', !!state.chestTool);
+}
+function applyChestTool(set, t) {
+  state.chestTool = Object.assign({ setId: set.id }, t);
+  setTool(t.drawTool);
+  Object.assign(state.style, {
+    color: rgbToHex(t.color || [0, 0, 0]), fill: !!t.fillColor && t.subtype !== 'Ink', fillOpacity: clamp(t.fillOpacity || 0.35, 0.05, 1),
+    opacity: clamp(t.opacity || 1, 0.1, 1), lineWidth: clamp(t.lineWidth || 1, 0, 12), highlight: !!t.highlight
+  });
+  savePrefs(); updateStyleChip(); styleNew.sync(); renderChest();
+  toast(t.title + ': draw with the ' + (t.drawTool === 'rect' ? 'Rectangle' : t.drawTool === 'pen' ? 'Pen' : 'Circle') + ' tool');
+}
+async function importBtx(files) {
+  var added = 0, failed = [];
+  for (var i = 0; i < files.length; i++) {
+    var f = files[i];
+    try {
+      var set = ToolChest.parseBtx(await f.arrayBuffer(), f.name);
+      state.chestSets = state.chestSets.filter(function (s) { return s.title !== set.title; }).concat([set]);
+      added++;
+    } catch (e) { console.warn(e); failed.push(f.name); }
+  }
+  if (added) saveChest();
+  renderChest();
+  if (failed.length) toast('Could not read ' + failed.join(', ') + '. Export the tool set from Revu again and retry.', 6000);
+  else if (added) toast(added === 1 ? 'Tool set imported.' : added + ' tool sets imported.');
+}
+$('#btnChest').addEventListener('click', function (e) { e.stopPropagation(); var pop = $('#chestPop'); pop.hidden = !pop.hidden; $('#stylePop').hidden = true; if (!pop.hidden) renderChest(); });
+$('#btnImportBtx').addEventListener('click', function () { $('#btxFile').click(); });
+$('#btxFile').addEventListener('change', function (e) { importBtx(Array.from(e.target.files)); e.target.value = ''; });
+$('#chestSets').addEventListener('click', function (e) {
+  var rm = e.target.closest ? e.target.closest('[data-remove]') : null;
+  if (rm) { state.chestSets = state.chestSets.filter(function (s) { return s.id !== rm.dataset.remove; }); if (state.chestTool && state.chestTool.setId === rm.dataset.remove) state.chestTool = null; saveChest(); renderChest(); return; }
+  var chip = e.target.closest ? e.target.closest('.chip') : null; if (!chip) return;
+  var setEl = chip.closest('.chest-set'), set = null, tool = null;
+  state.chestSets.forEach(function (s) { if (s.id === setEl.dataset.set) { set = s; s.tools.forEach(function (t) { if (t.id === chip.dataset.tool) tool = t; }); } });
+  if (!set || !tool) return;
+  if (!tool.supported) { toast(tool.subtype + ' tools cannot be drawn in this app yet.'); return; }
+  applyChestTool(set, tool);
+});
+
+/* ---------- toolbar wiring ---------- */
+$('#btnOpen').addEventListener('click', function () { $('#file').click(); });
+$('#btnOpen2').addEventListener('click', function () { $('#file').click(); });
+$('#file').addEventListener('change', function (e) { openFile(e.target.files[0]); e.target.value = ''; });
+$('#btnSave').addEventListener('click', savePdf);
+function setTool(tool) {
+  state.tool = tool;
+  $$('#tools .tb').forEach(function (x) { x.classList.toggle('on', x.dataset.tool === tool); });
+}
+$$('#tools .tb').forEach(function (b) {
+  b.addEventListener('click', function () { setTool(b.dataset.tool); state.chestTool = null; renderChest(); });
+});
+$('#btnStyle').addEventListener('click', function (e) { e.stopPropagation(); var pop = $('#stylePop'); pop.hidden = !pop.hidden; if (!pop.hidden) styleNew.sync(); });
+document.addEventListener('pointerdown', function (e) {
+  var pop = $('#stylePop'); if (!pop.hidden && !pop.contains(e.target) && !$('#btnStyle').contains(e.target)) pop.hidden = true;
+  var cp = $('#chestPop'); if (!cp.hidden && !cp.contains(e.target) && !$('#btnChest').contains(e.target)) cp.hidden = true;
+});
+$('#fingerDraw').addEventListener('change', function (e) { state.fingerDraw = e.target.checked; savePrefs(); });
+$('#multiSel').addEventListener('change', function (e) { state.multiToggle = e.target.checked; });
+$('#zoomIn').addEventListener('click', function () { setZoom(state.zoom * 1.25); });
+$('#zoomOut').addEventListener('click', function () { setZoom(state.zoom / 1.25); });
+$('#zoomFit').addEventListener('click', function () { if (state.pages[0]) setZoom(fitZoomFor(state.pages[0].page)); });
+$('#btnUndo').addEventListener('click', undo);
+$('#btnRedo').addEventListener('click', redo);
+$('#btnPanel').addEventListener('click', function () { var p = $('#panel'); p.hidden = !p.hidden; renderVisible(); });
+$('#btnClosePanel').addEventListener('click', function () { $('#panel').hidden = true; renderVisible(); });
+$('#author').addEventListener('input', function (e) { state.author = e.target.value; savePrefs(); });
+
+document.addEventListener('keydown', function (e) {
+  var tag = (e.target.tagName || '').toLowerCase();
+  state.multi = e.shiftKey || e.metaKey || e.ctrlKey;
+  if (tag === 'input' || tag === 'textarea') return;
+  if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel.size) { e.preventDefault(); deleteSelection(); }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSelection(); else groupSelection(); }
+  else if (e.key === 'Escape') { clearSel(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; }
+  else if (e.key === 'v') $$('#tools .tb')[0].click();
+  else if (e.key === 'c') $$('#tools .tb')[1].click();
+  else if (e.key === 'r') $$('#tools .tb')[2].click();
+  else if (e.key === 'p') $$('#tools .tb')[3].click();
+});
+document.addEventListener('keyup', function (e) { state.multi = e.shiftKey || e.metaKey || e.ctrlKey; });
+
+/* drag and drop on desktop */
+['dragenter', 'dragover'].forEach(function (t) { document.addEventListener(t, function (e) { e.preventDefault(); $('#empty').classList.add('drag'); }); });
+['dragleave', 'drop'].forEach(function (t) { document.addEventListener(t, function (e) { e.preventDefault(); $('#empty').classList.remove('drag'); }); });
+document.addEventListener('drop', function (e) {
+  var fs = e.dataTransfer && e.dataTransfer.files ? Array.from(e.dataTransfer.files) : [];
+  var btx = fs.filter(function (f) { return /\.btx$/i.test(f.name); }), pdf = fs.filter(function (f) { return !/\.btx$/i.test(f.name); })[0];
+  if (btx.length) importBtx(btx);
+  if (pdf) openFile(pdf);
+});
+
+window.addEventListener('beforeunload', function (e) { if (state.unsaved) { e.preventDefault(); e.returnValue = ''; } });
+
+/* ---------- init ---------- */
+loadPrefs(); loadChest();
+$('#author').value = state.author;
+$('#fingerDraw').checked = state.fingerDraw;
+updateStyleChip(); styleNew.sync();
+if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) $('#panel').hidden = false;
+renderList();
+})();
+</script>
+</body>
+</html>
