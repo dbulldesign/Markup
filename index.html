@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="1.9.0">
+<meta name="app-version" content="1.9.1">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -288,8 +288,14 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .row .comm { grid-area: comm; color: var(--ink-2); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-height: 1.2em; }
 .row .meta { grid-area: meta; color: var(--ink-2); font-size: 12px; white-space: nowrap; text-align: right; }
 .row.member { padding-left: 30px; }
-.row.g { display: flex; gap: 8px; align-items: center; color: var(--ink-2); font-size: 13px; font-weight: 600; padding: 6px 14px; background: var(--surface-2); }
-.row.g .hint { font-weight: 400; }
+.row.g { grid-template-columns: 30px 18px minmax(0, 1fr) auto; grid-template-areas: "tw sw subj pg" "tw sw comm meta"; padding-left: 4px; background: var(--surface-2); }
+.row.g.open { box-shadow: inset 3px 0 0 var(--accent); }
+.row.g .twist { grid-area: tw; align-self: center; width: 30px; height: 40px; border: 0; background: none; color: var(--ink); font-size: 17px; cursor: pointer; border-radius: 8px; padding: 0; transition: transform .15s; }
+.row.g.open .twist { transform: rotate(90deg); }
+.row.g .twist:active { background: var(--surface-3); }
+.row.g .count { color: var(--ink-2); font-weight: 400; }
+.row.member { border-left: 3px solid var(--accent); }
+@media (prefers-reduced-motion: reduce) { .row.g .twist { transition: none; } }
 .rows .none { padding: 24px 14px; color: var(--ink-2); text-align: center; }
 
 /* Panel as bottom sheet on narrow screens */
@@ -1329,7 +1335,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '1.9.0';
+var APP_VERSION = '1.9.1';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1360,7 +1366,7 @@ var state = {
   annots: [], sel: new Set(), history: [], future: [], fingerDraw: false, author: '',
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
   chestSets: [], chestTool: null, pendingSave: null,
-  scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null, docId: null,
+  scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null, docId: null, expanded: new Set(),
   sym: { shape: 'circle', size: 18, height: 12, label: 'A', textColor: null }, series: { defs: {}, cur: null }
 };
 
@@ -2006,7 +2012,17 @@ function selectAnnot(a, add) {
 function clearSel() { if (!state.sel.size) return; state.sel = new Set(); afterSelectionChange(); }
 function afterSelectionChange() {
   state.pages.forEach(drawOverlay); renderProps();
-  $$('#rows .row').forEach(function (r) { r.classList.toggle('sel', !!r.dataset.id && state.sel.has(r.dataset.id)); });
+  // One markup picked inside a collapsed group: open the group so its row shows.
+  var opened = false;
+  selected().forEach(function (a) {
+    var h = headOf(a), grp = membersOf(a);
+    if (grp.length > 1 && !state.expanded.has(h.id) && !grp.every(function (m) { return state.sel.has(m.id); })) { state.expanded.add(h.id); opened = true; }
+  });
+  if (opened) { renderList(); return; }
+  $$('#rows .row').forEach(function (r) {
+    if (r.dataset.id) r.classList.toggle('sel', state.sel.has(r.dataset.id));
+    else if (r.dataset.group) { var h = byId(r.dataset.group); r.classList.toggle('sel', !!h && membersOf(h).every(function (m) { return state.sel.has(m.id); })); }
+  });
 }
 
 /* ---------- pointer input ---------- */
@@ -2665,16 +2681,30 @@ function renderList() {
   };
   groups.forEach(function (g) {
     if (g.members.length) {
-      var ms = g.members.slice().sort(cmp);
-      html += '<div class="row g" data-group="' + esc(g.head.id) + '"><span>Group of ' + (ms.length + 1) + '</span><span class="hint">tap to select the group, a row below for one markup</span></div>';
-      html += row(g.head, 'member');
-      ms.forEach(function (m) { html += row(m, 'member'); });
+      // A group is one row (collapsed); the arrow lists its markups underneath.
+      var all = [g.head].concat(g.members), ms = g.members.slice().sort(cmp);
+      var open = state.expanded.has(g.head.id) || !!state.filter.trim();
+      var allSel = all.every(function (m) { return state.sel.has(m.id); });
+      var subj = {}, order = []; all.forEach(function (m) { var k = m.subject || typeLabel(m.subtype, m.intent); if (!subj[k]) { subj[k] = 0; order.push(k); } subj[k]++; });
+      var pages = Array.from(new Set(all.map(function (m) { return m.pageIndex; }))).sort(function (x, y) { return x - y; });
+      var pg = pages.length === 1 ? 'p. ' + pageLabel(pages[0]) : pages.length + ' pages';
+      var labels = all.map(function (m) { return m.mtext || MarkupIO.symLabel(m); }).filter(Boolean);
+      html += '<div class="row g' + (open ? ' open' : '') + (allSel ? ' sel' : '') + '" data-group="' + esc(g.head.id) + '">' +
+        '<button type="button" class="twist" data-twist="' + esc(g.head.id) + '" aria-expanded="' + open + '" aria-label="' + (open ? 'Hide' : 'Show') + ' the markups in this group">\u25B8</button>' +
+        '<span class="sw" style="--c:' + rgbToHex(g.head.color || [0.5, 0.5, 0.5]) + '"></span>' +
+        '<span class="subj">Group of ' + all.length + ' <span class="count">' + esc(order.map(function (k) { return k + (subj[k] > 1 ? ' \u00d7' + subj[k] : ''); }).join(', ')) + '</span></span>' +
+        '<span class="pg">' + esc(pg) + '</span>' +
+        '<span class="comm">' + esc(labels.length ? labels.slice(0, 8).join(', ') + (labels.length > 8 ? '\u2026' : '') : (g.head.contents || '')) + '</span>' +
+        '<span class="meta">' + esc(fmtDay(g.head.date)) + '</span></div>';
+      if (open) { html += row(g.head, 'member'); ms.forEach(function (m) { html += row(m, 'member'); }); }
     } else html += row(g.head, '');
   });
   rowsEl.innerHTML = html || '<div class="none">Nothing matches that filter.</div>';
   $$('.list-head button').forEach(function (b) { b.classList.toggle('on', b.dataset.key === k); b.textContent = b.textContent.replace(/[▲▼]\s*$/, '').trim() + (b.dataset.key === k ? (dir > 0 ? ' ▲' : ' ▼') : ''); });
 }
 $('#rows').addEventListener('click', function (e) {
+  var tw = e.target.closest ? e.target.closest('[data-twist]') : null;
+  if (tw) { var id = tw.dataset.twist; if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id); renderList(); return; }
   var g = e.target.closest ? e.target.closest('.row[data-group]') : null;
   if (g) { var h = byId(g.dataset.group); if (h) { selectAnnot(h, false); jumpTo(h); } return; }
   var r = e.target.closest ? e.target.closest('.row[data-id]') : null; if (!r) return;

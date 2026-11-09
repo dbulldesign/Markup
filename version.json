@@ -1,5 +1,5 @@
 {
-  "version": "1.9.0",
+  "version": "1.9.1",
   "date": "2026-11-09",
-  "notes": "The app now keeps the open PDF and all markups (even unsaved ones) on the iPad. Updating, reloading or reopening the app brings back the last file exactly where you left off, and Update no longer loses markups."
+  "notes": "Markups list: grouped markups collapse into one row. Tap the arrow to list them, or the row to select the whole group."
 }

@@ -15,7 +15,7 @@ The three libraries it uses (pdf.js 3.11.174, pdf-lib 1.17.1, pako 2.1.0) are in
 - Pencil draws, a finger pans, pinch to zoom. *Finger draws* lets a finger draw too.
 - Circle, Rectangle and Pen tools; the style chip sets the line colour and fill colour (independently, or *Line* to fill with the line colour), fill on/off, highlight, opacity and line width. Selected markups can be recoloured the same way in the properties panel.
 - Select to move or resize. With Select, drag on empty space to box-select: drag left to right to pick markups fully inside the box (solid blue), right to left to pick everything the box touches (dashed green). Turn on *Multi-select* to add to the selection. *Group* makes a Revu group.
-- Groups: tapping a markup selects its whole group; tap it again to select just that one markup. *Remove from group* takes the selected markups out and leaves the rest grouped. Select a group plus other markups and tap *Add to group*, or select several groups and tap *Merge groups*. *Ungroup* breaks up the whole group. In the markups list, the *Group of N* row selects the group and a row under it selects just that markup.
+- Groups: tapping a markup selects its whole group; tap it again to select just that one markup. *Remove from group* takes the selected markups out and leaves the rest grouped. Select a group plus other markups and tap *Add to group*, or select several groups and tap *Merge groups*. *Ungroup* breaks up the whole group. In the markups list each group is one collapsed row; tap ▸ to list its markups, tap the row to select the group, or a row under it to select just that markup.
 - *Tool Chest* imports `.btx` tool sets exported from Revu. Circle, rectangle and pen tools become drawable with their subject, color, fill and line width.
 - *Save PDF* writes the markups into the file and offers the share sheet (or a download on a computer).
 
@@ -72,3 +72,5 @@ On iPad, add it to the Home Screen and open it from there once while online; the
 ## App icon
 
 The icon source is `icons/icon.svg`. The PNGs next to it are rendered from it: `apple-touch-icon.png` (180 px, iPad/iPhone Home Screen), `icon-192.png` and `icon-512.png` (Android and install prompts), `icon-maskable-512.png` (artwork inset for launchers that crop to a circle) and `favicon-32.png` (browser tab).
+
+See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
