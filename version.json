@@ -1,5 +1,5 @@
 {
-  "version": "2.1.0",
+  "version": "2.2.0",
   "date": "2026-11-09",
-  "notes": "New tools: line, arrow, text box, callout, cloud, highlighter, stamps and eraser."
+  "notes": "Rotate symbols, duplicate, renumber a series, custom fields, Excel/CSV export of counts and markups, and a legend."
 }

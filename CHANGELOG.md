@@ -2,6 +2,15 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.2.0 (phase 3: counts and symbols)
+**Added**
+- Rotate symbols, numbers and stamps: a Rotation setting for new ones, and Rotate buttons (90° and 15° steps) for placed ones.
+- *Duplicate* (button or Ctrl/Cmd+D): copies the selection; numbered markups get the next numbers; groups stay grouped.
+- *Renumber* a numbered series in order, page by page, from any starting number.
+- Custom fields (for example Type, Wattage, Circuit): add them to any markup in the properties panel, or give a saved tool default fields. They are written into the Comments column as "Name: value" lines, which Revu shows and exports, and kept as fields in the app.
+- *Export*: an Excel workbook (counts, counts per page, every markup) or CSV files, with custom fields as columns.
+- *Legend*: places each kind of symbol with its count on the sheet, as a group you can drag. Legend symbols are not counted.
+
 ## 2.1.0 (phase 2: drawing tools)
 **Added**
 - *Line* and *Arrow* tools (PDF line markups with arrowheads Revu reads).

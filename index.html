@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="2.1.0">
+<meta name="app-version" content="2.2.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -162,7 +162,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .panel-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
 .panel-head h2 { font-size: 16px; margin: 0; font-weight: 600; }
 .panel-head .count { color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.panel-head .x { margin-left: auto; }
+.panel-head .x { margin-left: 0; }
 .author-row { display: flex; align-items: center; gap: 8px; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 14px; color: var(--ink-2); }
 .author-row input { flex: 1; min-width: 0; }
 .fld-in, .fld-ta, .author-row input, .filter input {
@@ -345,6 +345,17 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .props .measure { font-size: 14px; color: var(--ink-2); }
 .props .measure b { color: var(--ink); font-variant-numeric: tabular-nums; }
 .props .measure[hidden] { display: none; }
+.rotrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; font-size: 14px; color: var(--ink-2); }
+.rotrow[hidden], .fieldsbox[hidden] { display: none; }
+.rotrow .btn { min-height: 34px; padding: 0 9px; font-size: 13px; }
+.rotrow .ang { min-width: 40px; text-align: center; color: var(--ink); font-variant-numeric: tabular-nums; }
+.fieldsbox { display: grid; gap: 6px; }
+.fieldsbox .fhead { display: flex; align-items: center; justify-content: space-between; font-size: 13px; color: var(--ink-2); }
+.fieldsbox .fhead .btn { min-height: 30px; font-size: 13px; padding: 0 10px; }
+.frow { display: grid; grid-template-columns: minmax(70px, 38%) 1fr 30px; gap: 6px; align-items: center; font-size: 13px; color: var(--ink-2); }
+.frow span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.frow input { border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; padding: 6px 8px; font-size: 15px; width: 100%; }
+.frow button { border: 0; background: none; color: var(--ink-2); font-size: 18px; cursor: pointer; }
 
 /* Scale dialog */
 .modal { position: fixed; inset: 0; z-index: 70; background: rgba(0,0,0,.32); display: flex; align-items: center; justify-content: center; padding: calc(16px + var(--safe-top)) 16px calc(16px + var(--safe-bottom)); }
@@ -441,6 +452,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <label class="fld range" data-not="stamp"><span data-size-lbl>Size</span><input type="range" min="4" max="96" step="1" data-s="size"><output></output></label>
       <label class="fld range" data-wide data-not="stamp" hidden><span>Height</span><input type="range" min="4" max="96" step="1" data-s="height"><output></output></label>
       <label class="fld" data-only="symbol"><span>Label</span><input type="text" data-s="label" maxlength="8" placeholder="e.g. A, L1"></label>
+      <label class="fld range"><span>Rotation</span><input type="range" min="0" max="345" step="15" data-s="angle"><output></output></label>
     </div>
     <div class="symset" id="textNew" hidden>
       <label class="fld range"><span>Text size</span><input type="range" min="6" max="48" step="1" id="textSize"><output></output></label>
@@ -504,6 +516,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     <label class="info">Prefix <input id="seqPrefix" maxlength="6" placeholder="none" aria-label="Prefix"></label>
     <label class="info">Next <input id="seqNext" inputmode="numeric" aria-label="Next number"></label>
     <button class="btn" id="seqNew" type="button">New series</button>
+    <button class="btn" id="seqRenumber" type="button" title="Renumber this series in order, page by page">Renumber</button>
   </div>
   <div class="polybar" id="polyBar" hidden>
     <span class="info" id="polyInfo"></span>
@@ -528,6 +541,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
   <aside class="panel" id="panel" hidden>
     <div class="panel-head">
       <h2>Markups</h2><span class="count" id="count2">0</span>
+      <button class="btn" id="btnExport" type="button" title="Export counts and markups to Excel or CSV, or place a legend" style="margin-left:auto">Export</button>
       <button class="btn x" id="btnClosePanel" type="button">Close</button>
     </div>
     <label class="author-row">Author <input id="author" placeholder="Your name (shows in Revu)" autocomplete="name"></label>
@@ -537,11 +551,23 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <datalist id="subjects"><option value="Ellipse"><option value="Rectangle"><option value="Pen"><option value="Issue"><option value="Verify"><option value="RFI"><option value="Note"></datalist>
       <div class="measure" id="pMeasure" hidden></div>
       <label class="fld">Comments<textarea class="fld-ta" id="pContents" rows="2" placeholder="Shows in the Comments column"></textarea></label>
+      <div class="rotrow" id="pRotate" hidden><span>Rotate</span>
+        <button class="btn" type="button" data-rot="-90" aria-label="Rotate 90 degrees anticlockwise">&#x21BA; 90&#xB0;</button>
+        <button class="btn" type="button" data-rot="-15">&#x2212;15&#xB0;</button>
+        <span class="ang" id="pAngle">0&#xB0;</span>
+        <button class="btn" type="button" data-rot="15">+15&#xB0;</button>
+        <button class="btn" type="button" data-rot="90" aria-label="Rotate 90 degrees clockwise">&#x21BB; 90&#xB0;</button>
+      </div>
+      <div class="fieldsbox" id="pFields" hidden>
+        <div class="fhead"><span>Custom fields</span><button class="btn" type="button" id="pAddField">+ Field</button></div>
+        <div id="pFieldRows"></div>
+      </div>
       <div class="style" id="styleSel"></div>
       <div class="actions">
         <button class="btn" id="btnGroup" type="button">Group</button>
         <button class="btn" id="btnUngroup" type="button">Ungroup</button>
         <button class="btn" id="btnRemoveFromGroup" type="button" title="Take the selected markups out of their group; the rest of the group stays together">Remove from group</button>
+        <button class="btn" id="btnDuplicate" type="button" title="Duplicate (Ctrl/Cmd+D)">Duplicate</button>
         <button class="btn danger" id="btnDelete" type="button">Delete</button>
       </div>
     </section>
@@ -601,6 +627,26 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     </div>
   </div>
 </div>
+<div class="modal" id="exportModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="exTitle">
+    <h2 id="exTitle">Counts and export</h2>
+    <p class="sub" id="exSummary"></p>
+    <div class="actions">
+      <button class="btn primary" type="button" data-ex="xlsx">Excel workbook (.xlsx)</button>
+      <button class="btn" type="button" data-ex="counts">Counts (CSV)</button>
+      <button class="btn" type="button" data-ex="markups">All markups (CSV)</button>
+    </div>
+    <p class="hint">The workbook has a Counts sheet (by subject and symbol, with pages and custom fields), a counts sheet per page, and a sheet listing every markup.</p>
+    <h3 style="margin:6px 0 0;font-size:15px">Legend</h3>
+    <p class="hint">Places the symbols with their counts at the top left of what is on screen, as a group you can drag.</p>
+    <div class="actions">
+      <button class="btn" type="button" data-legend="page">Legend for this page</button>
+      <button class="btn" type="button" data-legend="all">Legend for all pages</button>
+      <span class="spacer"></span>
+      <button class="btn" type="button" id="exClose">Close</button>
+    </div>
+  </div>
+</div>
 <div class="modal" id="toolModal" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="toolTitle">
     <h2 id="toolTitle">Save tool</h2>
@@ -618,9 +664,11 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <label class="fld range" data-not="stamp"><span data-size-lbl>Size</span><input type="range" min="4" max="96" step="1" data-s="size"><output></output></label>
       <label class="fld range" data-wide data-not="stamp" hidden><span>Height</span><input type="range" min="4" max="96" step="1" data-s="height"><output></output></label>
       <label class="fld" data-only="symbol"><span>Label</span><input type="text" data-s="label" maxlength="8" placeholder="e.g. A, L1"></label>
+      <label class="fld range"><span>Rotation</span><input type="range" min="0" max="345" step="15" data-s="angle"><output></output></label>
     </div>
     <label class="fld">Subject<input id="tSubject" list="subjects" placeholder="Shows as Subject in Revu"></label>
     <label class="fld">Comments<input id="tContents" placeholder="Optional default comment"></label>
+    <label class="fld">Custom fields<textarea id="tFields" rows="2" placeholder="One per line, e.g.&#10;Type = L1&#10;Wattage = 25W"></textarea></label>
     <div class="style-box">
       <div class="head"><span>Style</span><button class="btn" id="tUseCurrent" type="button">Use current style</button></div>
       <div class="style" id="styleTool"></div>
@@ -826,6 +874,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
         if (pmd instanceof L.PDFDict && (subtype === 'Circle' || subtype === 'Square' || subtype === 'Polygon' || subtype === 'Stamp')) {
           var nn = numOf(ctx.lookup(pmd.get(N('N'))), null);
           sym = { shape: nameOf(pmd.get(N('Shape'))) || 'circle', size: numOf(ctx.lookup(pmd.get(N('Size'))), null), height: numOf(ctx.lookup(pmd.get(N('Height'))), null),
+            angle: numOf(ctx.lookup(pmd.get(N('Angle'))), 0), legend: ctx.lookup(pmd.get(N('Legend'))) instanceof L.PDFBool ? ctx.lookup(pmd.get(N('Legend'))).asBoolean() : false,
             label: textOf(ctx.lookup(pmd.get(N('Label')))), n: nn,
             textColor: (function () { var tc = numsOf(ctx, pmd.get(N('TextColor'))); return tc && tc.length === 3 ? rgbHex(tc) : null; })(),
             series: nn != null ? (textOf(ctx.lookup(pmd.get(N('Series')))) || 'default') : null,
@@ -847,6 +896,9 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
             var ca = numOf(ctx.lookup(g.get(N('ca'))), null); if (fo == null && ca != null && ca < fillOpacity) fillOpacity = ca;
           });
         } catch (e) { /* appearance details are optional */ }
+        // Custom fields: /PMFields [ (name) (value) ... ]
+        var fields = null, pf = ctx.lookup(dict.get(N('PMFields')));
+        if (pf instanceof L.PDFArray) { fields = {}; for (var fi = 0; fi + 1 < pf.size(); fi += 2) { var fk = textOf(ctx.lookup(pf.get(fi))); if (fk) fields[fk] = textOf(ctx.lookup(pf.get(fi + 1))); } }
         var id = ref ? refKey(ref) : ('inline-' + pageIndex + '-' + i);
         out.push({
           id: id, num: ref ? ref.objectNumber : null, gen: ref ? ref.generationNumber : 0, inline: !ref,
@@ -854,7 +906,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
           owned: !!ref && editable, subtype: subtype, intent: intent, pageIndex: pageIndex,
           vertices: vertices, measure: measure, lsize: null, mtext: '', lpos: null, sym: sym,
           le: le, cloud: subtype === 'Polygon' && (cloudy || intent === 'PolygonCloud'), cr: null,
-          box: ftBox, tip: ftTip, fs: ftFs, textColor: ftTc,
+          box: ftBox, tip: ftTip, fs: ftFs, textColor: ftTc, fields: fields,
           rect: [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])],
           inkList: inkList,
           color: colorOf(ctx, dict.get(N('C'))), fillColor: colorOf(ctx, dict.get(N('IC'))),
@@ -913,9 +965,10 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
   function rotv(a, dx, dy) { var t = rotOf(a) * Math.PI / 180, c = Math.round(Math.cos(t) * 1e6) / 1e6, sn = Math.round(Math.sin(t) * 1e6) / 1e6; return [dx * c - dy * sn, dx * sn + dy * c]; }
   function sideways(a) { var r = rotOf(a); return r === 90 || r === 270; }
   // Content-stream text centred on (cx, cy), turned with the page rotation.
-  function textOps(a, font, size, colr, cx, cy, tw, baseOff, text) {
-    var t = rotOf(a) * Math.PI / 180, c = Math.round(Math.cos(t) * 1e6) / 1e6, sn = Math.round(Math.sin(t) * 1e6) / 1e6;
-    var o = rotv(a, -tw / 2, -baseOff);
+  function degRot(deg, dx, dy) { var t = deg * Math.PI / 180, c = Math.round(Math.cos(t) * 1e6) / 1e6, sn = Math.round(Math.sin(t) * 1e6) / 1e6; return [dx * c - dy * sn, dx * sn + dy * c]; }
+  function textOps(a, font, size, colr, cx, cy, tw, baseOff, text, deg) {
+    var g = deg != null ? deg : rotOf(a), t = g * Math.PI / 180, c = Math.round(Math.cos(t) * 1e6) / 1e6, sn = Math.round(Math.sin(t) * 1e6) / 1e6;
+    var o = degRot(g, -tw / 2, -baseOff);
     return 'q\nBT\n/' + font + ' ' + fmt(size) + ' Tf\n' + colr + ' rg\n' + [c, sn, -sn, c, cx + o[0], cy + o[1]].map(fmt).join(' ') + ' Tm\n' + pdfText(text) + ' Tj\nET\nQ';
   }
   function labelBox(a) {
@@ -1016,23 +1069,36 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     hexagon: [0, 1, 2, 3, 4, 5].map(function (i) { var t = Math.PI / 3 * i; return [0.5 * Math.cos(t), 0.5 * Math.sin(t)]; })
   };
   function symCenter(a) { return [(a.rect[0] + a.rect[2]) / 2, (a.rect[1] + a.rect[3]) / 2]; }
+  // A symbol's turn on the page: the page rotation plus its own rotation (degrees, anticlockwise).
+  function symAng(a) { return (((rotOf(a) + (+(a.sym && a.sym.angle) || 0)) % 360) + 360) % 360; }
+  // Circles, ovals, squares and rectangles at a right angle can be drawn as themselves; anything else as a polygon.
+  function symNative(a) { return symKind(a.sym.shape) !== 'poly' && symAng(a) % 90 === 0; }
+  // Outline points: built at the symbol's size around its centre, then turned.
   function symPoints(a, inset) {
-    if (a.sym.shape === 'roundrect' || a.sym.shape === 'stamp') {
-      var i0 = inset || 0, rx0 = a.rect[0] + i0, ry0 = a.rect[1] + i0, rx1 = Math.max(rx0 + 1, a.rect[2] - i0), ry1 = Math.max(ry0 + 1, a.rect[3] - i0);
-      return roundRectPts(rx0, ry0, rx1, ry1, Math.min(rx1 - rx0, ry1 - ry0) * (a.sym.shape === 'stamp' ? 0.18 : 0.3));
-    }
-    var c = symCenter(a), s = Math.max(1, (a.rect[2] - a.rect[0]) - 2 * (inset || 0));
-    return (SYM_UNIT[a.sym.shape] || SYM_UNIT.diamond).map(function (q) { var r = rotv(a, q[0] * s, q[1] * s); return [c[0] + r[0], c[1] + r[1]]; });
+    var c = symCenter(a), d = symDims(a.sym), i0 = inset || 0, w = Math.max(1, d[0] - 2 * i0), h = Math.max(1, d[1] - 2 * i0), sh = a.sym.shape, k = symKind(sh), local;
+    if (sh === 'roundrect' || sh === 'stamp') local = roundRectPts(-w / 2, -h / 2, w / 2, h / 2, Math.min(w, h) * (sh === 'stamp' ? 0.18 : 0.3));
+    else if (k === 'ellipse') { local = []; for (var e = 0; e < 40; e++) { var t = e / 40 * Math.PI * 2; local.push([w / 2 * Math.cos(t), h / 2 * Math.sin(t)]); } }
+    else if (k === 'box') local = [[-w / 2, -h / 2], [w / 2, -h / 2], [w / 2, h / 2], [-w / 2, h / 2]];
+    else local = (SYM_UNIT[sh] || SYM_UNIT.diamond).map(function (q) { return [q[0] * w, q[1] * w]; });
+    var g = symAng(a);
+    return local.map(function (q) { var r = degRot(g, q[0], q[1]); return [c[0] + r[0], c[1] + r[1]]; });
+  }
+  // The bounding box of a symbol centred on pt.
+  function symBBox(a, pt) {
+    var keep = a.rect; a.rect = [pt[0], pt[1], pt[0], pt[1]];
+    var pts = symPoints(a, 0), x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    a.rect = keep;
+    pts.forEach(function (q) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); });
+    return [x0, y0, x1, y1];
   }
   function symLabel(a) { if (!a.sym) return ''; return a.sym.n != null ? (a.sym.prefix || '') + a.sym.n : (a.sym.label || ''); }
   function symText(a) {
-    var s = a.rect[2] - a.rect[0], hgt = a.rect[3] - a.rect[1], tri = a.sym.shape === 'triangle', label = symLabel(a);
-    if (sideways(a)) { var sw0 = s; s = hgt; hgt = sw0; } // as it looks on screen
+    var dd = symDims(a.sym), s = dd[0], hgt = dd[1], tri = a.sym.shape === 'triangle', label = symLabel(a);
     var wide = !!SYM_WIDE[a.sym.shape], m = Math.min(s, hgt);
     var size = m * (tri ? 0.36 : wide ? 0.58 : 0.5), maxW = s * (tri ? 0.46 : a.sym.shape === 'diamond' ? 0.56 : a.sym.shape === 'oval' ? 0.7 : wide ? 0.82 : 0.74);
     var w = textWidth(label, size); if (w > maxW) size *= maxW / w;
-    var c = symCenter(a), off = rotv(a, 0, tri ? -0.16 * s : 0);
-    return { text: label, size: size, x: c[0] + off[0], y: c[1] + off[1], w: textWidth(label, size) };
+    var c = symCenter(a), g = symAng(a), off = degRot(g, 0, tri ? -0.16 * s : 0);
+    return { text: label, size: size, x: c[0] + off[0], y: c[1] + off[1], w: textWidth(label, size), ang: g };
   }
   function hexRgb(h) { var m = /^#?([0-9a-f]{6})$/i.exec(h || ''); if (!m) return null; var n = parseInt(m[1], 16); return [((n >> 16) & 255) / 255, ((n >> 8) & 255) / 255, (n & 255) / 255]; }
   function rgbHex(c) { return '#' + c.map(function (v) { var x = Math.round(Math.max(0, Math.min(1, v)) * 255).toString(16); return x.length < 2 ? '0' + x : x; }).join('').toUpperCase(); }
@@ -1050,7 +1116,8 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     var parts = [], fonts = null;
     if (a.sym) {
       var hs = lw / 2, spath;
-      if (symKind(a.sym.shape) === 'ellipse') spath = ellipsePath(x0 + hs, y0 + hs, Math.max(x1 - hs, x0 + hs + 0.01), Math.max(y1 - hs, y0 + hs + 0.01));
+      if (!symNative(a)) spath = vertexPath(symPoints(a, hs), true);
+      else if (symKind(a.sym.shape) === 'ellipse') spath = ellipsePath(x0 + hs, y0 + hs, Math.max(x1 - hs, x0 + hs + 0.01), Math.max(y1 - hs, y0 + hs + 0.01));
       else if (symKind(a.sym.shape) === 'box') spath = f(x0 + hs) + ' ' + f(y0 + hs) + ' ' + f(Math.max(0.01, x1 - x0 - lw)) + ' ' + f(Math.max(0.01, y1 - y0 - lw)) + ' re';
       else spath = vertexPath(symPoints(a, hs), true);
       if (a.fillColor) {
@@ -1061,7 +1128,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       var st = symText(a);
       if (st.text) {
         fonts = { HelvB: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica-Bold', Encoding: 'WinAnsiEncoding' } };
-        parts.push(textOps(a, 'HelvB', st.size, col(symTextColor(a)), st.x, st.y, st.w, st.size * 0.36, st.text));
+        parts.push(textOps(a, 'HelvB', st.size, col(symTextColor(a)), st.x, st.y, st.w, st.size * 0.36, st.text, st.ang));
       }
     } else if (a.subtype === 'Circle' || a.subtype === 'Square') {
       var h = lw / 2, ix0 = x0 + h, iy0 = y0 + h, ix1 = Math.max(x1 - h, ix0 + 0.01), iy1 = Math.max(y1 - h, iy0 + 0.01);
@@ -1147,15 +1214,27 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     var setText = function (dict, key, text) { dict.set(N(key), L.PDFHexString.fromText(text == null ? '' : String(text))); };
     var colorArr = function (c) { return ctx.obj(c ? c.map(function (v) { return fix(v, 4); }) : []); };
     var flat = function (v) { return ctx.obj(v.reduce(function (acc, p) { acc.push(fix(p[0]), fix(p[1])); return acc; }, [])); };
+    // Comments column: measurement or symbol label, then custom fields as "Name: value" lines, then the comment.
     var contentsOut = function (a) {
-      var head = a.mtext || symLabel(a);
-      return head ? head + (a.contents ? '\n' + a.contents : '') : a.contents;
+      var lines = [], head = a.mtext || symLabel(a);
+      if (head) lines.push(head);
+      if (a.fields) Object.keys(a.fields).forEach(function (k) { if (a.fields[k] !== '' && a.fields[k] != null) lines.push(k + ': ' + a.fields[k]); });
+      if (a.contents) lines.push(a.contents);
+      return lines.join('\n');
+    };
+    var setFields = function (dict, a) {
+      var keys = a.fields ? Object.keys(a.fields) : [];
+      if (!keys.length) { dict.delete(N('PMFields')); return; }
+      var arr = []; keys.forEach(function (k) { arr.push(L.PDFHexString.fromText(k), L.PDFHexString.fromText(String(a.fields[k] == null ? '' : a.fields[k]))); });
+      dict.set(N('PMFields'), ctx.obj(arr));
     };
     var setGeometry = function (dict, a) {
       if (a.sym) {
         if (a.subtype === 'Polygon') dict.set(N('Vertices'), flat(symPoints(a, 0)));
         var sd = { Shape: a.sym.shape, Size: fix(a.sym.size || (a.rect[2] - a.rect[0]), 2) };
         if (SYM_WIDE[a.sym.shape]) sd.Height = fix(a.sym.height || (a.rect[3] - a.rect[1]), 2);
+        if (+a.sym.angle) sd.Angle = fix(+a.sym.angle, 2);
+        if (a.sym.legend) sd.Legend = true;
         if (a.sym.label) sd.Label = L.PDFHexString.fromText(a.sym.label);
         if (hexRgb(a.sym.textColor)) sd.TextColor = hexRgb(a.sym.textColor).map(function (v) { return fix(v, 4); });
         if (a.sym.n != null) { sd.N = a.sym.n; sd.Series = L.PDFString.of(a.sym.series || ''); sd.Prefix = L.PDFHexString.fromText(a.sym.prefix || ''); }
@@ -1223,7 +1302,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       dict.set(N('CreationDate'), L.PDFString.fromDate(a.date ? new Date(a.date) : now));
       setText(dict, 'T', a.author || author);
       setText(dict, 'Subj', a.subject);
-      setText(dict, 'Contents', contentsOut(a));
+      setText(dict, 'Contents', contentsOut(a)); setFields(dict, a);
       if (a.fillColor && FILLABLE.has(a.subtype)) { dict.set(N('IC'), colorArr(a.fillColor)); dict.set(N('FillOpacity'), L.PDFNumber.of(fix(a.fillOpacity, 3))); }
       if (a.subtype === 'Ink') dict.set(N('InkList'), inkArr(a));
       if (a.intent) dict.set(N('IT'), N(a.intent));
@@ -1240,7 +1319,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       var dict; try { dict = ctx.lookup(ref); } catch (e) { return; }
       if (!(dict instanceof L.PDFDict)) return;
       setText(dict, 'Subj', a.subject);
-      setText(dict, 'Contents', contentsOut(a));
+      setText(dict, 'Contents', contentsOut(a)); setFields(dict, a);
       dict.set(N('M'), L.PDFString.fromDate(now));
       dict.set(N('C'), colorArr(a.color));
       if (FILLABLE.has(a.subtype)) {
@@ -1290,7 +1369,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     return await doc.save({ useObjectStreams: false });
   }
 
-  root.MarkupIO = { stampDims: stampDims, arrowSize: arrowSize, arrowHead: arrowHead, cloudCurves: cloudCurves, ftLayout: ftLayout, ftAttach: ftAttach, ftBounds: ftBounds, SYM_SUB: SYM_SUB, SYM_WIDE: SYM_WIDE, symKind: symKind, symDims: symDims, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
+  root.MarkupIO = { symBBox: symBBox, symNative: symNative, symAng: symAng, stampDims: stampDims, arrowSize: arrowSize, arrowHead: arrowHead, cloudCurves: cloudCurves, ftLayout: ftLayout, ftAttach: ftAttach, ftBounds: ftBounds, SYM_SUB: SYM_SUB, SYM_WIDE: SYM_WIDE, symKind: symKind, symDims: symDims, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>
@@ -1502,7 +1581,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '2.1.0';
+var APP_VERSION = '2.2.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1543,7 +1622,7 @@ var state = {
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
   chestSets: [], chestTool: null, pendingSave: null,
   scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null, docId: null, expanded: new Set(),
-  sym: { shape: 'circle', size: 18, height: 12, label: 'A', textColor: null, stampText: 'APPROVED', stampSize: 20 }, textSize: 12, editing: null, series: { defs: {}, cur: null }
+  sym: { shape: 'circle', size: 18, height: 12, angle: 0, label: 'A', textColor: null, stampText: 'APPROVED', stampSize: 20 }, textSize: 12, editing: null, series: { defs: {}, cur: null }
 };
 
 /* ---------- small helpers ---------- */
@@ -1888,6 +1967,14 @@ async function loadPdf(bytes, name, opts) {
   // Measurement text and symbol labels are written ahead of any comment in /Contents; split them back off on read.
   state.annots.forEach(function (a) {
     a.rot = pageRot(a.pageIndex);
+    if (a.fields) {
+      // Field lines ("Name: value") follow the label/measurement in Comments; take them back off.
+      var fl = (a.contents || '').split('\n'), fset = {};
+      Object.keys(a.fields).forEach(function (k) { fset[k + ': ' + a.fields[k]] = 1; });
+      var head = a.sym ? MarkupIO.symLabel(a) : '';
+      a.contents = fl.filter(function (ln, i) { return !fset[ln] && !(i === 0 && head && ln.trim() === head); }).join('\n');
+      if (a.sym) return;
+    }
     if (a.sym) {
       var lab = MarkupIO.symLabel(a), cc = a.contents || '', k = cc.indexOf('\n');
       if (lab && (k >= 0 ? cc.slice(0, k) : cc).trim() === lab) a.contents = k >= 0 ? cc.slice(k + 1) : '';
@@ -2094,7 +2181,7 @@ function symSVG(a, p, lw, stroke, so) {
   if (a.fillColor) out += geo + ' fill="' + rgbToHex(a.fillColor) + '" fill-opacity="' + a.fillOpacity + '"' + (a.highlight ? ' class="hl"' : '') + ' stroke="none"/>';
   if (a.lineWidth > 0) out += geo + ' fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '" stroke-linejoin="round"/>';
   var t = MarkupIO.symText(a);
-  if (t.text) { var c = toView(p, t.x, t.y); out += '<text x="' + c[0] + '" y="' + (c[1] + t.size * z * 0.36) + '" font-size="' + (t.size * z) + '" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + rgbToHex(MarkupIO.symTextColor(a)) + '">' + esc(t.text) + '</text>'; }
+  if (t.text) { var c = toView(p, t.x, t.y), ang = +a.sym.angle || 0; out += '<text x="' + c[0] + '" y="' + (c[1] + t.size * z * 0.36) + '"' + (ang ? ' transform="rotate(' + (-ang) + ' ' + c[0] + ' ' + c[1] + ')"' : '') + ' font-size="' + (t.size * z) + '" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + rgbToHex(MarkupIO.symTextColor(a)) + '">' + esc(t.text) + '</text>'; }
   return out;
 }
 function textBoxSVG(a, p, lw, stroke, so) {
@@ -2517,25 +2604,27 @@ function newAnnot(tool, pageIndex, pt) {
   if (T.stamp) {
     var stx = String(state.sym.stampText || 'APPROVED').toUpperCase(), sth = clamp(+state.sym.stampSize || 20, 8, 96), sd = MarkupIO.stampDims(stx, sth);
     a.subtype = 'Stamp'; a.fillColor = null;
-    a.sym = { shape: 'stamp', size: sd[0], height: sd[1], label: stx, textColor: state.sym.textColor || null, n: null, series: null, prefix: '' };
+    a.sym = { shape: 'stamp', size: sd[0], height: sd[1], angle: +state.sym.angle || 0, label: stx, textColor: state.sym.textColor || null, n: null, series: null, prefix: '' };
     centerSym(a, pt);
   } else if (T.symbol) {
     var sy = state.sym, size = clamp(+sy.size || 18, 4, 144);
     a.subtype = MarkupIO.SYM_SUB[sy.shape] || 'Circle';
-    a.sym = { shape: sy.shape || 'circle', size: size, height: MarkupIO.SYM_WIDE[sy.shape] ? clamp(+sy.height || 12, 4, 144) : null, label: T.numbered ? '' : (sy.label || ''), textColor: sy.textColor || null, n: null, series: null, prefix: '' };
+    a.sym = { shape: sy.shape || 'circle', size: size, height: MarkupIO.SYM_WIDE[sy.shape] ? clamp(+sy.height || 12, 4, 144) : null, angle: +sy.angle || 0, label: T.numbered ? '' : (sy.label || ''), textColor: sy.textColor || null, n: null, series: null, prefix: '' };
     if (!MarkupIO.FILLABLE.has(a.subtype)) a.fillColor = null;
     if (T.numbered) { var sid = ensureSeries(); a.sym.series = sid; a.sym.prefix = state.series.defs[sid].prefix || ''; a.sym.n = nextNumber(sid); }
     centerSym(a, pt);
   }
+  if (chest && chest.fields && chest.fields.length) { a.fields = {}; chest.fields.forEach(function (f) { a.fields[f.name] = f.value || ''; }); }
   if (a.vertices) updateGeom(a);
   return a;
 }
 function pageRot(i) { var p = state.pages[i]; return p && p.page ? (((p.page.rotate || 0) % 360) + 360) % 360 : 0; }
-function centerSym(a, pt) { var d = MarkupIO.symDims(a.sym), r = a.rot || 0; if (r === 90 || r === 270) d = [d[1], d[0]]; var hw = d[0] / 2, hh = d[1] / 2; a.rect = [pt[0] - hw, pt[1] - hh, pt[0] + hw, pt[1] + hh]; }
+function centerSym(a, pt) { a.rect = MarkupIO.symBBox(a, pt); }
+function symCentre(a) { return [(a.rect[0] + a.rect[2]) / 2, (a.rect[1] + a.rect[3]) / 2]; }
 function symSizeText(sym) { var d = MarkupIO.symDims(sym); return MarkupIO.SYM_WIDE[sym.shape] ? Math.round(d[0]) + ' \u00d7 ' + Math.round(d[1]) + ' pt' : Math.round(d[0]) + ' pt'; }
 /* SVG for a symbol's outline. map(x, y) turns the symbol's own units into SVG units; inset is in the symbol's units. */
 function symShapeSVG(a, map, inset) {
-  var kind = MarkupIO.symKind(a.sym.shape);
+  var kind = MarkupIO.symNative(a) ? MarkupIO.symKind(a.sym.shape) : 'poly';
   if (kind === 'poly') return '<path d="' + MarkupIO.symPoints(a, inset).map(function (q, i) { var v = map(q[0], q[1]); return (i ? 'L' : 'M') + v[0].toFixed(2) + ' ' + v[1].toFixed(2); }).join(' ') + ' Z"';
   var r = a.rect, i = Math.min(inset, (r[2] - r[0]) / 2 - 0.1, (r[3] - r[1]) / 2 - 0.1);
   var p0 = map(r[0] + i, r[1] + i), p1 = map(r[2] - i, r[3] - i);
@@ -2607,6 +2696,7 @@ $('#seqNext').addEventListener('change', function () {
   var n = parseInt($('#seqNext').value, 10), d = state.series.defs[ensureSeries()];
   d.override = n > 0 ? n : null; updateSeqBar();
 });
+$('#seqRenumber').addEventListener('click', function () { renumberSeries(ensureSeries()); });
 $('#seqNew').addEventListener('click', function () {
   var pre = prompt('New series. Optional prefix (for example A, L1- or EM):', '');
   if (pre == null) return;
@@ -2788,6 +2878,8 @@ function applyToSelection(patch, tag) {
         if (a.sym && a.owned) { a.sym = Object.assign({}, a.sym, { textColor: v }); if (!a.isNew) a.styleDirty = true; }
         else if (a.subtype === 'FreeText' && a.owned) { a.textColor = v; if (!a.isNew) a.styleDirty = true; }
       }
+      else if (k === 'symAngle') { if (a.sym && a.owned) { var cen = symCentre(a); a.sym = Object.assign({}, a.sym, { angle: ((((+a.sym.angle || 0) + v) % 360) + 360) % 360 }); centerSym(a, cen); if (!a.isNew) { a.styleDirty = true; a.geomDirty = true; } } }
+      else if (k === 'field') { a.fields = Object.assign({}, a.fields || {}); if (v[1] === null) delete a.fields[v[0]]; else a.fields[v[0]] = v[1]; }
       else if (k === 'fillColor') { if (MarkupIO.FILLABLE.has(a.subtype)) { a.fillColor = v ? hexToRgb(v) : (a.color || hexToRgb(state.style.color)); if (!a.isNew) a.styleDirty = true; } }
       else if (k === 'subject' || k === 'contents') { a[k] = v; }
       else { a[k] = v; if (!a.isNew) a.styleDirty = true; }
@@ -2810,6 +2902,50 @@ function regroupLeftBehind(ids) {
 }
 /* Group: makes one group from the selection. Selecting a group plus other markups adds them to it;
    selecting several groups merges them. */
+/* Duplicate: copies of the selected markups a little down and to the right. Numbered markups get the
+   next numbers in their series; groups stay grouped. */
+function duplicateSelection() {
+  var s = selected().filter(function (a) { return a.owned; }); if (!s.length) return;
+  pushHistory();
+  var d = 16 / state.zoom, map = {}, copies = [];
+  s.forEach(function (a) {
+    var c = JSON.parse(JSON.stringify(a)), p = state.pages[a.pageIndex], off = p ? p.vp.convertToPdfPoint(d * state.zoom, d * state.zoom) : [d, -d], o0 = p ? p.vp.convertToPdfPoint(0, 0) : [0, 0];
+    var dx = off[0] - o0[0], dy = off[1] - o0[1];
+    c.id = 'n' + (state.nextId++); map[a.id] = c.id;
+    Object.assign(c, { isNew: true, deleted: false, dirty: true, geomDirty: false, styleDirty: false, owned: true, num: null, gen: 0, inline: false, nm: MarkupIO.makeNM(), date: new Date().toISOString(), author: state.author || a.author });
+    var mv = function (q) { return [q[0] + dx, q[1] + dy]; };
+    c.rect = [c.rect[0] + dx, c.rect[1] + dy, c.rect[2] + dx, c.rect[3] + dy];
+    if (c.inkList) c.inkList = c.inkList.map(function (l) { return l.map(mv); });
+    if (c.vertices) { c.vertices = c.vertices.map(mv); updateGeom(c); }
+    if (c.box) c.box = [c.box[0] + dx, c.box[1] + dy, c.box[2] + dx, c.box[3] + dy];
+    if (c.tip) c.tip = mv(c.tip);
+    copies.push(c);
+  });
+  copies.forEach(function (c) {
+    c.parentId = c.parentId && map[c.parentId] ? map[c.parentId] : null;
+    if (c.sym && c.sym.n != null && c.sym.series) { state.annots.push(c); c.sym.n = nextNumber(c.sym.series); state.annots.pop(); }
+    state.annots.push(c);
+  });
+  state.sel = new Set(copies.map(function (c) { return c.id; }));
+  new Set(copies.map(function (c) { return c.pageIndex; })).forEach(function (i) { drawOverlay(state.pages[i]); });
+  markUnsaved(); renderList(); afterSelectionChange(); updateSeqBar();
+  toast(copies.length === 1 ? 'Duplicated.' : copies.length + ' markups duplicated.');
+}
+/* Renumber a series in order: page by page, in the order they were placed. */
+function renumberSeries(id) {
+  var items = live().filter(function (a) { return a.sym && a.sym.series === id && a.sym.n != null; });
+  if (!items.length) { toast('This series has no numbers yet.'); return; }
+  var from = prompt('Renumber the ' + items.length + ' markups in this series, page by page in the order they were placed, starting at:', '1');
+  if (from == null) return; from = parseInt(from, 10); if (!(from >= 0)) { toast('Type a number to start from.'); return; }
+  pushHistory();
+  items.sort(function (a, b) { return a.pageIndex - b.pageIndex || state.annots.indexOf(a) - state.annots.indexOf(b); });
+  var d = state.series.defs[id];
+  items.forEach(function (a, i) { a.sym = Object.assign({}, a.sym, { n: from + i, prefix: d ? d.prefix || '' : a.sym.prefix }); if (!a.isNew) { a.styleDirty = true; a.dirty = true; } });
+  if (d) d.override = null;
+  new Set(items.map(function (a) { return a.pageIndex; })).forEach(function (i) { drawOverlay(state.pages[i]); });
+  markUnsaved(); renderList(); renderProps(); updateSeqBar();
+  toast('Renumbered ' + (d && d.prefix || '') + from + '\u2013' + (d && d.prefix || '') + (from + items.length - 1) + '.');
+}
 function groupSelection() {
   var s = selected(); if (s.length < 2) return;
   pushHistory();
@@ -2959,12 +3095,12 @@ var styleSel = buildStyleControls($('#styleSel'), function () {
 function bindSymControls(root, get, set) {
   root.addEventListener('input', function (e) {
     var k = e.target.dataset.s; if (!k) return;
-    set(k, k === 'size' || k === 'height' || k === 'stampSize' ? +e.target.value : e.target.value); sync();
+    set(k, k === 'size' || k === 'height' || k === 'stampSize' || k === 'angle' ? +e.target.value : e.target.value); sync();
   });
   function sync(tool) {
     var s = get(); if (!s) return;
     if (!s.height) s.height = Math.round((+s.size || 18) * 0.6);
-    root.querySelectorAll('[data-s]').forEach(function (el) { var k = el.dataset.s; if (document.activeElement !== el) el.value = s[k] == null ? '' : s[k]; if (el.type === 'range') { paintRange(el); el.nextElementSibling.value = s[k] + ' pt'; } });
+    root.querySelectorAll('[data-s]').forEach(function (el) { var k = el.dataset.s; if (document.activeElement !== el) el.value = s[k] == null ? '' : s[k]; if (el.type === 'range') { if (k === 'angle' && s[k] == null) el.value = 0; paintRange(el); el.nextElementSibling.value = (s[k] || 0) + (k === 'angle' ? '\u00b0' : ' pt'); } });
     if (tool) root.querySelectorAll('[data-only]').forEach(function (el) { el.hidden = el.dataset.only.split(' ').indexOf(tool) < 0; });
     var wide = !!MarkupIO.SYM_WIDE[s.shape];
     root.querySelectorAll('[data-wide]').forEach(function (el) { el.hidden = !wide; });
@@ -2992,6 +3128,10 @@ function renderProps() {
   if (document.activeElement !== sub) { sub.value = same('subject') ? (a.subject || '') : ''; sub.placeholder = same('subject') ? 'e.g. Ellipse, Issue, Verify' : 'Mixed'; }
   if (document.activeElement !== con) { con.value = same('contents') ? (a.contents || '') : ''; con.placeholder = same('contents') ? 'Shows in the Comments column' : 'Mixed'; }
   styleSel.sync();
+  var rs = s.filter(function (x) { return x.sym && x.owned; });
+  $('#pRotate').hidden = !rs.length;
+  if (rs.length) $('#pAngle').textContent = (rs.every(function (x) { return (+x.sym.angle || 0) === (+rs[0].sym.angle || 0); }) ? (+rs[0].sym.angle || 0) + '\u00b0' : 'mixed');
+  renderFieldRows(s);
   var pm = $('#pMeasure'), mk = s.length === 1 ? measureKind(a) : null;
   pm.hidden = !mk && !(s.length === 1 && a.sym);
   if (!mk && s.length === 1 && a.sym) {
@@ -3008,6 +3148,33 @@ function renderProps() {
   $('#btnRemoveFromGroup').hidden = !gcount;
   if (s.length === 1 && inGroup(a)) $('#propsMeta').textContent += ' · in a group of ' + membersOf(a).length + ' (tap Remove from group to take it out)';
 }
+function renderFieldRows(s) {
+  var names = [], seen = {};
+  s.forEach(function (x) { Object.keys(x.fields || {}).forEach(function (k) { if (!seen[k]) { seen[k] = 1; names.push(k); } }); });
+  $('#pFields').hidden = !s.length;
+  var box = $('#pFieldRows'), act = document.activeElement;
+  if (act && box.contains(act)) return; // do not redraw under the cursor
+  box.innerHTML = names.map(function (k) {
+    var vals = s.map(function (x) { return x.fields && x.fields[k] != null ? x.fields[k] : ''; }), same = vals.every(function (v) { return v === vals[0]; });
+    return '<div class="frow"><span title="' + esc(k) + '">' + esc(k) + '</span><input data-field="' + esc(k) + '" value="' + (same ? esc(vals[0]) : '') + '" placeholder="' + (same ? '' : 'Mixed') + '"><button type="button" data-delfield="' + esc(k) + '" aria-label="Remove ' + esc(k) + '">\u00d7</button></div>';
+  }).join('');
+}
+$('#pFieldRows').addEventListener('input', function (e) { var k = e.target.dataset.field; if (k != null) applyToSelection({ field: [k, e.target.value] }, 'field:' + k); });
+$('#pFieldRows').addEventListener('click', function (e) { var k = e.target.dataset.delfield; if (k != null) { applyToSelection({ field: [k, null] }, null); renderProps(); } });
+$('#pAddField').addEventListener('click', function () {
+  var nm = prompt('Field name (for example Type, Wattage, Circuit, Mounting height):', ''); if (!nm || !nm.trim()) return;
+  applyToSelection({ field: [nm.trim(), ''] }, null); renderProps();
+  var inp = $('#pFieldRows').querySelector('[data-field="' + nm.trim().replace(/"/g, '\\"') + '"]'); if (inp) inp.focus();
+});
+$('#pRotate').addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('[data-rot]') : null; if (b) { applyToSelection({ symAngle: +b.dataset.rot }, 'rotate'); renderProps(); } });
+$('#btnDuplicate').addEventListener('click', duplicateSelection);
+$('#btnExport').addEventListener('click', openExport);
+$('#exClose').addEventListener('click', closeExport);
+$('#exportModal').addEventListener('click', function (e) {
+  if (e.target === $('#exportModal')) { closeExport(); return; }
+  var b = e.target.closest ? e.target.closest('[data-ex],[data-legend]') : null; if (!b) return;
+  if (b.dataset.ex) doExport(b.dataset.ex); else insertLegend(b.dataset.legend);
+});
 $('#pSubject').addEventListener('input', function (e) { applyToSelection({ subject: e.target.value }, 'subject'); });
 $('#pContents').addEventListener('input', function (e) { applyToSelection({ contents: e.target.value }, 'contents'); });
 $('#btnGroup').addEventListener('click', groupSelection);
@@ -3032,9 +3199,141 @@ function matchesFilter(a) {
   var f = state.filter.trim().toLowerCase(); if (!f) return true;
   return [a.subject, a.contents, a.mtext, MarkupIO.symLabel(a), a.author, pageLabel(a.pageIndex)].some(function (v) { return String(v || '').toLowerCase().indexOf(f) >= 0; });
 }
+// Counted: symbols and numbered markups (not stamps, not the symbols drawn inside a legend).
+function countable(a) { return !!a.sym && !a.sym.legend && a.sym.shape !== 'stamp'; }
+function hexOf(c) { return c ? rgbToHex(c).toUpperCase() : ''; }
+function allFieldNames(list) { var n = [], seen = {}; list.forEach(function (a) { Object.keys(a.fields || {}).forEach(function (k) { if (!seen[k]) { seen[k] = 1; n.push(k); } }); }); return n; }
+/* Counts: one row per subject + symbol label (+ series for numbered markups), with the pages they are on. */
+function countRows(pageIndex) {
+  var list = live().filter(function (a) { return countable(a) && (pageIndex == null || a.pageIndex === pageIndex); });
+  var names = allFieldNames(list), groups = {}, order = [];
+  list.forEach(function (a) {
+    var key = (a.subject || '') + '|' + (a.sym.n != null ? 'series:' + a.sym.series : 'label:' + (a.sym.label || ''));
+    if (!groups[key]) { groups[key] = { items: [], first: a }; order.push(key); }
+    groups[key].items.push(a);
+  });
+  var head = ['Subject', 'Label / numbers', 'Count', 'Pages', 'Shape', 'Line colour', 'Fill colour'].concat(names);
+  var rows = order.map(function (k) {
+    var g = groups[k], a = g.first, label;
+    if (a.sym.n != null) { var ns = g.items.map(function (x) { return x.sym.n; }).sort(function (x, y) { return x - y; }); label = (a.sym.prefix || '') + ns[0] + (ns.length > 1 ? '\u2013' + (a.sym.prefix || '') + ns[ns.length - 1] : ''); }
+    else label = a.sym.label || '';
+    var pages = Array.from(new Set(g.items.map(function (x) { return x.pageIndex; }))).sort(function (x, y) { return x - y; }).map(pageLabel).join(', ');
+    return [a.subject || typeLabel(a.subtype), label, g.items.length, pages, a.sym.shape, hexOf(a.color), hexOf(a.fillColor)].concat(names.map(function (n) {
+      var vs = Array.from(new Set(g.items.map(function (x) { return x.fields && x.fields[n] != null ? x.fields[n] : ''; }))); return vs.length === 1 ? vs[0] : vs.filter(Boolean).join(' / ');
+    }));
+  });
+  rows.sort(function (x, y) { return String(x[0]).localeCompare(String(y[0])) || String(x[1]).localeCompare(String(y[1]), undefined, { numeric: true }); });
+  return { head: head, rows: rows, groups: order.map(function (k) { return groups[k]; }) };
+}
+/* Every markup, one row each. */
+function markupRows() {
+  var list = live().filter(function (a) { return !(a.sym && a.sym.legend); });
+  list.sort(function (a, b) { return a.pageIndex - b.pageIndex || String(a.subject).localeCompare(String(b.subject)); });
+  var names = allFieldNames(list);
+  var head = ['Page', 'Subject', 'Type', 'Label / number', 'Measurement', 'Comments', 'Author', 'Date', 'Line colour', 'Fill colour', 'Group'].concat(names);
+  var rows = list.map(function (a) {
+    var g = membersOf(a).length > 1 ? 'Group ' + (headOf(a).subject || '') + ' (' + membersOf(a).length + ')' : '';
+    return [pageLabel(a.pageIndex), a.subject || '', a.sym ? (a.sym.n != null ? 'Number' : a.sym.shape === 'stamp' ? 'Stamp' : 'Symbol') : typeLabel(a.subtype, a.intent), MarkupIO.symLabel(a), a.mtext || '', a.contents || '', a.author || '', a.date ? fmtDate(a.date) : '', hexOf(a.color), hexOf(a.fillColor), g]
+      .concat(names.map(function (n) { return a.fields && a.fields[n] != null ? a.fields[n] : ''; }));
+  });
+  return { head: head, rows: rows };
+}
+function toCSV(t) {
+  var q = function (v) { v = v == null ? '' : String(v); return /[",\n\r]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+  return '\uFEFF' + [t.head].concat(t.rows).map(function (r) { return r.map(q).join(','); }).join('\r\n') + '\r\n';
+}
+/* A small .xlsx writer (stored zip, inline strings), so the export opens in Excel with real sheets. */
+var CRC_TABLE = (function () { var t = []; for (var n = 0; n < 256; n++) { var c = n; for (var k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function crc32(b) { var c = 0xFFFFFFFF; for (var i = 0; i < b.length; i++) c = CRC_TABLE[(c ^ b[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; }
+function zipStore(files) {
+  var enc = new TextEncoder(), parts = [], central = [], offset = 0;
+  var u16 = function (v) { return [v & 255, (v >> 8) & 255]; }, u32 = function (v) { return [v & 255, (v >> 8) & 255, (v >> 16) & 255, (v >>> 24) & 255]; };
+  files.forEach(function (f) {
+    var name = enc.encode(f.name), data = typeof f.data === 'string' ? enc.encode(f.data) : f.data, crc = crc32(data);
+    var local = [].concat([0x50, 0x4b, 0x03, 0x04], u16(20), u16(0x0800), u16(0), u16(0), u16(0x21), u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0));
+    parts.push(new Uint8Array(local), name, data);
+    central.push(new Uint8Array([].concat([0x50, 0x4b, 0x01, 0x02], u16(20), u16(20), u16(0x0800), u16(0), u16(0), u16(0x21), u32(crc), u32(data.length), u32(data.length), u16(name.length), u16(0), u16(0), u16(0), u16(0), u32(0), u32(offset))), name);
+    offset += local.length + name.length + data.length;
+  });
+  var csize = central.reduce(function (s, x) { return s + x.length; }, 0);
+  var end = new Uint8Array([].concat([0x50, 0x4b, 0x05, 0x06], u16(0), u16(0), u16(files.length), u16(files.length), u32(csize), u32(offset), u16(0)));
+  return new Blob(parts.concat(central, [end]), { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+}
+function xlsx(sheets) {
+  var x = function (v) { return String(v == null ? '' : v).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }).replace(/[\x00-\x08\x0B\x0C\x0E-\x1F]/g, ''); };
+  var col = function (i) { var s = ''; i++; while (i) { var m = (i - 1) % 26; s = String.fromCharCode(65 + m) + s; i = Math.floor((i - 1) / 26); } return s; };
+  var sheetXml = function (t) {
+    var rows = [t.head].concat(t.rows).map(function (r, ri) {
+      return '<row r="' + (ri + 1) + '">' + r.map(function (v, ci) {
+        var ref = col(ci) + (ri + 1), st = ri === 0 ? ' s="1"' : '';
+        return typeof v === 'number' ? '<c r="' + ref + '"' + st + '><v>' + v + '</v></c>' : '<c r="' + ref + '" t="inlineStr"' + st + '><is><t xml:space="preserve">' + x(v) + '</t></is></c>';
+      }).join('') + '</row>';
+    }).join('');
+    return '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews><sheetData>' + rows + '</sheetData></worksheet>';
+  };
+  var files = [
+    { name: '[Content_Types].xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/>' + sheets.map(function (s, i) { return '<Override PartName="/xl/worksheets/sheet' + (i + 1) + '.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>'; }).join('') + '</Types>' },
+    { name: '_rels/.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>' },
+    { name: 'xl/workbook.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>' + sheets.map(function (s, i) { return '<sheet name="' + x(s.name) + '" sheetId="' + (i + 1) + '" r:id="rId' + (i + 1) + '"/>'; }).join('') + '</sheets></workbook>' },
+    { name: 'xl/_rels/workbook.xml.rels', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">' + sheets.map(function (s, i) { return '<Relationship Id="rId' + (i + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet' + (i + 1) + '.xml"/>'; }).join('') + '<Relationship Id="rId' + (sheets.length + 1) + '" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>' },
+    { name: 'xl/styles.xml', data: '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="Calibri"/></font><font><b/><sz val="11"/><name val="Calibri"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"/></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>' }
+  ].concat(sheets.map(function (s, i) { return { name: 'xl/worksheets/sheet' + (i + 1) + '.xml', data: sheetXml(s) }; }));
+  return zipStore(files);
+}
+function exportBase() { return state.fileName.replace(/\.pdf$/i, '') || 'markups'; }
+function doExport(kind) {
+  if (!state.pdf) { toast('Open a PDF first.'); return; }
+  var c = countRows(null), m = markupRows();
+  if (kind === 'counts') downloadFile(new Blob([toCSV(c)], { type: 'text/csv' }), exportBase() + ' - counts.csv');
+  else if (kind === 'markups') downloadFile(new Blob([toCSV(m)], { type: 'text/csv' }), exportBase() + ' - markups.csv');
+  else {
+    var pages = state.pages.map(function (p) { return { name: ('Counts p. ' + pageLabel(p.index)).slice(0, 31), t: countRows(p.index) }; }).filter(function (x) { return x.t.rows.length; });
+    var sheets = [{ name: 'Counts', head: c.head, rows: c.rows }].concat(pages.length > 1 ? pages.map(function (x) { return { name: x.name, head: x.t.head, rows: x.t.rows }; }) : []).concat([{ name: 'Markups', head: m.head, rows: m.rows }]);
+    downloadFile(xlsx(sheets), exportBase() + ' - markups.xlsx');
+  }
+}
+/* Legend: a symbol and "Subject - count" for each kind of symbol, as a group of normal markups placed
+   at the top left of what is on screen. */
+function insertLegend(scope) {
+  if (!state.pdf) return;
+  var pi = currentPageIndex(), p = state.pages[pi], c = countRows(scope === 'page' ? pi : null);
+  if (!c.groups.length) { toast(scope === 'page' ? 'No symbols on this page to put in a legend.' : 'No symbols to put in a legend.'); return; }
+  var v = $('#viewer'), z = state.zoom;
+  var vx = clamp(v.scrollLeft - p.el.offsetLeft + 24, 12, p.vp.width - 200 * z), vy = clamp(v.scrollTop - p.el.offsetTop + 24, 12, p.vp.height - 60);
+  var fs = clamp(defaultLabelSize(pi) * 1.2, 9, 24), rowH = fs * 2.2, symMax = fs * 1.6, made = [];
+  var pt = function (ux, uy) { return p.vp.convertToPdfPoint(vx + ux * z, vy + uy * z); };
+  var base = { isNew: true, deleted: false, dirty: true, geomDirty: false, styleDirty: false, owned: true, pageIndex: pi, rot: pageRot(pi), opacity: 1, fillOpacity: 0.35, highlight: false,
+    author: state.author, date: new Date().toISOString(), parentId: null, contents: '', lsize: null, mtext: '', lpos: null };
+  var addText = function (text, ux, uy, w, size) {
+    var a = Object.assign({}, base, { id: 'n' + (state.nextId++), nm: MarkupIO.makeNM(), subtype: 'FreeText', subject: 'Legend', color: [0, 0, 0], fillColor: null, lineWidth: 0, fs: size, textColor: null, tip: null, contents: text });
+    var a0 = pt(ux, uy), a1 = pt(ux + w, uy + size * 1.2 + 8);
+    a.box = [Math.min(a0[0], a1[0]), Math.min(a0[1], a1[1]), Math.max(a0[0], a1[0]), Math.max(a0[1], a1[1])];
+    fitTextBox(a, false); made.push(a); return a;
+  };
+  addText('LEGEND' + (scope === 'page' ? ' (p. ' + pageLabel(pi) + ')' : ''), 0, 0, fs * 14, fs * 1.15);
+  c.groups.forEach(function (g, i) {
+    var r = g.first, uy = (i + 1) * rowH + fs * 0.6, d = MarkupIO.symDims(r.sym), k = Math.min(1, symMax / Math.max(d[0], d[1]));
+    var sy = Object.assign({}, r.sym, { size: d[0] * k, height: d[1] * k, angle: 0, legend: true, n: null, series: null, label: r.sym.n != null ? (r.sym.prefix || '') + '#' : r.sym.label });
+    var s0 = Object.assign({}, base, { id: 'n' + (state.nextId++), nm: MarkupIO.makeNM(), subtype: r.subtype, subject: 'Legend', color: r.color, fillColor: r.fillColor, fillOpacity: r.fillOpacity, highlight: r.highlight, lineWidth: r.lineWidth, sym: sy });
+    centerSym(s0, pt(symMax / 2, uy + symMax / 2)); made.push(s0);
+    addText((r.subject || typeLabel(r.subtype)) + (r.sym.n == null && r.sym.label ? ' (' + r.sym.label + ')' : '') + '  \u00d7' + g.items.length, symMax + fs * 0.6, uy + symMax / 2 - (fs * 1.2 + 8) / 2, fs * 16, fs);
+  });
+  pushHistory();
+  made.forEach(function (a, i) { if (i) a.parentId = made[0].id; state.annots.push(a); });
+  state.sel = new Set(made.map(function (a) { return a.id; }));
+  drawOverlay(p); markUnsaved(); renderList(); afterSelectionChange();
+  closeExport();
+  toast('Legend placed. It is a group: drag it where you want it.', 4000);
+}
+function openExport() {
+  var c = countRows(null), total = c.groups.reduce(function (s, g) { return s + g.items.length; }, 0);
+  $('#exSummary').textContent = state.pdf ? live().length + ' markups; ' + total + ' counted symbols in ' + c.groups.length + (c.groups.length === 1 ? ' kind.' : ' kinds.') : 'Open a PDF first.';
+  $('#exportModal').hidden = false;
+}
+function closeExport() { $('#exportModal').hidden = true; }
 function renderCounts() {
   var by = {}, order = [];
-  live().forEach(function (a) { if (!a.sym) return; var k = a.subject || typeLabel(a.subtype); if (!by[k]) { by[k] = 0; order.push(k); } by[k]++; });
+  live().forEach(function (a) { if (!countable(a)) return; var k = a.subject || typeLabel(a.subtype); if (!by[k]) { by[k] = 0; order.push(k); } by[k]++; });
   var el = $('#counts');
   el.hidden = !order.length;
   el.innerHTML = order.length ? '<span>Counts</span>' + order.sort().map(function (k) { return '<button type="button" data-count="' + esc(k) + '" title="Show only these">' + esc(k) + ' <b>\u00d7' + by[k] + '</b></button>'; }).join('') : '';
@@ -3315,8 +3614,8 @@ function applyChestTool(set, t) {
   });
   // A numbered tool has no label of its own, so keep the plain Symbol tool's label.
   if (t.fs) state.textSize = t.fs;
-  if (t.sym && t.sym.shape === 'stamp') { state.sym.stampText = t.sym.label || state.sym.stampText; state.sym.stampSize = t.sym.height || state.sym.stampSize; state.sym.textColor = t.sym.textColor || null; }
-  else if (t.sym) state.sym = { shape: t.sym.shape || 'circle', size: t.sym.size || 18, height: t.sym.height || state.sym.height || 12, label: t.sym.numbered ? state.sym.label : (t.sym.label || ''), textColor: t.sym.textColor || null };
+  if (t.sym && t.sym.shape === 'stamp') { state.sym.stampText = t.sym.label || state.sym.stampText; state.sym.stampSize = t.sym.height || state.sym.stampSize; state.sym.textColor = t.sym.textColor || null; state.sym.angle = +t.sym.angle || 0; }
+  else if (t.sym) state.sym = { angle: +t.sym.angle || 0, stampText: state.sym.stampText, stampSize: state.sym.stampSize, shape: t.sym.shape || 'circle', size: t.sym.size || 18, height: t.sym.height || state.sym.height || 12, label: t.sym.numbered ? state.sym.label : (t.sym.label || ''), textColor: t.sym.textColor || null };
   savePrefs(); updateStyleChip(); styleNew.sync(); renderChest(); updateSeqBar();
   if (t.sym) { toast(t.title + ': tap to place' + (t.sym.numbered ? ' 1, 2, 3...' : '') + '.'); return; }
   toast(t.title + ': draw with the ' + (TOOLS[t.drawTool] ? TOOLS[t.drawTool].name : 'Circle') + ' tool');
@@ -3417,6 +3716,7 @@ function openToolEditor(set, tool) {
     $('#tType').value = tool.drawTool || ToolChest.drawToolFor(tool.subtype, tool.intent) || 'circle';
     $('#tSubject').value = tool.subject || '';
     $('#tContents').value = tool.contents || '';
+    $('#tFields').value = (tool.fields || []).map(function (f) { return f.name + ' = ' + (f.value || ''); }).join('\n');
     $('#tFav').checked = !!tool.fav;
     fillSetOptions(set.id);
   } else {
@@ -3428,6 +3728,7 @@ function openToolEditor(set, tool) {
     $('#tType').value = cur;
     $('#tSubject').value = subj;
     $('#tContents').value = ct ? (ct.contents || '') : '';
+    $('#tFields').value = ct && ct.fields ? ct.fields.map(function (f) { return f.name + ' = ' + (f.value || ''); }).join('\n') : '';
     $('#tFav').checked = true;
     var mine = state.chestSets.filter(function (s) { return s.custom; });
     var lastId = state.lastPalette && state.chestSets.some(function (s) { return s.id === state.lastPalette; }) ? state.lastPalette : (mine.length ? mine[mine.length - 1].id : null);
@@ -3448,11 +3749,12 @@ function editorFields() {
     title: $('#tName').value.trim() || $('#tSubject').value.trim() || T.name,
     subtype: symSub || T.sub, intent: T.intent || '', drawTool: type, supported: true,
     fs: T.text ? state.textSize : null,
-    sym: T.stamp ? (function () { var tx = String(editor.sym.stampText || 'APPROVED').toUpperCase(), d = MarkupIO.stampDims(tx, clamp(+editor.sym.stampSize || 20, 8, 96)); return { shape: 'stamp', size: d[0], height: d[1], label: tx, textColor: editor.sym.textColor || null }; })()
-      : T.symbol ? { shape: editor.sym.shape || 'circle', size: clamp(+editor.sym.size || 18, 4, 144), height: MarkupIO.SYM_WIDE[editor.sym.shape] ? clamp(+editor.sym.height || 12, 4, 144) : null, label: T.numbered ? '' : (editor.sym.label || ''), textColor: editor.sym.textColor || null, numbered: !!T.numbered } : null,
+    sym: T.stamp ? (function () { var tx = String(editor.sym.stampText || 'APPROVED').toUpperCase(), d = MarkupIO.stampDims(tx, clamp(+editor.sym.stampSize || 20, 8, 96)); return { shape: 'stamp', size: d[0], height: d[1], angle: +editor.sym.angle || 0, label: tx, textColor: editor.sym.textColor || null }; })()
+      : T.symbol ? { angle: +editor.sym.angle || 0, shape: editor.sym.shape || 'circle', size: clamp(+editor.sym.size || 18, 4, 144), height: MarkupIO.SYM_WIDE[editor.sym.shape] ? clamp(+editor.sym.height || 12, 4, 144) : null, label: T.numbered ? '' : (editor.sym.label || ''), textColor: editor.sym.textColor || null, numbered: !!T.numbered } : null,
     color: hexToRgb(st.color), fillColor: st.fill && MarkupIO.FILLABLE.has(symSub || T.sub) ? hexToRgb(st.fillColor || st.color) : null,
     fillOpacity: st.fillOpacity, opacity: st.opacity, lineWidth: st.lineWidth, highlight: !!st.highlight,
-    subject: $('#tSubject').value.trim(), contents: $('#tContents').value, fav: $('#tFav').checked, icon: null
+    subject: $('#tSubject').value.trim(), contents: $('#tContents').value, fav: $('#tFav').checked, icon: null,
+    fields: $('#tFields').value.split(/\n/).map(function (l) { var m = /^\s*([^=:]+?)\s*[=:]\s*(.*?)\s*$/.exec(l); return m ? { name: m[1], value: m[2] } : (l.trim() ? { name: l.trim(), value: '' } : null); }).filter(Boolean)
   };
 }
 
@@ -3461,14 +3763,14 @@ var PV_W = 320, PV_H = 140;
 function pvSymbol(f, cx, n) {
   // Shown 1.5x a printed point so small symbols stay readable; the caption gives the real size.
   var k = pvScale(f), dm = MarkupIO.symDims(f.sym), w = Math.max(10, dm[0] * k), hh = Math.max(10, dm[1] * k), cyUp = PV_H / 2;
-  var a = { rect: [cx - w / 2, cyUp - hh / 2, cx + w / 2, cyUp + hh / 2], sym: { shape: f.sym.shape, size: w, height: hh, label: f.sym.label, textColor: f.sym.textColor, n: n, prefix: '' }, color: f.color, fillColor: f.fillColor, fillOpacity: f.fillOpacity };
+  var a = { rect: [cx - w / 2, cyUp - hh / 2, cx + w / 2, cyUp + hh / 2], sym: { shape: f.sym.shape, size: w, height: hh, angle: +f.sym.angle || 0, label: f.sym.label, textColor: f.sym.textColor, n: n, prefix: '' }, color: f.color, fillColor: f.fillColor, fillOpacity: f.fillOpacity };
   var lw = (f.lineWidth || 0) * k, hl = lw / 2, flip = function (y) { return PV_H - y; };
   var geo = symShapeSVG(a, function (x, y) { return [x, flip(y)]; }, hl);
   var out = '';
   if (f.fillColor) out += geo + ' fill="' + rgbToHex(f.fillColor) + '" fill-opacity="' + f.fillOpacity + '"' + (f.highlight ? ' class="hl"' : '') + ' stroke="none"/>';
   if (lw > 0 && f.color) out += geo + ' fill="none" stroke="' + rgbToHex(f.color) + '" stroke-opacity="' + f.opacity + '" stroke-width="' + lw + '" stroke-linejoin="round"/>';
   var t = MarkupIO.symText(a);
-  if (t.text) out += '<text x="' + t.x + '" y="' + (flip(t.y) + t.size * 0.36) + '" font-size="' + t.size + '" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + rgbToHex(MarkupIO.symTextColor(a)) + '">' + esc(t.text) + '</text>';
+  if (t.text) out += '<text x="' + t.x + '" y="' + (flip(t.y) + t.size * 0.36) + '"' + (+f.sym.angle ? ' transform="rotate(' + (-f.sym.angle) + ' ' + t.x + ' ' + flip(t.y) + ')"' : '') + ' font-size="' + t.size + '" font-weight="700" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + rgbToHex(MarkupIO.symTextColor(a)) + '">' + esc(t.text) + '</text>';
   return { svg: out, w: w };
 }
 // 1.5 preview units per point, reduced so big symbols (and three numbered ones) still fit.
@@ -3814,6 +4116,7 @@ var KEY_TOOL = { v: 'select', c: 'circle', r: 'rect', g: 'polygon', p: 'pen', l:
 document.addEventListener('keydown', function (e) {
   var tag = (e.target.tagName || '').toLowerCase();
   state.multi = e.shiftKey || e.metaKey || e.ctrlKey;
+  if (!$('#exportModal').hidden) { if (e.key === 'Escape') closeExport(); return; }
   if (!$('#toolModal').hidden) { if (e.key === 'Escape') closeToolEditor(); else if (e.key === 'Enter' && tag === 'input') { e.preventDefault(); saveToolFromEditor(); } return; }
   if (!$('#scaleModal').hidden) { if (e.key === 'Escape') closeScale(); else if (e.key === 'Enter' && tag !== 'select') { e.preventDefault(); applyScaleFromDialog(); } return; }
   if (e.key === 'Escape' && (tag === 'input' || tag === 'textarea' || tag === 'select')) {
@@ -3828,6 +4131,7 @@ document.addEventListener('keydown', function (e) {
   var plain = !e.metaKey && !e.ctrlKey && !e.altKey;
   if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel.size) { e.preventDefault(); deleteSelection(); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelection(); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSelection(); else groupSelection(); }
   else if (e.key === 'Escape') { clearSel(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; }
   else if (plain && KEY_TOOL[e.key]) { var tb = document.querySelector('.topbar [data-tool="' + KEY_TOOL[e.key] + '"]'); if (tb) tb.click(); }
