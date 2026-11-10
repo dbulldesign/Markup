@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.5.0">
+<meta name="app-version" content="3.5.1">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -310,7 +310,10 @@ body.portrait #btnHelp { display: none; }
 .propspop { position: absolute; top: calc(var(--vtop, 0px) + 74px); left: var(--vcx, 50%); transform: translateX(-50%); z-index: 12; width: min(420px, calc(var(--vw, 100%) - 20px)); max-height: calc(100% - 90px); overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.28); overscroll-behavior: contain; }
 .propspop[hidden] { display: none; }
 .propspop .props { max-height: none; border-bottom: 0; padding: 12px 16px 16px; }
-.propspop .props .title { position: sticky; top: -12px; background: var(--surface); padding: 12px 0 8px; margin-top: -12px; z-index: 1; }
+.propspop .props .title { position: sticky; top: -12px; background: var(--surface); padding: 18px 0 8px; margin-top: -12px; z-index: 1; cursor: grab; touch-action: none; }
+.propspop .props .title::before { content: ""; position: absolute; left: 50%; top: 6px; width: 40px; height: 5px; margin-left: -20px; border-radius: 3px; background: var(--line); }
+.propspop.dragging { opacity: .96; } .propspop.dragging .title { cursor: grabbing; }
+.propspop.moved { transform: none; }
 body.big .propspop { width: min(460px, calc(100% - 20px)); }
 .selbar { position: absolute; top: calc(var(--vtop, 0px) + 10px); left: var(--vcx, 50%); transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: calc(var(--vw, 100%) - 20px); overflow-x: auto; scrollbar-width: none; }
 .selbar::-webkit-scrollbar { display: none; }
@@ -2261,7 +2264,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.5.0';
+var APP_VERSION = '3.5.1';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -4487,6 +4490,35 @@ function placeProps() {
   if (propsPopup()) { if (box.parentNode !== $('#propsPop')) $('#propsPop').appendChild(box); }
   else if (box.parentNode !== propsHome.parent) propsHome.parent.insertBefore(box, propsHome.next);
 }
+/* Drag the pop-up by its title bar; it stays where you put it (double-tap the bar to centre it again). */
+function placePropsPop() {
+  var pp = $('#propsPop'), pos = ui().propsPos, w = document.querySelector('.work'); if (!pp || !w) return;
+  if (!pos) { pp.classList.remove('moved'); pp.style.left = ''; pp.style.top = ''; pp.style.maxHeight = ''; return; }
+  var wr = w.getBoundingClientRect(), pw = pp.offsetWidth || 420, ph = Math.min(pp.offsetHeight || 300, wr.height);
+  var x = clamp(pos.x, 0, Math.max(0, wr.width - pw)), y = clamp(pos.y, 0, Math.max(0, wr.height - 60));
+  pp.classList.add('moved'); pp.style.left = x + 'px'; pp.style.top = y + 'px';
+  pp.style.maxHeight = Math.max(220, wr.height - y - 12) + 'px';
+}
+(function () {
+  var pp = document.getElementById('propsPop'), d = null, lastTap = 0;
+  pp.addEventListener('pointerdown', function (e) {
+    var t = e.target.closest ? e.target.closest('.title') : null;
+    if (!t || (e.target.closest && e.target.closest('button, input, select, textarea'))) return;
+    var now = Date.now();
+    if (now - lastTap < 350) { ui().propsPos = null; saveUI(); placePropsPop(); lastTap = 0; return; }
+    lastTap = now;
+    var r = pp.getBoundingClientRect(), wr = document.querySelector('.work').getBoundingClientRect();
+    d = { id: e.pointerId, dx: e.clientX - r.left, dy: e.clientY - r.top, wx: wr.left, wy: wr.top };
+    pp.classList.add('dragging'); pp.setPointerCapture(e.pointerId); e.preventDefault();
+  });
+  pp.addEventListener('pointermove', function (e) {
+    if (!d || e.pointerId !== d.id) return;
+    ui().propsPos = { x: e.clientX - d.wx - d.dx, y: e.clientY - d.wy - d.dy }; placePropsPop();
+  });
+  var end = function (e) { if (!d || e.pointerId !== d.id) return; d = null; pp.classList.remove('dragging'); saveUI(); };
+  pp.addEventListener('pointerup', end); pp.addEventListener('pointercancel', end);
+  window.addEventListener('resize', function () { if (!pp.hidden) placePropsPop(); });
+})();
 function openPropsPop() { state.propsOpen = true; state.propsFor = Array.from(state.sel).sort().join(','); renderProps(); }
 function closePropsPop() { if (!state.propsOpen) return; state.propsOpen = false; renderProps(); }
 function renderProps() {
@@ -4497,7 +4529,9 @@ function renderProps() {
   if (propsPopup() && state.propsOpen && state.propsFor != null && state.propsFor !== Array.from(state.sel).sort().join(',')) state.propsOpen = false;
   var show = s.length && state.propsOpen;
   box.hidden = !show;
+  var ppWas = $('#propsPop').hidden;
   $('#propsPop').hidden = !(propsPopup() && show);
+  if (ppWas && !$('#propsPop').hidden) placePropsPop();
   $('#pmHide').textContent = propsPopup() ? 'Done' : 'Hide';
   $('#propsMini').hidden = propsPopup() || !s.length || !!show;
   $('#selBar').hidden = !s.length || !!state.combine;
@@ -5056,6 +5090,18 @@ $('#counts').addEventListener('click', function (e) {
   var v = state.filter === b.dataset.count ? '' : b.dataset.count;
   state.filter = v; $('#filter').value = v; renderList();
 });
+// A group's second line reads like a single markup's: its label(s) in bold, total length, then the comments.
+function groupComm(all, labels) {
+  var uniq = Array.from(new Set(labels)), lab = uniq.length > 6 ? uniq.slice(0, 6).join(', ') + '\u2026' : uniq.join(', ');
+  var comments = Array.from(new Set(all.map(function (m) { return (m.contents || '').trim(); }).filter(Boolean)));
+  var com = comments.slice(0, 3).join(' \u00b7 ') + (comments.length > 3 ? ' \u2026' : '');
+  var len = sumLen(all);
+  var parts = [];
+  if (lab) parts.push('<b>' + esc(lab) + '</b>');
+  if (len) parts.push('<span class="len">' + esc(len) + '</span>');
+  if (com) parts.push(esc(com));
+  return parts.join(' \u00b7 ');
+}
 function renderList() {
   renderCounts();
   var all = live(), rowsEl = $('#rows');
@@ -5097,8 +5143,8 @@ function renderList() {
         '<span class="sw" style="--c:' + rgbToHex(g.head.color || [0.5, 0.5, 0.5]) + '"></span>' +
         '<span class="subj">Group of ' + all.length + ' <span class="count">' + esc(order.map(function (k) { return k + (subj[k] > 1 ? ' \u00d7' + subj[k] : ''); }).join(', ')) + '</span></span>' +
         '<span class="pg">' + esc(pg) + '</span>' +
-        '<span class="comm">' + esc(labels.length ? labels.slice(0, 8).join(', ') + (labels.length > 8 ? '\u2026' : '') : (g.head.contents || '')) + '</span>' +
-        '<span class="meta">' + esc(fmtDay(g.head.date)) + '</span></div>';
+        '<span class="comm">' + groupComm(all, labels) + '</span>' +
+        '<span class="meta">' + esc([g.head.author || '', fmtDay(g.head.date)].filter(Boolean).join(', ')) + '</span></div>';
       if (open) { html += row(g.head, 'member'); ms.forEach(function (m) { html += row(m, 'member'); }); }
     } else html += row(g.head, '');
   });

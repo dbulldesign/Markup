@@ -1,5 +1,5 @@
 {
-  "version": "3.5.0",
+  "version": "3.5.1",
   "date": "2026-11-10",
-  "notes": "Properties in their own pop-up window: select a fixture or group, tap Properties; tap outside to close. The markups panel is just the list."
+  "notes": "Drag the properties pop-up by its title bar; group rows show their label, total length and comments."
 }

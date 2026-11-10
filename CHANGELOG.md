@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.5.1
+- Properties pop-up is draggable: drag it by its title bar (the grab handle at the top). It reopens where you left it; double-tap the title bar to centre it again. It shrinks and scrolls when moved low on the screen.
+- Group rows in the markups list read like a single markup: the label(s) in bold, the total length, then the comments (for example "A · 12'-0" · Verify mounting height with GC"), with author and date on the right.
+
 ## 3.5.0 (properties pop-up)
 - Properties have their own pop-up window, separate from the markups list. Select a fixture, markup or group (on the drawing or in the list), then tap Properties in the selection bar. Tap anywhere outside it, tap Done, press Escape, or select something else to close it. Edits inside stay open as you work.
 - The markups panel is now only the list (counts, filter, sort, rows), so it has the whole height.
