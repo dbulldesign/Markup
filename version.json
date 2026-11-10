@@ -1,5 +1,5 @@
 {
-  "version": "3.5.1",
+  "version": "3.5.2",
   "date": "2026-11-10",
-  "notes": "Drag the properties pop-up by its title bar; group rows show their label, total length and comments."
+  "notes": "The selection bar can be dragged anywhere over the drawing."
 }
