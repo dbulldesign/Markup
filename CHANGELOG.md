@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.8.1
+- The toolbar's tool drop-down now shows your Favourites first and then every Tool Chest palette (your own palettes, imported Revu tool sets and fixture schedules), each as a section with its tools. Tap a section's title to fold it away (remembered); tap a tool to use it. Tools Revu made that cannot be drawn here are greyed out. "Manage in Tool Chest..." opens the chest for starring, editing and arranging.
+- The button appears as soon as you have any palette tools, even without favourites, and shows the tool in use whichever palette it came from.
+
 ## 3.8.0 (favourites drop-down)
 - Favourite tools sit in one drop-down in the toolbar instead of a button each: the button shows the favourite you are using (or a star) and how many you have; tap it for a grid of all your favourites with their names, and "Tool Chest..." to manage them. Adding tools no longer makes the toolbar longer.
 - Settings > Appearance > Favourite tools in the toolbar: "One drop-down" (default) or "A row of buttons" (the old layout).

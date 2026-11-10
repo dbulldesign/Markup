@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.8.0">
+<meta name="app-version" content="3.8.1">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -153,6 +153,13 @@ body.compact #measureTools > [data-tool] { display: none; }
 .tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
 .tgrid .tb { flex-direction: column; justify-content: center; min-height: 64px; padding: 6px 4px; gap: 4px; font-size: 12px; background: var(--surface-2); }
 .tgrid .tb .lbl { display: inline !important; }
+.fp-sec + .fp-sec { margin-top: 6px; border-top: 1px solid var(--line); padding-top: 6px; }
+.fp-sh { display: flex; align-items: center; gap: 8px; width: 100%; padding: 8px 4px; border: 0; background: none; font: inherit; font-weight: 600; font-size: 14px; color: var(--ink); cursor: pointer; text-align: left; }
+.fp-sh .tw { display: inline-block; transition: transform .15s; transform: rotate(90deg); color: var(--ink-2); font-size: 12px; }
+.fp-sec.shut .fp-sh .tw { transform: none; }
+.fp-sh .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fp-sh .n { color: var(--ink-2); font-weight: 500; font-size: 12px; }
+.favgrid .tb.off { opacity: .45; }
 .fp-head { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; font-size: 14px; }
 .favgrid .tb svg, .favgrid .tb img { width: 46px; height: 30px; }
 .favgrid .tb .lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -629,7 +636,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
 
   <button class="tb toolpick" id="btnToolPick" type="button" title="Choose a tool" aria-haspopup="true" hidden><span class="ti"></span><span class="lbl keep tn">Tool</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
   <div class="pop toolpop" id="toolPop" hidden><div class="tgrid" id="toolGrid"></div></div>
-  <div class="pop toolpop" id="favPop" hidden><div class="fp-head"><b>Favourite tools</b><button class="linkbtn" type="button" id="favEdit">Tool Chest&#8230;</button></div><div class="tgrid favgrid" id="favGrid"></div></div>
+  <div class="pop toolpop" id="favPop" hidden><div class="fp-head"><b>Tools</b><button class="linkbtn" type="button" id="favEdit">Manage in Tool Chest&#8230;</button></div><div id="favGrid"></div></div>
   <div class="seg" id="tools">
     <button class="tb" type="button" data-tool="select" title="Select and move markups" aria-label="Select">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3l14 8-6 2-3 6z"/></svg><span class="lbl">Select</span>
@@ -2299,7 +2306,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.8.0';
+var APP_VERSION = '3.8.1';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2626,6 +2633,7 @@ function resolveDrawTool(t) {
   return ToolChest.drawToolFor(t.subtype, t.intent);
 }
 function saveChest() {
+  setTimeout(function () { if (typeof renderFavBar === 'function') renderFavBar(); }, 0);
   try {
     var json = JSON.stringify(state.chestSets);
     if (json.length > 1500000) json = JSON.stringify(state.chestSets.map(function (s) { return Object.assign({}, s, { tools: s.tools.map(function (t) { return Object.assign({}, t, { icon: null }); }) }); }));
@@ -5521,14 +5529,16 @@ function favTools() {
 function renderFavBar() {
   if ($('#qpal') && !$('#qpal').hidden) renderPalette();
   var bar = $('#favBar'), favs = favTools();
-  bar.hidden = !favs.length;
+  var anyTools = state.chestSets.some(function (x) { return x.tools.some(function (t) { return t.supported; }); });
+  bar.hidden = (ui().favMode || 'menu') === 'menu' ? !(favs.length || anyTools) : !favs.length;
   bar.classList.toggle('menu', (ui().favMode || 'menu') === 'menu');
   if ((ui().favMode || 'menu') === 'menu') {
     // One drop-down button: shows the favourite in use (or a star) and opens the list of favourites.
     var act = favs.filter(function (f) { return isActiveTool(f.set, f.tool); })[0];
-    bar.innerHTML = '<button type="button" class="tb fav-dd' + (act ? ' on' : '') + '" id="favDD" aria-haspopup="true" title="Favourite tools">' +
-      (act ? toolPreview(act.tool) + '<span class="nm">' + esc(act.tool.title) + '</span>' : '<svg class="star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span class="nm">Favourites</span>') +
-      '<span class="n">' + favs.length + '</span><svg class="caret" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2.5 4.5L6 8l3.5-3.5"/></svg></button>';
+    if (!act && state.chestTool) { var ct0 = findTool(state.chestTool.setId, state.chestTool.id); if (ct0.tool && isActiveTool(ct0.set, ct0.tool)) act = { set: ct0.set, tool: ct0.tool }; }
+    bar.innerHTML = '<button type="button" class="tb fav-dd' + (act ? ' on' : '') + '" id="favDD" aria-haspopup="true" title="Favourite tools and Tool Chest palettes">' +
+      (act ? toolPreview(act.tool) + '<span class="nm">' + esc(act.tool.title) + '</span>' : '<svg class="star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span class="nm">Tools</span>') +
+      (favs.length ? '<span class="n">' + favs.length + '</span>' : '') + '<svg class="caret" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2.5 4.5L6 8l3.5-3.5"/></svg></button>';
     if (!$('#favPop').hidden) fillFavPop();
     if (typeof fitToolbar === 'function') fitToolbar();
     return;
@@ -5803,9 +5813,20 @@ $('#chestSets').addEventListener('click', function (e) {
   applyChestTool(found.set, found.tool);
 });
 function fillFavPop() {
-  $('#favGrid').innerHTML = favTools().map(function (f) {
-    return '<button type="button" class="tb' + (isActiveTool(f.set, f.tool) ? ' on' : '') + '" data-set="' + esc(f.set.id) + '" data-fav="' + esc(f.tool.id) + '" title="' + esc(f.tool.title) + '">' + toolPreview(f.tool) + '<span class="lbl">' + esc(f.tool.title) + '</span></button>';
-  }).join('');
+  var chip = function (set, t) {
+    return '<button type="button" class="tb' + (isActiveTool(set, t) ? ' on' : '') + (t.supported ? '' : ' off') + '" data-set="' + esc(set.id) + '" data-fav="' + esc(t.id) + '" title="' + esc(t.title + (t.supported ? '' : ' (cannot be drawn here)')) + '"' + (t.supported ? '' : ' disabled') + '>' + toolPreview(t) + '<span class="lbl">' + esc(t.title) + '</span></button>';
+  };
+  var shut = ui().favShut || {}, favs = favTools(), html = '';
+  var section = function (key, title, n, body) {
+    var closed = !!shut[key];
+    return '<section class="fp-sec' + (closed ? ' shut' : '') + '"><button type="button" class="fp-sh" data-fpsec="' + esc(key) + '" aria-expanded="' + !closed + '"><span class="tw">\u25B8</span><span class="t">' + esc(title) + '</span><span class="n">' + n + '</span></button>' + (closed ? '' : '<div class="tgrid favgrid">' + body + '</div>') + '</section>';
+  };
+  if (favs.length) html += section('__fav', '\u2605 Favourites', favs.length, favs.map(function (f) { return chip(f.set, f.tool); }).join(''));
+  state.chestSets.forEach(function (set) {
+    if (!set.tools.length) return;
+    html += section(set.id, set.title, set.tools.length, set.tools.map(function (t) { return chip(set, t); }).join(''));
+  });
+  $('#favGrid').innerHTML = html || '<p class="hint">No tools yet. Make one in the Tool Chest (+ Tool), import a Revu tool set, or a fixture schedule.</p>';
 }
 function openFavPop() {
   var pop = $('#favPop'), btn = $('#favDD'); fillFavPop();
@@ -5816,7 +5837,9 @@ function openFavPop() {
   fitPop(pop);
 }
 $('#favGrid').addEventListener('click', function (e) {
-  var b = e.target.closest ? e.target.closest('[data-fav]') : null; if (!b) return;
+  var sh = e.target.closest ? e.target.closest('[data-fpsec]') : null;
+  if (sh) { var u = ui(), k = sh.dataset.fpsec; u.favShut = u.favShut || {}; if (u.favShut[k]) delete u.favShut[k]; else u.favShut[k] = 1; saveUI(); fillFavPop(); fitPop($('#favPop')); return; }
+  var b = e.target.closest ? e.target.closest('[data-fav]') : null; if (!b || b.disabled) return;
   var f = findTool(b.dataset.set, b.dataset.fav); if (f.tool) applyChestTool(f.set, f.tool);
   $('#favPop').hidden = true; renderFavBar();
 });
@@ -6667,7 +6690,7 @@ function openSettings() {
       row('Theme', sel('theme', u.theme, [['system', 'Match the iPad'], ['light', 'Light'], ['dark', 'Dark']])) +
       row('Compact toolbar', chk('compact', u.compact), 'One tool button with a picker instead of every tool') +
       row('Floating quick palette', chk('palette', u.palette), 'A small bar of tools and favourites you can drag anywhere') +
-      row('Favourite tools in the toolbar', sel('favMode', u.favMode || 'menu', [['menu', 'One drop-down'], ['row', 'A row of buttons']]), 'The drop-down keeps the toolbar short however many favourites you have') +
+      row('Tools in the toolbar', sel('favMode', u.favMode || 'menu', [['menu', 'One drop-down (favourites and palettes)'], ['row', 'Favourites as a row of buttons']]), 'The drop-down keeps the toolbar short however many tools you have') +
       row('Toolbar at the bottom in portrait', chk('bottomBar', u.bottomBar !== false), 'Within reach of your thumb when holding the iPad upright') +
       row('Markups list', sel('panelPos', u.panelPos || 'auto', [['auto', 'Automatic'], ['right', 'Right side'], ['bottom', 'Bottom'], ['left', 'Left side']]), 'Automatic: at the bottom when the iPad is upright, at the side when it is sideways') +
       row('Properties', sel('propsMode', propsPopup() ? 'popup' : ui().propsMode === 'always' ? 'always' : 'panel', [['popup', 'Pop-up window'], ['panel', 'In the list, when picked there'], ['always', 'In the list, always open']]), 'Pop-up: select a markup or group, tap Properties in the bar over the drawing; tap outside to close') +

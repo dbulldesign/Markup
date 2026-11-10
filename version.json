@@ -1,5 +1,5 @@
 {
-  "version": "3.8.0",
+  "version": "3.8.1",
   "date": "2026-11-10",
-  "notes": "Favourite tools in one drop-down in the toolbar instead of a button each."
+  "notes": "The toolbar tool drop-down shows your favourites and every Tool Chest palette."
 }
