@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.10.0">
+<meta name="app-version" content="3.11.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -334,6 +334,8 @@ body.portrait #btnHelp { display: none; }
 .style summary { cursor: pointer; font-size: 14px; color: var(--ink-2); min-height: 32px; display: flex; align-items: center; }
 .style details[open] summary { color: var(--ink); }
 .props[hidden] { display: none; }
+.props .multi-note { display: none; margin: 0; font-size: 12px; color: var(--accent); }
+.props.multi .multi-note { display: block; }
 .props .title .hide-props { margin-left: auto; padding: 4px 10px; min-height: 0; font-size: 13px; }
 .propspop { position: absolute; top: calc(var(--vtop, 0px) + 74px); left: var(--vcx, 50%); transform: translateX(-50%); z-index: 12; width: min(420px, calc(var(--vw, 100%) - 20px)); max-height: calc(100% - 90px); overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.28); overscroll-behavior: contain; }
 .propspop[hidden] { display: none; }
@@ -344,6 +346,10 @@ body.portrait #btnHelp { display: none; }
 .propspop.moved { transform: none; }
 body.big .propspop { width: min(460px, calc(100% - 20px)); }
 #qgrip { touch-action: none; }
+.pastebar { position: absolute; left: calc(var(--vcx, 50%) - var(--vw, 100%) / 2 + 12px); bottom: 16px; z-index: 8; display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: calc(var(--vw, 100%) - 24px); flex-wrap: wrap; }
+.pastebar[hidden] { display: none; }
+.pastebar .pb-n { padding: 0 6px 0 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+body.tb-bottom .pastebar { bottom: 16px; }
 .selbar { position: absolute; top: calc(var(--vtop, 0px) + 10px); left: var(--vcx, 50%); transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: calc(var(--vw, 100%) - 20px); overflow-x: auto; scrollbar-width: none; }
 .selbar::-webkit-scrollbar { display: none; }
 .selbar[hidden] { display: none; }
@@ -855,9 +861,16 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <button class="sbb" id="btnCombine" type="button" title="Then tap another group or markup (on the drawing or in the list) to make them one group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/><path d="M11 12h2"/></svg><span>Combine&#8230;</span></button>
     <button class="sbb" id="btnUngroup" type="button" title="Ungroup (Shift+Cmd+G)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M14 5l5 5M19 5l-5 5"/></svg><span>Ungroup</span></button>
     <button class="sbb" id="btnRemoveFromGroup" type="button" title="Take the selected markups out of their group; the rest stays together"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2h20v20H2z" stroke-dasharray="3 3"/><rect x="8" y="8" width="8" height="8" rx="1.5"/><path d="M14 4l6 0"/></svg><span>Remove</span></button>
+    <button class="sbb" id="btnCopy" type="button" title="Copy (Cmd+C): paste on another page or into another open file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="3" width="13" height="16" rx="2"/><path d="M5 7H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-1"/></svg><span>Copy</span></button>
     <button class="sbb" id="btnDuplicate" type="button" title="Duplicate (Cmd+D)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg><span>Duplicate</span></button>
     <button class="sbb danger" id="btnDelete" type="button" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span>Delete</span></button>
     <button class="sbb" id="btnSelClear" type="button" title="Deselect" aria-label="Deselect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+  </div>
+  <div class="pastebar" id="pasteBar" hidden>
+    <span class="pb-n" id="pasteN"></span>
+    <button class="btn" type="button" id="btnPasteHere" title="Paste in the middle of what you are looking at (Cmd+V)">Paste here</button>
+    <button class="btn" type="button" id="btnPasteInPlace" title="Paste at the same position on this page (Shift+Cmd+V), for repeated floor plans">Paste in place</button>
+    <button class="btn icon" type="button" id="btnPasteClear" aria-label="Clear the copied markups" title="Clear the copied markups"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <div class="polybar" id="combineBar" hidden>
     <span class="info" id="combineInfo"></span>
@@ -901,6 +914,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <label class="author-row">Author <input id="author" placeholder="Your name (shows in Revu)" autocomplete="name"></label>
     <div class="props-mini" id="propsMini" hidden><span class="t" id="pmTitle"></span><button class="btn" type="button" id="pmOpen">Properties</button></div>
     <section class="props" id="props" hidden>
+      <p class="multi-note">Changes here apply to every selected markup. Fields that differ show "Mixed".</p>
       <div class="title"><span id="propsTitle">1 markup</span><span class="meta" id="propsMeta"></span><button class="btn hide-props" type="button" id="pmHide" title="Hide the properties">Hide</button></div>
       <label class="fld">Subject<input class="fld-in" id="pSubject" list="subjects" placeholder="e.g. Ellipse, Issue, Verify"></label>
       <datalist id="subjects"><option value="Ellipse"><option value="Rectangle"><option value="Pen"><option value="Issue"><option value="Verify"><option value="RFI"><option value="Note"></datalist>
@@ -2336,7 +2350,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.10.0';
+var APP_VERSION = '3.11.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3202,7 +3216,7 @@ async function buildPages(keepScroll) {
     state.pages.push(p);
     sizePage(p);
   }
-  updateZoomLabel();
+  updateZoomLabel(); renderPasteBar();
   if (keepScroll) { viewer.scrollTop = frac * viewer.scrollHeight; viewer.scrollLeft = left; }
   else viewer.scrollTop = 0;
   renderVisible();
@@ -4530,6 +4544,69 @@ function regroupLeftBehind(ids) {
    selecting several groups merges them. */
 /* Duplicate: copies of the selected markups a little down and to the right. Numbered markups get the
    next numbers in their series; groups stay grouped. */
+/* ---------- copy and paste (between pages and open files; kept when the app closes) ---------- */
+function clipGet() { if (state.clip) return state.clip; try { var c = JSON.parse(localStorage.getItem('pencil-markup-clip') || 'null'); state.clip = c; return c; } catch (e) { return null; } }
+function clipSet(c) { state.clip = c; try { if (c) localStorage.setItem('pencil-markup-clip', JSON.stringify(c)); else localStorage.removeItem('pencil-markup-clip'); } catch (e) { /* too big to keep: still works until the app closes */ } renderPasteBar(); }
+function renderPasteBar() {
+  var c = clipGet(), bar = $('#pasteBar'); if (!bar) return;
+  bar.hidden = !c || !c.items || !c.items.length || !state.pdf;
+  if (!bar.hidden) $('#pasteN').textContent = c.items.length === 1 ? '1 copied' : c.items.length + ' copied';
+}
+function copySelection() {
+  var s = selected().filter(function (a) { return a.owned; }); if (!s.length) { toast('Markups made in other apps cannot be copied here.'); return; }
+  var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; s.forEach(function (a) { x0 = Math.min(x0, a.rect[0]); y0 = Math.min(y0, a.rect[1]); x1 = Math.max(x1, a.rect[2]); y1 = Math.max(y1, a.rect[3]); });
+  clipSet({ at: Date.now(), from: state.fileName, page: s[0].pageIndex, box: [x0, y0, x1, y1], items: JSON.parse(JSON.stringify(s)) });
+  toast(s.length === 1 ? 'Copied. Go to another page or file and tap Paste.' : s.length + ' markups copied. Go to another page or file and tap Paste.', 3000);
+}
+function moveAnnot(c, dx, dy) {
+  var mv = function (q) { return [q[0] + dx, q[1] + dy]; };
+  c.rect = [c.rect[0] + dx, c.rect[1] + dy, c.rect[2] + dx, c.rect[3] + dy];
+  if (c.inkList) c.inkList = c.inkList.map(function (l) { return l.map(mv); });
+  if (c.vertices) c.vertices = c.vertices.map(mv);
+  if (c.box) c.box = [c.box[0] + dx, c.box[1] + dy, c.box[2] + dx, c.box[3] + dy];
+  if (c.tip) c.tip = mv(c.tip);
+  if (c.ctr) c.ctr = mv(c.ctr);
+  if (c.holes) c.holes = c.holes.map(function (h) { return h.map(mv); });
+  if (c.lpos) c.lpos = mv(c.lpos);
+}
+function pasteClip(inPlace) {
+  var c = clipGet(); if (!c || !c.items || !c.items.length || !state.pdf) return;
+  var pi = currentPageIndex(), p = state.pages[pi]; if (!p) return;
+  var dx = 0, dy = 0;
+  if (!inPlace) {
+    // centre of what is on screen
+    var v = $('#viewer'), r = p.el.getBoundingClientRect(), vr = v.getBoundingClientRect();
+    var cx = clamp(vr.left + vr.width / 2, r.left, r.right), cy = clamp(vr.top + vr.height / 2, r.top, r.bottom);
+    var q = toPdf(p, cx, cy);
+    dx = q[0] - (c.box[0] + c.box[2]) / 2; dy = q[1] - (c.box[1] + c.box[3]) / 2;
+  } else if (pi === c.page && c.from === state.fileName && state.annots.some(function (a) { return !a.deleted && c.items.some(function (it) { return it.nm && it.nm === a.nm; }); })) {
+    // pasting onto the very same spot would hide the copy under the original: nudge it
+    var o0 = p.vp.convertToPdfPoint(0, 0), o1 = p.vp.convertToPdfPoint(16, 16); dx = o1[0] - o0[0]; dy = o1[1] - o0[1];
+  }
+  pushHistory();
+  var map = {}, made = [];
+  c.items.forEach(function (it) {
+    var a = JSON.parse(JSON.stringify(it));
+    a.id = 'n' + (state.nextId++); map[it.id] = a.id;
+    Object.assign(a, { isNew: true, deleted: false, dirty: true, geomDirty: false, styleDirty: false, owned: true, num: null, gen: 0, inline: false, nm: MarkupIO.makeNM(), date: new Date().toISOString(), author: state.author || a.author, pageIndex: pi, rot: pageRot(pi) });
+    moveAnnot(a, dx, dy);
+    if (a.measure && measureKind(a) && measureKind(a) !== 'angle') { var sc = scaleAt(pi, [(a.rect[0] + a.rect[2]) / 2, (a.rect[1] + a.rect[3]) / 2]); if (sc) a.measure = copyScale(sc); }
+    if (a.vertices || a.ctr) updateGeom(a);
+    made.push(a);
+  });
+  made.forEach(function (a) {
+    a.parentId = a.parentId && map[a.parentId] ? map[a.parentId] : null;
+    if (a.sym && a.sym.n != null) { var sid = a.sym.series && state.series.defs[a.sym.series] ? a.sym.series : ensureSeries(); a.sym.series = sid; a.sym.prefix = state.series.defs[sid].prefix || a.sym.prefix || ''; a.sym.n = nextNumber(sid); }
+    state.annots.push(a);
+  });
+  state.sel = new Set(made.map(function (a) { return a.id; }));
+  drawOverlay(p); markUnsaved(); renderList(); afterSelectionChange(); updateSeqBar();
+  toast('Pasted ' + made.length + (made.length === 1 ? ' markup' : ' markups') + ' on page ' + pageLabel(pi) + (inPlace ? ' (same position)' : '') + '.');
+}
+$('#btnCopy').addEventListener('click', copySelection);
+$('#btnPasteHere').addEventListener('click', function () { pasteClip(false); });
+$('#btnPasteInPlace').addEventListener('click', function () { pasteClip(true); });
+$('#btnPasteClear').addEventListener('click', function () { clipSet(null); });
 function duplicateSelection() {
   var s = selected().filter(function (a) { return a.owned; }); if (!s.length) return;
   pushHistory();
@@ -4835,7 +4912,8 @@ function renderProps() {
 
   if (!s.length) return;
   var a = s[0], same = function (k) { return s.every(function (x) { return x[k] === a[k]; }); };
-  $('#propsTitle').textContent = s.length === 1 ? (a.sym ? (a.sym.n != null ? 'Number' : 'Symbol') : MKIND_LABEL[a.mkind] || typeLabel(a.subtype, a.intent)) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
+  $('#props').classList.toggle('multi', s.length > 1);
+  $('#propsTitle').textContent = s.length === 1 ? (a.sym ? (a.sym.n != null ? 'Number' : 'Symbol') : MKIND_LABEL[a.mkind] || typeLabel(a.subtype, a.intent)) + ' on page ' + pageLabel(a.pageIndex) : 'Editing ' + s.length + ' markups';
   $('#propsMeta').textContent = s.length === 1 ? ((a.author ? a.author + ', ' : '') + (fmtDate(a.date) || 'new')) : (new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length ? 'one group' : '');
   var sub = $('#pSubject'), con = $('#pContents');
   if (document.activeElement !== sub) { sub.value = same('subject') ? (a.subject || '') : ''; sub.placeholder = same('subject') ? 'e.g. Ellipse, Issue, Verify' : 'Mixed'; }
@@ -7087,7 +7165,8 @@ document.addEventListener('keydown', function (e) {
   if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel.size) { e.preventDefault(); deleteSelection(); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelection(); }
-  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSelection(); else groupSelection(); }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c' && state.sel.size) { e.preventDefault(); copySelection(); }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteClip(e.shiftKey); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSelection(); else groupSelection(); }
   else if (e.key === 'Escape') { clearSel(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; }
   else if (plain && KEY_TOOL[e.key]) { var tb = document.querySelector('.topbar [data-tool="' + KEY_TOOL[e.key] + '"]'); if (tb) tb.click(); }

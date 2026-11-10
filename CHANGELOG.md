@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.11.0 (copy, paste, edit many)
+- Copy and paste markups: select markups or groups and tap Copy in the selection bar (Cmd+C). A paste bar appears at the bottom left of the drawing on any page and in any open file: "Paste here" puts them in the middle of what you are looking at (Cmd+V); "Paste in place" puts them at the same position, for repeated floor plans (Shift+Cmd+V). Groups stay groups, numbered fixtures continue their series, measurements take the scale of where they land, photos and custom fields come along. The copy is kept when the app closes; x clears it.
+- Editing many at once: with several markups selected, the properties pop-up says "Editing N markups" and every change (subject, comments, status, layer, length and quantity, custom fields, colours, rotation) applies to all of them; values that differ show "Mixed".
+
 ## 3.10.0 (counts and schedule check)
 - Counts table: tap "Counts" at the top of the markups list to open totals By type, By page (each page and the types on it) and By room (each room and the types in it, plus "Not in a room"), with total lengths. Every line has previous/next buttons that step through those fixtures on the drawings in reading order (page, top to bottom, left to right), selecting each and jumping to it ("3 of 12 - p. 4").
 - Schedule check: compares every fixture type in your imported fixture schedules with what is placed: how many of each (green), types on the schedule that are not placed anywhere (red), and fixtures placed that are not on any schedule (red). Matching is by Subject and symbol label.
