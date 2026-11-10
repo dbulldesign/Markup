@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.0.0">
+<meta name="app-version" content="3.1.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -283,6 +283,14 @@ body.narrow #saveName { width: 120px; }
 .style summary { cursor: pointer; font-size: 14px; color: var(--ink-2); min-height: 32px; display: flex; align-items: center; }
 .style details[open] summary { color: var(--ink); }
 .props[hidden] { display: none; }
+.props .title .hide-props { margin-left: auto; padding: 4px 10px; min-height: 0; font-size: 13px; }
+.props-mini { display: flex; align-items: center; gap: 10px; padding: 6px 14px; border-bottom: 1px solid var(--line); background: var(--accent-soft); font-size: 14px; }
+.props-mini[hidden] { display: none; }
+.props-mini .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
+.props-mini .btn { padding: 4px 12px; min-height: 0; font-size: 13px; }
+body.pbottom #btnPanelPos .pp-side, body.pside #btnPanelPos .pp-bottom { display: none; }
+#btnPanelPos { padding: 6px 8px; }
+.panel.named .author-row { display: none; }
 .props .title { font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .props .title .meta { color: var(--ink-2); font-weight: 400; font-size: 13px; }
 .props label.fld { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); }
@@ -426,22 +434,19 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .rows .none { padding: 24px 14px; color: var(--ink-2); text-align: center; }
 
 /* Panel as bottom sheet on narrow screens */
-@media (max-width: 899px) {
-  .work { flex-direction: column; }
-  .viewer { min-height: 0; }
-  .panel { width: 100%; height: 46%; border-left: 0; border-top: 1px solid var(--line); }
-}
-/* Portrait iPad: the markups panel becomes a sheet at the bottom whose height you drag. */
-body.portrait .work { flex-direction: column; overflow: hidden; }
-body.portrait .panel { overflow: hidden; min-height: 0; }
-body.portrait .viewer, body.narrow .viewer { min-height: 0; }
+@media (max-width: 899px) { .viewer { min-height: 0; } }
+/* Markups list at the bottom (Settings > Markups list, or portrait when Automatic): a sheet whose height you drag. */
+body.pbottom .work { flex-direction: column; overflow: hidden; }
+body.pbottom .panel { overflow: hidden; min-height: 0; }
+body.pbottom .viewer, body.narrow .viewer { min-height: 0; }
+body.pside.portrait .panel { width: 330px; }
 body.narrow #zoomOut, body.narrow #zoomIn, body.narrow #btnPalette, body.narrow #btnHelp, body.narrow #btnVersion, body.narrow #btnSave .lbl { display: none; }
 body.narrow #btnVersion.has-update { display: inline-flex; }
-body.portrait .panel { width: 100%; height: var(--sheet-h, 42%); max-height: 88%; border-left: 0; border-top: 1px solid var(--line); }
+body.pbottom .panel { width: 100%; height: var(--sheet-h, 42%); max-height: 88%; border-left: 0; border-right: 0; border-top: 1px solid var(--line); }
 body.portrait .drawer, body.narrow .drawer { position: absolute; left: 0; top: 0; bottom: 0; z-index: 9; box-shadow: var(--shadow); }
 .grab { display: none; height: 20px; flex: none; cursor: ns-resize; touch-action: none; position: relative; }
 .grab::after { content: ""; position: absolute; left: 50%; top: 7px; width: 44px; height: 5px; margin-left: -22px; border-radius: 3px; background: var(--line); }
-body.portrait .grab, body.narrow .grab { display: block; }
+body.pbottom .grab { display: block; }
 /* Toolbar at the bottom (portrait), within thumb reach; menus open upwards. */
 body.tb-bottom { flex-direction: column-reverse; }
 body.tb-bottom .topbar { padding: 8px calc(8px + env(safe-area-inset-right, 0px)) calc(8px + var(--safe-bottom)) calc(8px + env(safe-area-inset-left, 0px)); border-bottom: 0; border-top: 1px solid var(--line); }
@@ -460,10 +465,9 @@ body.narrow .modal { padding: calc(8px + var(--safe-top)) 8px calc(8px + var(--s
 body.narrow .modal .sheet { width: 100%; }
 body.narrow .tab { max-width: 150px; }
 /* Left-handed: markups panel on the left, pages drawer on the right */
-body.lefty .work { flex-direction: row-reverse; }
-body.lefty.portrait .work, body.lefty.narrow .work { flex-direction: column; }
-body.lefty .panel { border-left: 0; border-right: 1px solid var(--line); }
-body.lefty .drawer { border-right: 0; border-left: 1px solid var(--line); }
+body.pleft .work { flex-direction: row-reverse; }
+body.pleft .panel { border-left: 0; border-right: 1px solid var(--line); }
+body.pleft .drawer { border-right: 0; border-left: 1px solid var(--line); }
 /* Larger touch targets */
 body.big .tb { min-height: 52px; min-width: 52px; }
 body.big .btn { min-height: 46px; padding: 0 16px; }
@@ -760,12 +764,14 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <div class="grab" id="sheetGrab" title="Drag to resize" aria-label="Resize the markups panel"></div>
     <div class="panel-head">
       <h2>Markups</h2><span class="count" id="count2">0</span>
-      <button class="btn" id="btnExport" type="button" title="Export counts and markups to Excel or CSV, or place a legend" style="margin-left:auto">Export</button>
+      <button class="btn icon" id="btnPanelPos" type="button" aria-label="Move the markups list" style="margin-left:auto"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path class="pp-side" d="M15 4v16"/><path class="pp-bottom" d="M3 14h18"/></svg></button>
+      <button class="btn" id="btnExport" type="button" title="Export counts and markups to Excel or CSV, or place a legend">Export</button>
       <button class="btn x" id="btnClosePanel" type="button">Close</button>
     </div>
     <label class="author-row">Author <input id="author" placeholder="Your name (shows in Revu)" autocomplete="name"></label>
+    <div class="props-mini" id="propsMini" hidden><span class="t" id="pmTitle"></span><button class="btn" type="button" id="pmOpen">Properties</button></div>
     <section class="props" id="props" hidden>
-      <div class="title"><span id="propsTitle">1 markup</span><span class="meta" id="propsMeta"></span></div>
+      <div class="title"><span id="propsTitle">1 markup</span><span class="meta" id="propsMeta"></span><button class="btn hide-props" type="button" id="pmHide" title="Hide the properties">Hide</button></div>
       <label class="fld">Subject<input class="fld-in" id="pSubject" list="subjects" placeholder="e.g. Ellipse, Issue, Verify"></label>
       <datalist id="subjects"><option value="Ellipse"><option value="Rectangle"><option value="Pen"><option value="Issue"><option value="Verify"><option value="RFI"><option value="Note"></datalist>
       <div class="measure" id="pMeasure" hidden></div>
@@ -2192,7 +2198,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.0.0';
+var APP_VERSION = '3.1.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3385,6 +3391,12 @@ function layoutClasses() {
   b.classList.toggle('portrait', portrait || narrow);
   b.classList.toggle('tb-bottom', portrait && u.bottomBar !== false && !narrow);
   b.classList.toggle('lefty', !!u.lefty);
+  // Where the markups list goes: Automatic = bottom in portrait, side in landscape. Very narrow windows always use the bottom.
+  var pos = u.panelPos || 'auto', bottom = narrow || pos === 'bottom' || (pos === 'auto' && portrait);
+  b.classList.toggle('pbottom', bottom);
+  b.classList.toggle('pside', !bottom);
+  b.classList.toggle('pleft', !bottom && (pos === 'left' || (pos === 'auto' && !!u.lefty)));
+  var pb = $('#btnPanelPos'); if (pb) { pb.title = bottom ? 'Move the list to the side' : 'Move the list to the bottom'; pb.classList.toggle('is-bottom', bottom); }
   b.classList.toggle('big', !!u.big);
   if ($('#btnToolPick')) $('#btnToolPick').hidden = !(u.compact || narrow);
 }
@@ -3453,7 +3465,7 @@ function twoFingerTap(cx, cy, pts) {
     var el = document.elementFromPoint(q[0], q[1]), pe = el && el.closest ? el.closest('.page') : null; if (!pe) return false;
     pg = state.pages[+pe.dataset.index]; hit = hitTest(pg, toPdf(pg, q[0], q[1])); return !!hit;
   });
-  if (hit) { selectAnnot(hit, false); if ($('#panel').hidden) { $('#panel').hidden = false; renderVisible(); } layoutClasses(); return; }
+  if (hit) { state.propsOpen = true; selectAnnot(hit, false); if ($('#panel').hidden) { $('#panel').hidden = false; renderVisible(); } layoutClasses(); return; }
   if (state.history.length) { undo(); toast('Undo', 900); }
 }
 function onDown(e) {
@@ -4351,9 +4363,18 @@ function updateStyleChip() {
 }
 
 /* ---------- properties panel ---------- */
+// Compact list (Settings > Properties): the properties open when a markup is picked in the list
+// (or with a two-finger tap / the Properties button); picking on the drawing shows just a one-line bar.
+function propsCompact() { return (ui().propsMode || 'list') === 'list'; }
 function renderProps() {
   var s = selected(), box = $('#props');
-  box.hidden = !s.length;
+  if (!s.length) state.propsOpen = false;
+  var show = s.length && (!propsCompact() || state.propsOpen);
+  box.hidden = !show;
+  $('#pmHide').hidden = !propsCompact();
+  $('#propsMini').hidden = !s.length || !!show;
+  if (s.length && !show) { var a0 = s[0]; $('#pmTitle').textContent = s.length === 1 ? (a0.subject || typeLabel(a0.subtype, a0.intent)) + (MarkupIO.symLabel(a0) || a0.mtext ? ' \u00b7 ' + (MarkupIO.symLabel(a0) || a0.mtext) : '') + ' \u00b7 p. ' + pageLabel(a0.pageIndex) : s.length + ' markups selected'; }
+  $('#panel').classList.toggle('named', propsCompact() && !!(state.author || '').trim());
   if (!s.length) return;
   var a = s[0], same = function (k) { return s.every(function (x) { return x[k] === a[k]; }); };
   $('#propsTitle').textContent = s.length === 1 ? (a.sym ? (a.sym.n != null ? 'Number' : 'Symbol') : MKIND_LABEL[a.mkind] || typeLabel(a.subtype, a.intent)) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
@@ -4886,7 +4907,15 @@ function renderList() {
   rowsEl.innerHTML = html || '<div class="none">Nothing matches that filter.</div>';
   $$('.list-head button').forEach(function (b) { b.classList.toggle('on', b.dataset.key === k); b.textContent = b.textContent.replace(/[▲▼]\s*$/, '').trim() + (b.dataset.key === k ? (dir > 0 ? ' ▲' : ' ▼') : ''); });
 }
+$('#pmOpen').addEventListener('click', function () { state.propsOpen = true; renderProps(); });
+$('#pmHide').addEventListener('click', function () { state.propsOpen = false; renderProps(); });
+$('#btnPanelPos').addEventListener('click', function () {
+  var u = ui(), bottom = document.body.classList.contains('pbottom');
+  u.panelPos = bottom ? (u.lefty ? 'left' : 'right') : 'bottom'; saveUI(); layoutClasses(); renderVisible();
+  if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; }
+});
 $('#rows').addEventListener('click', function (e) {
+  if (e.target.closest && e.target.closest('.row') && !e.target.closest('[data-twist]')) state.propsOpen = true;
   if (e.target.id === 'moreRows') { state.listLimit = (state.listLimit || 250) + 250; renderList(); return; }
   var tw = e.target.closest ? e.target.closest('[data-twist]') : null;
   if (tw) { var id = tw.dataset.twist; if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id); renderList(); return; }
@@ -6136,7 +6165,9 @@ function openSettings() {
       row('Compact toolbar', chk('compact', u.compact), 'One tool button with a picker instead of every tool') +
       row('Floating quick palette', chk('palette', u.palette), 'A small bar of tools and favourites you can drag anywhere') +
       row('Toolbar at the bottom in portrait', chk('bottomBar', u.bottomBar !== false), 'Within reach of your thumb when holding the iPad upright') +
-      row('Left-handed', chk('lefty', u.lefty), 'Markups panel on the left; tool ring and palette away from your hand') +
+      row('Markups list', sel('panelPos', u.panelPos || 'auto', [['auto', 'Automatic'], ['right', 'Right side'], ['bottom', 'Bottom'], ['left', 'Left side']]), 'Automatic: at the bottom when the iPad is upright, at the side when it is sideways') +
+      row('Properties', sel('propsMode', u.propsMode || 'list', [['list', 'When picked in the list'], ['always', 'Whenever a markup is selected']]), 'Keeps the list roomy: tapping a markup on the drawing shows a one-line bar with a Properties button') +
+      row('Left-handed', chk('lefty', u.lefty), 'Tool ring and palette away from your hand (and the list on the left when Automatic)') +
       row('Larger touch targets', chk('big', u.big), 'Bigger buttons, colours and handles, for gloves or site use') + '</div>' +
     '<div class="setsec"><h3>Apple Pencil and touch</h3>' +
       row('Finger draws', chk('fingerDraw', state.fingerDraw), 'Otherwise a finger scrolls and pinches') +
@@ -6215,6 +6246,8 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'hover') { u.hover = v; if (!v) clearHover(); }
   else if (k === 'hold') u.hold = v;
   else if (k === 'symStamp') u.symStamp = v;
+  else if (k === 'panelPos') { u.panelPos = v; saveUI(); layoutClasses(); renderVisible(); if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } }
+  else if (k === 'propsMode') { u.propsMode = v; saveUI(); renderProps(); }
   else if (k === 'bottomBar' || k === 'lefty' || k === 'big') { u[k] = v; saveUI(); layoutClasses(); renderPalette(); renderVisible(); }
   else if (k === 'palm' || k === 'fingerTaps') u[k] = v;
   else if (k === 'holdMs') u.holdMs = +v;

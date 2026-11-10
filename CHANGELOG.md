@@ -2,6 +2,11 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.1.0 (compact markups list)
+- Markups list position: Settings > Markups list (Automatic, Right side, Bottom, Left side), or the new button in the list header to switch between side and bottom in one tap. Automatic keeps the old behaviour (bottom when upright, side when sideways).
+- Properties stay hidden until you pick a markup in the list, so the list has the room. Tapping a markup on the drawing shows a one-line bar (subject, label, page) with a Properties button; Hide folds them away again. A two-finger tap on a markup still opens its properties. Settings > Properties > "Whenever a markup is selected" brings back the old behaviour.
+- The Author box leaves the list once your name is set (change it in Settings > Your name).
+
 ## 3.0.0 (round 2, phase 7: native iPad app)
 - New `ios-app/` folder: a Capacitor 6 project that wraps the app as a native iPad app, with build and release steps in ios-app/README.md. Building it needs a Mac with Xcode; it was not built in this environment.
 - Apple Pencil plugin (Swift, UIPencilInteraction): double-tap and, on Apple Pencil Pro, squeeze follow the iPad's Apple Pencil setting: eraser and back, previous tool, the style menu, or the tool ring where the Pencil hovers.

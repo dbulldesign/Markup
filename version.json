@@ -1,5 +1,5 @@
 {
-  "version": "3.0.0",
+  "version": "3.1.0",
   "date": "2026-11-10",
-  "notes": "Native iPad app project (ios-app/) with Apple Pencil double-tap and squeeze; the website keeps working the same."
+  "notes": "Markups list at the right, bottom or left (button in the list header or Settings), and a roomier list: properties open only when you pick a markup in the list."
 }
