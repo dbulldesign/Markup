@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.12.0">
+<meta name="app-version" content="3.13.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -434,6 +434,14 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .counts { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--ink-2); align-items: center; }
 .counts[hidden] { display: none; }
 .counts .cx { border: 0; background: none; padding: 4px 6px 4px 0; font-weight: 600; color: var(--accent); cursor: pointer; }
+.stbar { display: flex; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--line); overflow-x: auto; scrollbar-width: none; flex: none; }
+.stbar::-webkit-scrollbar { display: none; }
+.stbar[hidden] { display: none; }
+.stbar button { flex: none; display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; }
+.stbar button b { font-variant-numeric: tabular-nums; }
+.stbar button.on { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.stbar button i { width: 8px; height: 8px; border-radius: 50%; background: var(--ink-2); }
+.stbar .s-accepted i { background: #2e7d32; } .stbar .s-rejected i { background: #c62828; } .stbar .s-completed i { background: #1a3e9a; } .stbar .s-cancelled i { background: #9e9e9e; } .stbar .s-open i { background: #f9a825; }
 .ctable { border-bottom: 1px solid var(--line); padding: 4px 10px 10px; max-height: 46%; overflow: auto; font-size: 13px; flex: none; }
 .ctable[hidden] { display: none; }
 .ctabs { display: flex; gap: 4px; padding: 4px 4px 8px; flex-wrap: wrap; position: sticky; top: -4px; background: var(--surface); z-index: 1; }
@@ -969,6 +977,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     </section>
     <div class="counts" id="counts" hidden></div>
     <div class="ctable" id="ctable" hidden></div>
+    <div class="stbar" id="stBar" hidden></div>
     <div class="filter"><input id="filter" placeholder="Filter by subject, comment, page or author" type="search"></div>
     <div class="list-head">
       <span class="lbl">Sort by</span>
@@ -2363,7 +2372,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.12.0';
+var APP_VERSION = '3.13.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -5230,6 +5239,7 @@ function sortVal(a, key) {
   }
 }
 function matchesFilter(a) {
+  if (state.statusFilter && (state.statusFilter === 'open' ? !!a.status : a.status !== state.statusFilter)) return false;
   var f = state.filter.trim().toLowerCase(); if (!f) return true;
   return [a.subject, a.contents, a.mtext, MarkupIO.symLabel(a), a.author, pageLabel(a.pageIndex), STATUS_LABEL[a.status] || ''].concat(a.fields ? Object.keys(a.fields).map(function (k) { return a.fields[k]; }) : []).some(function (v) { return String(v || '').toLowerCase().indexOf(f) >= 0; });
 }
@@ -5395,6 +5405,8 @@ async function summaryPdf() {
     page.drawText(clean(state.fileName + '  \u00b7  ' + new Date().toLocaleString() + (state.author ? '  \u00b7  ' + state.author : '') + '  \u00b7  ' + all.length + ' markups on ' + state.pages.length + ' pages'), { x: M, y: y - 10, size: 10, font: F, color: mute }); y -= 22;
     var c = countRows(null);
     var tli = c.head.indexOf('Total length');
+    var stN = {}; all.forEach(function (a) { var k = STATUS_LABEL[a.status] || 'Open (no status)'; stN[k] = (stN[k] || 0) + 1; });
+    heading('By status'); table(['Status', 'Markups'], Object.keys(stN).sort().map(function (k) { return [k, String(stN[k])]; }), [0.5, 0.5]);
     if (c.rows.length && tli >= 0) { heading('Counts'); table(['Subject', 'Label / numbers', 'Count', 'Pages', 'Total length'], c.rows.map(function (r) { return [r[0], r[1], String(r[2]), r[3], r[tli]]; }), [0.3, 0.22, 0.08, 0.22, 0.18]); }
     else if (c.rows.length) { heading('Counts'); table(['Subject', 'Label / numbers', 'Count', 'Pages'], c.rows.map(function (r) { return [r[0], r[1], String(r[2]), r[3]]; }), [0.34, 0.26, 0.1, 0.3]); }
     if (rooms().length) { var rr = roomRows(); heading('Counts by room'); table(rr.head, rr.rows.map(function (r) { return r.map(String); }), [0.2, 0.08, 0.14, 0.26, 0.24, 0.08]); }
@@ -5501,8 +5513,21 @@ function openExport() {
   $('#exportModal').hidden = false;
 }
 function closeExport() { $('#exportModal').hidden = true; }
+/* Status summary: how many markups are open (no status), accepted, rejected, completed or cancelled; tap to filter. */
+function renderStatusBar() {
+  var el = $('#stBar'); if (!el) return;
+  var all = live().filter(function (a) { return !(a.sym && a.sym.legend) && !a.legendKey; });
+  var n = { open: 0, accepted: 0, rejected: 0, completed: 0, cancelled: 0 };
+  all.forEach(function (a) { n[a.status && n[a.status] != null ? a.status : 'open']++; });
+  var anyStatus = n.accepted + n.rejected + n.completed + n.cancelled > 0;
+  el.hidden = !all.length || (!anyStatus && !state.statusFilter && ui().statusBar !== true);
+  if (el.hidden) return;
+  var f = state.statusFilter || '';
+  var chip = function (k, label, v) { if (k && !v && f !== k) return ''; return '<button type="button" data-st="' + k + '" class="s-' + (k || 'all') + (f === k ? ' on' : '') + '">' + (k ? '<i></i>' : '') + label + ' <b>' + v + '</b></button>'; };
+  el.innerHTML = chip('', 'All', all.length) + chip('open', 'Open', n.open) + chip('accepted', 'Accepted', n.accepted) + chip('rejected', 'Rejected', n.rejected) + chip('completed', 'Completed', n.completed) + chip('cancelled', 'Cancelled', n.cancelled);
+}
 function renderCounts() {
-  refreshLegends();
+  refreshLegends(); renderStatusBar();
   setTimeout(renderCountTable, 0);
   var by = {}, order = [];
   var lists = {};
@@ -5594,6 +5619,10 @@ function scheduleCheckHTML(list) {
   } else html += '<div class="chead">Everything placed is on a schedule</div>';
   return html;
 }
+$('#stBar').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-st]') : null; if (!b) return;
+  state.statusFilter = b.dataset.st === state.statusFilter ? '' : b.dataset.st; state.listLimit = 250; renderList();
+});
 $('#ctable').addEventListener('click', function (e) {
   var t = e.target.closest ? e.target.closest('[data-ctab]') : null;
   if (t) { state.ctTab = t.dataset.ctab; renderCountTable(); return; }

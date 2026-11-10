@@ -1,5 +1,5 @@
 {
-  "version": "3.12.0",
+  "version": "3.13.0",
   "date": "2026-11-10",
-  "notes": "Lasso select, Pencil-only toggle on the palette, tool-in-use label, haptics, and no blank pages while zooming."
+  "notes": "Status summary in the markups list (open, accepted, rejected, completed, cancelled) with one-tap filters."
 }

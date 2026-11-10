@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.13.0 (status summary)
+- Status summary in the markups list: once any markup has a status, a strip shows All, Open (no status), Accepted, Rejected, Completed and Cancelled with counts. Tap one to show only those markups (works together with the text filter); tap it again for all. Counts update as statuses change, including statuses set in Revu.
+- The printable summary starts with a By status table.
+
 ## 3.12.0 (iPad feel)
 - Lasso tool (after Select): draw a loop with the Pencil around fixtures in any shape; everything whose middle is inside is selected (whole groups), ready for the selection bar. With Multi-select on, the lasso adds to the selection.
 - Pencil-only toggle on the floating palette (hand icon): crossed out = Pencil only, fingers scroll, zoom and select; on = fingers draw too. Same as Settings > Finger draws.
