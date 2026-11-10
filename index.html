@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="2.8.0">
+<meta name="app-version" content="2.9.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -200,6 +200,9 @@ body.compact #measureTools > [data-tool] { display: none; }
 body.narrow #saveName { width: 120px; }
 .meter { flex: none; width: 90px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
 .meter i { display: block; height: 100%; width: var(--p); background: var(--accent); }
+.page svg .vp { pointer-events: none; }
+.polybar .fld-in { width: 120px; min-width: 0; }
+.polybar .pb-x { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted, #666); }
 .more-rows { display: block; width: calc(100% - 24px); margin: 10px 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--accent, #2a5bd7); font: inherit; font-weight: 600; cursor: pointer; }
 .tab { flex: none; display: inline-flex; align-items: center; gap: 4px; max-width: 240px; min-height: 34px; padding: 0 4px 0 12px; border-radius: 9px; font-size: 13px; color: var(--ink-2); cursor: pointer; border: 0; background: transparent; }
 .tab .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -560,6 +563,12 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <button class="tb" type="button" data-tool="perimeter" title="Measure a perimeter: tap each point, tap the last point again (or Finish) to end" aria-label="Perimeter">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18 8 6l8 4 4 8"/><circle cx="4" cy="18" r="1.5"/><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="10" r="1.5"/><circle cx="20" cy="18" r="1.5"/></svg><span class="lbl">Perimeter</span>
     </button>
+    <button class="tb" type="button" data-tool="wall" title="Wall area: tap along the wall, then Finish; area = length × the height you type" aria-label="Wall area">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V8l6-3 12 4v11"/><path d="M3 20h18M9 5v15M3 14h6M9 12h12"/></svg><span class="lbl">Wall</span>
+    </button>
+    <button class="tb" type="button" data-tool="run" title="Linear run: draw a path, then symbols are placed along it at a spacing or count" aria-label="Linear run">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 18 L10 9 L21 9"/><circle cx="3.5" cy="17.5" r="1.8"/><circle cx="10" cy="9" r="1.8"/><circle cx="15.5" cy="9" r="1.8"/><circle cx="21" cy="9" r="1.8"/></svg><span class="lbl">Run</span>
+    </button>
     <button class="tb" type="button" data-tool="angle" title="Measure an angle: tap one end, the corner, then the other end" aria-label="Angle">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 19H4L15 5"/><path d="M9 19a6 6 0 0 0-1.6-4.2"/></svg><span class="lbl">Angle</span>
     </button>
@@ -693,6 +702,9 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
   </div>
   <div class="polybar" id="polyBar" hidden>
     <span class="info" id="polyInfo"></span>
+    <label class="pb-x" id="pbLenW" hidden>Next<input class="fld-in" id="polyLen" placeholder="12'-6&quot; @ 90" autocomplete="off" spellcheck="false" enterkeyhint="done" aria-label="Type the length of the next segment (optionally @ angle)"></label>
+    <label class="pb-x" id="pbWallW" hidden>Height<input class="fld-in" id="pbWallH" autocomplete="off" spellcheck="false" aria-label="Wall height"></label>
+    <span class="pb-x" id="pbRunW" hidden><select class="fld-in" id="pbRunMode" aria-label="Place symbols by"><option value="sp">Every</option><option value="n">Count</option></select><input class="fld-in" id="pbRunV" autocomplete="off" spellcheck="false" aria-label="Spacing or count"><label class="pb-x"><input type="checkbox" id="pbRunEnds"> at ends</label></span>
     <button class="btn" id="polyUndo" type="button">Undo point</button>
     <button class="btn" id="polyCancel" type="button">Cancel</button>
     <button class="btn primary" id="polyDone" type="button">Finish</button>
@@ -807,7 +819,8 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <label class="fld">Area units<select id="msArea"><option value="auto">sf / m&#xB2;</option><option value="sy">Square yards</option><option value="acre">Acres</option><option value="ha">Hectares</option></select></label>
       <label class="fld">Angle decimals<select id="msAdec"><option value="0">0</option><option value="1">1</option><option value="2">2</option></select></label>
     </div>
-    <label class="fld">Apply to<select id="scApply"><option value="page">This page</option><option value="all">All pages</option></select></label>
+    <label class="fld">Apply to<select id="scApply"><option value="page">This page</option><option value="all">All pages</option><option value="area">An area of this page (draw a box)</option></select></label>
+    <div id="scAreas"></div>
     <div class="result" id="scResult"></div>
     <div class="actions">
       <button class="btn danger" id="scRemove" type="button">Remove</button>
@@ -1026,25 +1039,35 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       X: x, D: [nf(unit, 1)], A: [nf(AREA_LABEL[s.unit] || ('sq ' + unit), 1)], O: [0, 0]
     });
   }
-  function readScales(doc) {
+  /* Page /VP viewports: one covering (nearly) the whole page is the page scale; smaller ones are
+     scale areas (a detail or enlarged plan drawn at another scale), the way Revu stores them. */
+  function readViewports(doc) {
     var L = lib(), ctx = doc.context, N = function (k) { return L.PDFName.of(k); };
     return doc.getPages().map(function (page) {
+      var out = { sc: null, vps: [] };
       try {
         var vp = ctx.lookup(page.node.get(N('VP')));
-        if (!(vp instanceof L.PDFArray)) return null;
+        if (!(vp instanceof L.PDFArray)) return out;
+        var mb = page.getMediaBox(), pa = mb.width * mb.height, all = [];
         for (var i = 0; i < vp.size(); i++) {
           var d = ctx.lookup(vp.get(i)); if (!(d instanceof L.PDFDict)) continue;
-          var m = readMeasure(ctx, d.get(N('Measure'))); if (m) return m;
+          var m = readMeasure(ctx, d.get(N('Measure'))); if (!m) continue;
+          var bb = numsOf(ctx, d.get(N('BBox'))), box = bb && bb.length === 4 ? [Math.min(bb[0], bb[2]), Math.min(bb[1], bb[3]), Math.max(bb[0], bb[2]), Math.max(bb[1], bb[3])] : null;
+          all.push({ sc: m, bbox: box, name: textOf(ctx.lookup(d.get(N('Name')))) || '', big: !box || (box[2] - box[0]) * (box[3] - box[1]) >= pa * 0.9 });
         }
+        if (all.length === 1) { out.sc = all[0].sc; return out; }
+        all.forEach(function (v) { if (v.big && !out.sc) out.sc = v.sc; else if (v.bbox) out.vps.push({ bbox: v.bbox, sc: v.sc, name: v.name || 'Scale area' }); });
       } catch (e) { /* no viewport scale */ }
-      return null;
+      return out;
     });
   }
+  function readScales(doc) { return readViewports(doc).map(function (v) { return v.sc; }); }
 
   async function readDocument(bytes) {
     var L = lib();
     var doc = await L.PDFDocument.load(bytes, { ignoreEncryption: true, updateMetadata: false });
-    return { annots: readFromDoc(doc), scales: readScales(doc) };
+    var vw = readViewports(doc);
+    return { annots: readFromDoc(doc), scales: vw.map(function (v) { return v.sc; }), vps: vw.map(function (v) { return v.vps; }) };
   }
   async function readMarkups(bytes) { return (await readDocument(bytes)).annots; }
 
@@ -1129,9 +1152,10 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
         }
         var measure = readMeasure(ctx, dict.get(N('Measure')));
         // Angle, radius/diameter and area cut-outs made by this app: /PMMeasure.
-        var mkind = null, mctr = null, mrad = null, holes = null, pmm = ctx.lookup(dict.get(N('PMMeasure')));
+        var mkind = null, mctr = null, mrad = null, holes = null, wallH = null, runN = null, pmm = ctx.lookup(dict.get(N('PMMeasure')));
         if (pmm instanceof L.PDFDict) {
           mkind = nameOf(pmm.get(N('Kind')));
+          wallH = numOf(ctx.lookup(pmm.get(N('H'))), null); runN = numOf(ctx.lookup(pmm.get(N('RN'))), null);
           var cc0 = numsOf(ctx, pmm.get(N('C'))); if (cc0 && cc0.length >= 2) mctr = [cc0[0], cc0[1]];
           mrad = numOf(ctx.lookup(pmm.get(N('R'))), null);
           var hs0 = ctx.lookup(pmm.get(N('Holes')));
@@ -1177,7 +1201,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
           le: le, cloud: subtype === 'Polygon' && (cloudy || intent === 'PolygonCloud'), cr: null,
           box: ftBox, tip: ftTip, fs: ftFs, textColor: ftTc, fields: fields, bold: ftBold, legendKey: ftLK, legendScope: ftLS,
           cloudI: (be instanceof L.PDFDict) ? numOf(ctx.lookup(be.get(N('I'))), 1) : null,
-          mkind: mkind === 'area' ? null : mkind, ctr: mctr, rad: mrad, holes: holes,
+          mkind: mkind === 'area' ? null : mkind, ctr: mctr, rad: mrad, holes: holes, wallH: wallH, runN: runN,
           rect: [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])],
           inkList: inkList,
           color: colorOf(ctx, dict.get(N('C'))), fillColor: colorOf(ctx, dict.get(N('IC'))),
@@ -1585,6 +1609,8 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       if (a.ctr) pm.C = [fix(a.ctr[0]), fix(a.ctr[1])];
       if (a.rad != null) pm.R = fix(a.rad);
       if (a.holes && a.holes.length) pm.Holes = a.holes.map(function (h) { return h.reduce(function (acc, q) { acc.push(fix(q[0]), fix(q[1])); return acc; }, []); });
+      if (a.wallH != null) pm.H = fix(a.wallH, 6);
+      if (a.runN != null) pm.RN = a.runN;
       dict.set(N('PMMeasure'), ctx.obj(pm));
     };
     var setGeometry = function (dict, a) {
@@ -1738,17 +1764,16 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     });
 
     // 5. Page scales (calibration) as a /VP viewport covering the page, the way Revu stores them
-    var scales = opts.scales || {};
+    var scales = opts.scales || {}, vps = opts.vps || {};
     Object.keys(scales).forEach(function (k) {
       var page = pages[+k]; if (!page) return;
-      var sc = scales[k];
-      if (!sc) { page.node.delete(N('VP')); return; }
-      var mb = page.getMediaBox();
-      page.node.set(N('VP'), ctx.obj([{
-        Type: 'Viewport', Name: L.PDFString.of('Scale'),
-        BBox: [fix(mb.x), fix(mb.y), fix(mb.x + mb.width), fix(mb.y + mb.height)],
-        Measure: measureDict(ctx, sc)
-      }]));
+      var sc = scales[k], arr = [];
+      if (sc) {
+        var mb = page.getMediaBox();
+        arr.push({ Type: 'Viewport', Name: L.PDFString.of('Scale'), BBox: [fix(mb.x), fix(mb.y), fix(mb.x + mb.width), fix(mb.y + mb.height)], Measure: measureDict(ctx, sc) });
+      }
+      (vps[k] || []).forEach(function (v) { arr.push({ Type: 'Viewport', Name: L.PDFHexString.fromText(v.name || 'Scale area'), BBox: v.bbox.map(function (x) { return fix(x); }), Measure: measureDict(ctx, v.sc) }); });
+      if (arr.length) page.node.set(N('VP'), ctx.obj(arr)); else page.node.delete(N('VP'));
     });
 
     return await doc.save({ useObjectStreams: false });
@@ -2002,7 +2027,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '2.8.0';
+var APP_VERSION = '2.9.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2027,7 +2052,10 @@ var TOOLS = {
   angle: { sub: 'PolyLine', subj: 'Angle Measurement', name: 'Angle', poly: true, maxPts: 3, mkind: 'angle' },
   radius: { sub: 'Circle', subj: 'Radius Measurement', name: 'Radius', measure: true, mkind: 'radius', centerDrag: true },
   diameter: { sub: 'Circle', subj: 'Diameter Measurement', name: 'Diameter', measure: true, mkind: 'diameter', centerDrag: true },
-  cutout: { sub: 'Polygon', subj: '', name: 'Cut-out', poly: true, closed: true, cutout: true }
+  cutout: { sub: 'Polygon', subj: '', name: 'Cut-out', poly: true, closed: true, cutout: true },
+  wall: { sub: 'PolyLine', subj: 'Wall Area', name: 'Wall area', intent: 'PolyLineDimension', measure: true, poly: true, mkind: 'wall' },
+  run: { sub: 'PolyLine', subj: 'Linear Run', name: 'Run', intent: 'PolyLineDimension', measure: true, poly: true, mkind: 'run' },
+  scalebox: { sub: 'Square', subj: '', name: 'Scale area', scalebox: true }
 };
 var STAMPS = ['APPROVED', 'APPROVED AS NOTED', 'REVISE AND RESUBMIT', 'REJECTED', 'FOR REVIEW', 'VERIFY IN FIELD', 'NOT IN SCOPE', 'DRAFT', 'VOID'];
 var UNIT_M = { ft: 0.3048, 'in': 0.0254, m: 1, cm: 0.01, mm: 0.001 };
@@ -2083,6 +2111,7 @@ function fmtDate(iso) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 var TYPE_LABEL = { Circle: 'Ellipse', Square: 'Rectangle', Ink: 'Pen', FreeText: 'Text', Text: 'Note', Line: 'Line', Polygon: 'Polygon', PolyLine: 'Polyline', Highlight: 'Highlight', Underline: 'Underline', StrikeOut: 'Strikeout', Squiggly: 'Squiggly', Stamp: 'Stamp', FileAttachment: 'Attachment', Caret: 'Caret' };
+var MKIND_LABEL = { wall: 'Wall area', run: 'Linear run', angle: 'Angle', radius: 'Radius', diameter: 'Diameter' };
 var INTENT_LABEL = { LineDimension: 'Length', PolyLineDimension: 'Perimeter', PolygonDimension: 'Area', PolygonCloud: 'Cloud', FreeTextCallout: 'Callout' };
 function typeLabel(sub, intent) { return INTENT_LABEL[intent] || TYPE_LABEL[sub] || sub || 'Markup'; }
 function pageLabel(i) { return (state.labels && state.labels[i]) ? state.labels[i] : String(i + 1); }
@@ -2147,8 +2176,18 @@ function measureText(a) {
   var k = measureKind(a); if (!k) return '';
   if (k === 'angle') return a.vertices && a.vertices.length === 3 ? numFmt(angleAt(a.vertices), +mset().adec) + '\u00b0' : '';
   if (k === 'radius' || k === 'diameter') return a.measure && a.rad ? (k === 'radius' ? 'R ' : 'Dia ') + fmtLength(a.rad * (k === 'radius' ? 1 : 2) * a.measure.factor, a.measure) : '';
+  if (k === 'run' && a.vertices && !a.measure) return a.runN ? a.runN + ' along the run' : '';
   if (!a.vertices || !a.measure) return '';
   if (k === 'area') return a.vertices.length < 3 ? '' : fmtArea(netArea(a) * a.measure.factor * a.measure.factor, a.measure);
+  if (k === 'wall') {
+    // Wall area: run length along the wall times its height.
+    var wl = polyLength(a.vertices) * a.measure.factor, wh = +a.wallH || 0;
+    return wh > 0 ? fmtLength(wl, a.measure) + ' \u00d7 ' + fmtLength(wh, a.measure) + ' = ' + fmtArea(wl * wh, a.measure) : fmtLength(wl, a.measure);
+  }
+  if (k === 'run') {
+    var rl = polyLength(a.vertices) * a.measure.factor;
+    return fmtLength(rl, a.measure) + (a.runN ? ' \u00b7 ' + a.runN + (a.runN > 1 ? ' @ ' + fmtLength(rl / (a.runEnds === false ? a.runN : Math.max(1, a.runN - 1)), a.measure) : '') : '');
+  }
   return fmtLength(polyLength(a.vertices) * a.measure.factor, a.measure);
 }
 function defaultLabelSize(pageIndex) {
@@ -2212,6 +2251,12 @@ function updateGeom(a) {
 }
 function copyScale(sc) { return sc ? { factor: sc.factor, unit: sc.unit, fmt: sc.fmt, label: sc.label || '', ratio: sc.ratio || '' } : null; }
 function scaleFor(pageIndex) { return state.scales[pageIndex] || null; }
+// The scale that applies at a point: a scale area (detail drawn at another scale) if the point is in one, else the page scale.
+function scaleAt(pageIndex, pt) {
+  var vs = (state.vps && state.vps[pageIndex]) || [];
+  for (var i = vs.length - 1; i >= 0; i--) { var b = vs[i].bbox; if (pt && pt[0] >= b[0] && pt[0] <= b[2] && pt[1] >= b[1] && pt[1] <= b[3]) return vs[i].sc; }
+  return scaleFor(pageIndex);
+}
 function fracParse(t) {
   t = String(t).trim(); if (!t) return NaN;
   var m = /^(\d+(?:\.\d+)?)?\s*(?:(\d+)\s*\/\s*(\d+))?$/.exec(t);
@@ -2303,12 +2348,12 @@ function pushHistory(tag) {
 function histBytes(h) { var n = 0; for (var i = 0; i < h.length; i++) n += h[i].length; return n; }
 function trimHistory(h) { while (h.length > 3 && histBytes(h) > 40e6) h.shift(); }
 function lastFit(h, max) { var out = [], n = 0; for (var i = h.length - 1; i >= 0 && out.length < 25; i--) { n += h[i].length; if (n > max) break; out.unshift(h[i]); } return out; }
-function snapshot() { return JSON.stringify({ a: state.annots, s: state.scales, d: Array.from(state.scaleDirty || []) }); }
+function snapshot() { return JSON.stringify({ a: state.annots, s: state.scales, v: state.vps || [], d: Array.from(state.scaleDirty || []) }); }
 function restore(json) {
   var touched = new Set(live().map(function (a) { return a.pageIndex; }));
   var o = JSON.parse(json);
   if (Array.isArray(o)) state.annots = o;
-  else { state.annots = o.a; state.scales = o.s || []; state.scaleDirty = new Set(o.d || []); updateScaleButton(); }
+  else { state.annots = o.a; state.scales = o.s || []; state.vps = o.v || []; state.scaleDirty = new Set(o.d || []); updateScaleButton(); state.pages.forEach(drawOverlay); }
   live().forEach(function (a) { touched.add(a.pageIndex); });
   var ids = new Set(live().map(function (a) { return a.id; }));
   state.sel = new Set(Array.from(state.sel).filter(function (id) { return ids.has(id); }));
@@ -2576,7 +2621,7 @@ async function saveSession() {
   if (!state.pdf || !state.docId) return false;
   var v = $('#viewer');
   var ses = {
-    v: 1, docId: state.docId, name: state.fileName, annots: state.annots, scales: state.scales,
+    v: 1, docId: state.docId, name: state.fileName, annots: state.annots, scales: state.scales, vps: state.vps || [],
     scaleDirty: Array.from(state.scaleDirty), series: state.series, nextId: state.nextId,
     history: lastFit(state.history, 6e6), future: lastFit(state.future, 2e6),
     zoom: state.zoom, sx: v.scrollWidth ? v.scrollLeft / v.scrollWidth : 0, sy: v.scrollHeight ? v.scrollTop / v.scrollHeight : 0,
@@ -2614,6 +2659,7 @@ async function loadKept(id) {
     if (ses && ses.docId === doc.id) {
       state.annots = ses.annots || state.annots;
       if (ses.scales) state.scales = ses.scales;
+      if (ses.vps) state.vps = ses.vps;
       state.scaleDirty = new Set(ses.scaleDirty || []);
       if (ses.series) state.series = ses.series;
       if (ses.nextId) state.nextId = ses.nextId;
@@ -2666,7 +2712,7 @@ async function loadPdf(bytes, name, opts) {
   var read = { annots: [], scales: [] };
   try { read = await MarkupIO.readDocument(bytes); }
   catch (e) { console.warn(e); toast('Existing markups in this file could not be read. New markups still work.', 5000); }
-  state.annots = read.annots; state.scales = read.scales || []; state.scaleDirty = new Set();
+  state.annots = read.annots; state.scales = read.scales || []; state.vps = read.vps || []; state.scaleDirty = new Set();
   state.sel = new Set(); state.history = []; state.future = []; state.nextId = 1;
   if (state.draft) { state.draft = null; updatePolyBar(); }
   state.series = { defs: {}, cur: null }; state.hideSubj = new Set(); state.hideAll = false;
@@ -3010,6 +3056,14 @@ function drawOverlay(p) {
     if (a.deleted || a.pageIndex !== p.index || !state.sel.has(a.id)) return;
     html += selectionSVG(a, p, single === a);
   });
+  var vps0 = state.vps && state.vps[p.index], T0 = TOOLS[state.tool];
+  if (vps0 && vps0.length && ((T0 && (T0.measure || T0.calibrate || T0.scalebox)) || !$('#scaleModal').hidden)) {
+    vps0.forEach(function (v) {
+      var r = viewRect(p, v.bbox);
+      html += '<g class="vp"><rect x="' + r[0] + '" y="' + r[1] + '" width="' + (r[2] - r[0]) + '" height="' + (r[3] - r[1]) + '" fill="rgba(42,91,215,.04)" stroke="#2a5bd7" stroke-width="1.2" stroke-dasharray="6 4"/>' +
+        '<text x="' + (r[0] + 6) + '" y="' + (r[1] + 15) + '" font-size="12" font-family="-apple-system, Helvetica, Arial, sans-serif" fill="#2a5bd7">' + esc(v.name + ' \u00b7 ' + scaleLabel(v.sc)) + '</text></g>';
+    });
+  }
   if (p.temp) html += shapeSVG(p.temp, p, false);
   if (p.ghost) html += '<g class="ghost">' + shapeSVG(p.ghost, p, false) + '</g>';
   if (p.hoverA && !state.sel.has(p.hoverA.id)) { var hv = viewRect(p, p.hoverA.rect); html += '<rect x="' + (hv[0] - 3) + '" y="' + (hv[1] - 3) + '" width="' + (hv[2] - hv[0] + 6) + '" height="' + (hv[3] - hv[1] + 6) + '" fill="rgba(42,91,215,.06)" stroke="#2a5bd7" stroke-width="1" stroke-dasharray="3 3"/>'; }
@@ -3420,7 +3474,7 @@ function newAnnot(tool, pageIndex, pt, opts) {
   var a = {
     id: 'n' + (state.nextId++), isNew: true, deleted: false, dirty: true, geomDirty: false, styleDirty: false, owned: true,
     subtype: sub, intent: T.intent || null, pageIndex: pageIndex, rect: [pt[0], pt[1], pt[0], pt[1]], inkList: sub === 'Ink' ? [[pt]] : null,
-    vertices: T.poly ? [pt] : T.line ? [pt, pt] : null, measure: T.measure ? copyScale(scaleFor(pageIndex)) : null,
+    vertices: T.poly ? [pt] : T.line ? [pt, pt] : null, measure: T.measure ? copyScale(scaleAt(pageIndex, pt)) : null,
     lsize: null, mtext: '', lpos: null, rot: pageRot(pageIndex),
     color: hexToRgb(T.calibrate ? '#2a5bd7' : st.color), fillColor: (st.fill && MarkupIO.FILLABLE.has(sub) && !T.calibrate) ? hexToRgb(st.fillColor || st.color) : null,
     fillOpacity: st.fillOpacity, highlight: st.highlight, opacity: st.opacity, lineWidth: T.calibrate ? 1.5 : st.lineWidth,
@@ -3429,6 +3483,8 @@ function newAnnot(tool, pageIndex, pt, opts) {
     author: state.author, date: new Date().toISOString(), parentId: null, nm: MarkupIO.makeNM()
   };
   a.le = T.le ? T.le.slice() : null;
+  if (T.scalebox) { a.scalebox = true; a.color = hexToRgb('#2a5bd7'); a.fillColor = hexToRgb('#2a5bd7'); a.fillOpacity = 0.08; a.lineWidth = 1.5; a.opacity = 1; }
+  if (tool === 'wall') { var wsc = a.measure; a.wallH = wsc ? parseLength(String(ui().wallH || (wsc.unit === 'm' ? '3' : "10'")), wsc.fmt) : null; if (!(a.wallH > 0)) a.wallH = wsc && wsc.unit === 'm' ? 3 : 10; }
   if (T.mkind) { a.mkind = T.mkind; if (T.centerDrag) { a.ctr = pt.slice(); a.rad = 0; a.fillColor = null; } }
   if (T.cloud) { a.cloud = true; a.cr = clamp(defaultLabelSize(pageIndex) * 0.9, 5, 24); }
   if (T.highlighter) { a.highlight = true; a.opacity = Math.min(st.opacity, 0.45); a.lineWidth = Math.max(st.lineWidth, 8); }
@@ -3557,6 +3613,7 @@ function finishDraw(g) {
   }
   else ok = (a.rect[2] - a.rect[0]) > min && (a.rect[3] - a.rect[1]) > min;
   if (!ok) { drawOverlay(p); return; }
+  if (a.scalebox) { addViewport(p, a.rect); return; }
   if (a.subtype === 'FreeText') { commitNew(a); openTextEditor(a); return; }
   if (TOOLS[state.tool] && TOOLS[state.tool].calibrate) { drawOverlay(p); finishCalibrateLine(p, polyLength(a.vertices)); return; }
   commitNew(a);
@@ -3732,7 +3789,38 @@ function finishDraft() {
   if (T.cutout) { addCutout(d.p, d.committed.slice()); updatePolyBar(); return; }
   a.vertices = d.committed.slice(); updateGeom(a);
   updatePolyBar();
+  if (d.tool === 'run') { finishRun(d.p, a); return; }
   commitNew(a);
+}
+// Points spaced evenly along a path: n points, at both ends or centred in n equal parts.
+function pointsAlong(v, n, ends) {
+  var segs = [], L = 0; for (var i = 1; i < v.length; i++) { var l = Math.hypot(v[i][0] - v[i - 1][0], v[i][1] - v[i - 1][1]); segs.push(l); L += l; }
+  var at = function (t) { for (var i = 0; i < segs.length; i++) { if (t <= segs[i] || i === segs.length - 1) { var f = segs[i] ? Math.min(1, t / segs[i]) : 0; return [v[i][0] + (v[i + 1][0] - v[i][0]) * f, v[i][1] + (v[i + 1][1] - v[i][1]) * f]; } t -= segs[i]; } return v[v.length - 1].slice(); };
+  var out = []; for (var k = 0; k < n; k++) out.push(at(ends ? (n === 1 ? L / 2 : L * k / (n - 1)) : L * (k + 0.5) / n));
+  return out;
+}
+function finishRun(p, a) {
+  var ro = runOpt(), ends = ro.ends !== false, L = polyLength(a.vertices), n;
+  if (ro.mode === 'n') n = parseInt(ro.n, 10);
+  else {
+    if (!a.measure) { toast('Set a scale for spacing, or switch to Count.', 4500); a.runN = null; commitNew(a); return; }
+    var sp = parseLength(ro.sp, a.measure.fmt) / a.measure.factor;
+    if (!(sp > 0)) { toast('Type a spacing such as 10\' or 3.5.'); return; }
+    n = Math.max(1, Math.round(L / sp) + (ends ? 1 : 0));
+  }
+  if (!(n >= 1) || n > 2000) { toast('Pick a count between 1 and 2000.'); return; }
+  a.runN = n; a.runEnds = ends; a.subject = 'Linear Run'; updateGeom(a);
+  pushHistory();
+  state.annots.push(a);
+  var ids = [a.id], symTool = state.runSymTool === 'numbered' ? 'numbered' : 'symbol';
+  pointsAlong(a.vertices, n, ends).forEach(function (q) {
+    var s0 = newAnnot(symTool, p.index, q);
+    if (s0.sym && s0.sym.n != null) { s0.sym.n = nextNumber(s0.sym.series); }
+    s0.parentId = a.id; state.annots.push(s0); ids.push(s0.id);
+  });
+  state.sel = new Set(ids);
+  drawOverlay(p); markUnsaved(); renderList(); afterSelectionChange(); updateSeqBar();
+  toast(n + ' symbol' + (n > 1 ? 's' : '') + ' placed along the run' + (a.mtext ? ' (' + a.mtext + ')' : '') + ', grouped with it.', 4500);
 }
 function cancelDraft() {
   var d = state.draft; if (!d) return;
@@ -3750,7 +3838,38 @@ function updatePolyBar() {
   $('#polyInfo').innerHTML = '<b>' + esc(T.name) + '</b> · ' + n + (n === 1 ? ' point' : ' points') + (d.a.mtext ? ' · <b>' + esc(d.a.mtext) + '</b>' : '');
   $('#polyDone').disabled = n < (T.closed ? 3 : 2);
   $('#polyUndo').disabled = n < 1;
+  $('#pbLenW').hidden = !(T.measure && d.a.measure && n >= 1);
+  $('#pbWallW').hidden = d.tool !== 'wall' || !d.a.measure;
+  if (d.tool === 'wall' && document.activeElement !== $('#pbWallH')) $('#pbWallH').value = d.a.wallH ? fmtLength(d.a.wallH, d.a.measure).replace(/ (ft|m|in|cm|mm)$/, ' $1') : '';
+  $('#pbRunW').hidden = d.tool !== 'run';
+  if (d.tool === 'run') { var ro = runOpt(); if (document.activeElement !== $('#pbRunV')) $('#pbRunV').value = ro.mode === 'n' ? ro.n : ro.sp; $('#pbRunMode').value = ro.mode; $('#pbRunEnds').checked = ro.ends !== false; }
 }
+function runOpt() { var u = ui(); return u.run || (u.run = { mode: 'sp', sp: "10'", n: '4', ends: true }); }
+$('#pbRunMode').addEventListener('change', function () { var ro = runOpt(); ro.mode = $('#pbRunMode').value; saveUI(); updatePolyBar(); });
+$('#pbRunV').addEventListener('change', function () { var ro = runOpt(); if (ro.mode === 'n') ro.n = $('#pbRunV').value.trim(); else ro.sp = $('#pbRunV').value.trim(); saveUI(); });
+$('#pbRunEnds').addEventListener('change', function () { runOpt().ends = $('#pbRunEnds').checked; saveUI(); });
+$('#pbWallH').addEventListener('change', function () {
+  var d = state.draft; if (!d || !d.a.measure) return;
+  var h = parseLength($('#pbWallH').value, d.a.measure.fmt); if (!(h > 0)) { toast('Type a height, for example 10\' or 9\'-6".'); return; }
+  d.a.wallH = h; ui().wallH = $('#pbWallH').value.trim(); saveUI(); refreshDraft();
+});
+/* Type the next segment's length (and optionally "@ angle", 0 = right, 90 = up) instead of tapping. */
+function placeTypedLength() {
+  var d = state.draft; if (!d || !d.a.measure) return;
+  var raw = $('#polyLen').value, parts = raw.split('@'), len = parseLength(parts[0], d.a.measure.fmt);
+  if (!(len > 0)) { toast('Type a length such as 12\'-6" (add @ 90 for a direction).'); return; }
+  var c = d.committed, last = c[c.length - 1], dir = null, rot = (pageRot(d.p.index) || 0) * Math.PI / 180;
+  if (parts.length > 1 && parts[1].trim() !== '' && isFinite(+parts[1])) { var ang = +parts[1] * Math.PI / 180 - rot; dir = [Math.cos(ang), Math.sin(ang)]; }
+  else if (d.live && Math.hypot(d.live[0] - last[0], d.live[1] - last[1]) > 1e-3) dir = [d.live[0] - last[0], d.live[1] - last[1]];
+  else if (c.length >= 2) dir = [last[0] - c[c.length - 2][0], last[1] - c[c.length - 2][1]];
+  else { dir = [Math.cos(-rot), Math.sin(-rot)]; }
+  var dl = Math.hypot(dir[0], dir[1]) || 1, th = Math.atan2(dir[1] / dl, dir[0] / dl);
+  if (parts.length < 2) { var q45 = Math.round(th / (Math.PI / 4)) * Math.PI / 4; if (Math.abs(q45 - th) < 4 * Math.PI / 180) th = q45; }
+  var pts = len / d.a.measure.factor, np = [last[0] + Math.cos(th) * pts, last[1] + Math.sin(th) * pts];
+  c.push(np); d.live = null; $('#polyLen').value = ''; refreshDraft();
+  var T = TOOLS[d.tool]; if (T.maxPts && c.length >= T.maxPts) finishDraft();
+}
+$('#polyLen').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); placeTypedLength(); } });
 $('#polyDone').addEventListener('click', finishDraft);
 $('#polyCancel').addEventListener('click', cancelDraft);
 $('#polyUndo').addEventListener('click', undoDraftPoint);
@@ -4022,7 +4141,7 @@ function renderProps() {
   box.hidden = !s.length;
   if (!s.length) return;
   var a = s[0], same = function (k) { return s.every(function (x) { return x[k] === a[k]; }); };
-  $('#propsTitle').textContent = s.length === 1 ? (a.sym ? (a.sym.n != null ? 'Number' : 'Symbol') : typeLabel(a.subtype, a.intent)) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
+  $('#propsTitle').textContent = s.length === 1 ? (a.sym ? (a.sym.n != null ? 'Number' : 'Symbol') : MKIND_LABEL[a.mkind] || typeLabel(a.subtype, a.intent)) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
   $('#propsMeta').textContent = s.length === 1 ? ((a.author ? a.author + ', ' : '') + (fmtDate(a.date) || 'new')) : (new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length ? 'one group' : '');
   var sub = $('#pSubject'), con = $('#pContents');
   if (document.activeElement !== sub) { sub.value = same('subject') ? (a.subject || '') : ''; sub.placeholder = same('subject') ? 'e.g. Ellipse, Issue, Verify' : 'Mixed'; }
@@ -4046,8 +4165,11 @@ function renderProps() {
     pm.innerHTML = (a.sym.n != null ? 'Number <b>' + esc(MarkupIO.symLabel(a)) + '</b>' + (ser ? ' in ' + esc(seriesName(ser)) : '') : 'Symbol <b>' + esc(MarkupIO.symLabel(a) || a.sym.shape) + '</b>') + ' · ' + symSizeText(a.sym);
   }
   if (mk === 'angle') pm.innerHTML = 'Angle: <b>' + esc(a.mtext || measureText(a)) + '</b>';
+  else if (mk && document.activeElement && pm.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') { /* typing: leave it */ }
   else if (mk) pm.innerHTML = a.measure
-    ? ({ area: 'Area', length: 'Length', radius: 'Radius', diameter: 'Diameter' }[mk] || 'Measurement') + ': <b>' + esc(a.mtext || measureText(a)) + '</b> · scale ' + esc(scaleLabel(a.measure)) +
+    ? ({ area: 'Area', length: 'Length', radius: 'Radius', diameter: 'Diameter', wall: 'Wall area', run: 'Run' }[mk] || 'Measurement') + ': <b>' + esc(a.mtext || measureText(a)) + '</b> · scale ' + esc(scaleLabel(a.measure)) +
+      (mk === 'length' && a.subtype === 'Line' && a.owned ? '<label class="pb-x" style="display:flex;margin-top:6px">Set length<input class="fld-in" id="pSetLen" autocomplete="off" spellcheck="false" placeholder="' + esc(fmtLength(polyLength(a.vertices) * a.measure.factor, a.measure)) + '"></label>' : '') +
+      (mk === 'wall' && a.owned ? '<label class="pb-x" style="display:flex;margin-top:6px">Height<input class="fld-in" id="pWallH" autocomplete="off" spellcheck="false" value="' + esc(a.wallH ? fmtLength(a.wallH, a.measure) : '') + '"></label>' : '') +
       (mk === 'area' && a.owned ? ' <button class="btn" type="button" id="pCutout">Cut out</button>' + (a.holes && a.holes.length ? ' <button class="btn" type="button" id="pClearCut">Remove cut-outs (' + a.holes.length + ')</button>' : '') : '')
     : 'No scale on this page. <button class="btn" type="button" id="pSetScale">Set scale</button>';
   var gcount = groupCount(s), whole = s.length > 1 && new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length;
@@ -4096,6 +4218,20 @@ $('#btnGroup').addEventListener('click', groupSelection);
 $('#btnUngroup').addEventListener('click', ungroupSelection);
 $('#btnRemoveFromGroup').addEventListener('click', removeFromGroup);
 $('#btnDelete').addEventListener('click', deleteSelection);
+$('#pMeasure').addEventListener('change', function (e) {
+  var s0 = selected(), a = s0[0]; if (s0.length !== 1 || !a.measure) return;
+  if (e.target.id === 'pSetLen') {
+    var len = parseLength(e.target.value, a.measure.fmt); if (!(len > 0)) { toast('Type a length such as 12\'-6".'); return; }
+    var v = a.vertices, dx = v[1][0] - v[0][0], dy = v[1][1] - v[0][1], l0 = Math.hypot(dx, dy) || 1, pts = len / a.measure.factor;
+    pushHistory(); v[1] = [v[0][0] + dx / l0 * pts, v[0][1] + dy / l0 * pts];
+  } else if (e.target.id === 'pWallH') {
+    var h = parseLength(e.target.value, a.measure.fmt); if (!(h > 0)) { toast('Type a height, for example 10\'.'); return; }
+    pushHistory(); a.wallH = h;
+  } else return;
+  updateGeom(a); if (!a.isNew) { a.dirty = true; a.geomDirty = true; }
+  e.target.blur(); drawOverlay(state.pages[a.pageIndex]); markUnsaved(); renderList(); renderProps();
+});
+$('#pMeasure').addEventListener('keydown', function (e) { if (e.key === 'Enter' && e.target.tagName === 'INPUT') { e.preventDefault(); e.target.dispatchEvent(new Event('change', { bubbles: true })); } });
 $('#pMeasure').addEventListener('click', function (e) {
   var s0 = selected();
   if (e.target.id === 'pCutout' && s0.length === 1) { startCutout(s0[0]); return; }
@@ -4384,9 +4520,10 @@ async function savePdf() {
   try {
     if (state.draft) finishDraft();
     var scales = {};
-    state.scaleDirty.forEach(function (i) { scales[i] = state.scales[i] || null; });
+    var vps = {};
+    state.scaleDirty.forEach(function (i) { scales[i] = state.scales[i] || null; vps[i] = (state.vps && state.vps[i]) || []; });
     state.annots.forEach(function (a) { if (a.vertices && !a.deleted && (a.isNew || a.geomDirty || a.styleDirty)) updateGeom(a); });
-    out = await MarkupIO.applyMarkups(state.bytes, state.annots, { author: state.author || '', scales: scales, symAsStamp: !!ui().symStamp });
+    out = await MarkupIO.applyMarkups(state.bytes, state.annots, { author: state.author || '', scales: scales, vps: vps, symAsStamp: !!ui().symStamp });
     var keepId = state.docId; state.docId = null;
     await loadPdf(out, state.fileName, { keepScroll: true });
     state.docId = keepId; await storeDoc(out, state.fileName, true);
@@ -4910,6 +5047,10 @@ function openScale(pageIndex, mode) {
     : 'Draw a line along a dimension you know (a dimension string, a door width, a grid spacing), then type its real length.';
   $('#scCalDraw').textContent = cal ? 'Draw again' : 'Draw line on page';
   $('#scRemove').hidden = !cur;
+  if ($('#scApply').value === 'area') $('#scApply').value = 'page';
+  $('#scApply').options[2].textContent = 'An area of page ' + pageLabel(pg) + ' (draw a box)';
+  var vs = (state.vps && state.vps[pg]) || [];
+  $('#scAreas').innerHTML = vs.length ? '<p class="hint">Scale areas on this page (measurements inside use their scale):</p>' + vs.map(function (v, i) { return '<div class="setrow"><span>' + esc(v.name) + '<br><span class="sub2">' + esc(scaleLabel(v.sc)) + '</span></span><span class="actions"><button class="btn" type="button" data-vpren="' + i + '">Rename</button><button class="btn" type="button" data-vprm="' + i + '">Remove</button></span></div>'; }).join('') : '';
   setScaleMode(pick || 'preset');
   syncMset();
   $('#scaleModal').hidden = false;
@@ -4957,6 +5098,13 @@ function updateScaleResult() {
 function applyScaleFromDialog() {
   var r = computeScale(); if (r.error) { toast(r.error); return; }
   var sc = r.sc, all = $('#scApply').value === 'all';
+  if ($('#scApply').value === 'area') {
+    // A detail or enlarged plan at another scale: drag a box around it.
+    state.vpPending = { sc: copyScale(sc), page: scaleUI.page };
+    closeScale(); scaleUI.returnTool = state.tool === 'scalebox' ? 'select' : state.tool; setTool('scalebox');
+    toast('Drag a box around the detail or view drawn at ' + scaleLabel(sc) + '.', 5000);
+    return;
+  }
   var pages = all ? state.pages.map(function (p) { return p.index; }) : [scaleUI.page];
   var on = new Set(pages);
   pushHistory();
@@ -4979,6 +5127,33 @@ function removeScale() {
   closeScale(); markUnsaved(); updateScaleButton();
   toast('Scale removed. Existing measurements keep the scale they were made with.');
 }
+function addViewport(p, rect) {
+  var pend = state.vpPending; state.vpPending = null;
+  setTool(scaleUI.returnTool && scaleUI.returnTool !== 'scalebox' ? scaleUI.returnTool : 'select');
+  if (!pend) { drawOverlay(p); return; }
+  var vs = state.vps || (state.vps = []), list = vs[p.index] || (vs[p.index] = []);
+  var name = prompt('Name for this scale area (for example Detail 3 or Enlarged plan):', 'Detail ' + (list.length + 1));
+  if (name == null) { drawOverlay(p); return; }
+  pushHistory();
+  var box = [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])];
+  list.push({ bbox: box, sc: copyScale(pend.sc), name: name.trim() || 'Scale area' }); state.scaleDirty.add(p.index);
+  var touched = 0;
+  live().forEach(function (a) {
+    if (a.pageIndex !== p.index || !a.owned || !measureKind(a) || measureKind(a) === 'angle') return;
+    var c = [(a.rect[0] + a.rect[2]) / 2, (a.rect[1] + a.rect[3]) / 2];
+    if (c[0] < box[0] || c[0] > box[2] || c[1] < box[1] || c[1] > box[3]) return;
+    a.measure = copyScale(pend.sc); updateGeom(a); touched++; if (!a.isNew) { a.dirty = true; a.geomDirty = true; }
+  });
+  drawOverlay(p); markUnsaved(); renderList(); renderProps();
+  toast('Scale area ' + scaleLabel(pend.sc) + ' added' + (touched ? '; ' + touched + ' measurement' + (touched > 1 ? 's' : '') + ' inside updated' : '') + '. Measurements drawn inside it use this scale.', 5000);
+}
+$('#scAreas').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
+  var list = state.vps && state.vps[scaleUI.page]; if (!list) return;
+  if (b.dataset.vprm != null) { pushHistory(); list.splice(+b.dataset.vprm, 1); state.scaleDirty.add(scaleUI.page); markUnsaved(); }
+  else if (b.dataset.vpren != null) { var v = list[+b.dataset.vpren], nm = prompt('Name for this scale area:', v.name); if (nm == null) return; pushHistory(); v.name = nm.trim() || v.name; state.scaleDirty.add(scaleUI.page); markUnsaved(); }
+  openScale(scaleUI.page); var pg = state.pages[scaleUI.page]; if (pg) drawOverlay(pg);
+});
 function finishCalibrateLine(p, pts) {
   state.calib = { page: p.index, pts: pts };
   setTool(scaleUI.returnTool || 'select');

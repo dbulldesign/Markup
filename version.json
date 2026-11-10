@@ -1,5 +1,5 @@
 {
-  "version": "2.8.0",
+  "version": "2.9.0",
   "date": "2026-11-10",
-  "notes": "Text in any language (Chinese, Japanese, Cyrillic, Arabic...), faster large drawing sets, storage use in Settings, and save options: file name and flattened PDFs."
+  "notes": "Wall area, linear runs that place symbols at a spacing, type lengths while drawing, and several scales on one page (scale areas for details)."
 }

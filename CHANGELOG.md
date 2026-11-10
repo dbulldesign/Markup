@@ -2,6 +2,12 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.9.0 (round 2, phase 4: measurements)
+- Wall area tool: tap along a wall, type its height; shows length × height = area (height editable later in the properties). Saved as a Revu perimeter measurement with the area in the label.
+- Linear run tool: draw a path, choose "Every 8'" or "Count 6", with or without symbols at the ends; the current symbol is placed evenly along it and grouped with the run (one undo step).
+- Type the length while drawing: the bar under a measurement shows a "Next" box; type 12'-6" (and optionally @ 90 for the direction) and press return. Length measurements also get a "Set length" box in their properties.
+- Several scales on one page: in Scale, choose "An area of this page" and drag a box around a detail; measurements made inside it use that scale. Stored as Revu viewports, so Revu uses the same scales. Rename or remove them in the Scale dialog. Undo covers them.
+
 ## 2.8.0 (round 2, phase 3: languages, large sets, storage, save options)
 - Text in any language: Chinese, Japanese, Korean, Cyrillic, Greek, Arabic, Hebrew, symbols such as ✓ now appear in saved PDFs (drawn with the iPad's own fonts into the markup's appearance; the text itself stays real Unicode so Revu can search and edit it).
 - Large drawing sets: pages open in parallel with a progress message (300 sheets in well under a second in testing); pages and thumbnails far from view give their memory back; the markups list shows 250 rows at a time with "Show more"; undo history is capped by size so big sets don't run the iPad out of memory.
