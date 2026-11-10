@@ -2,6 +2,9 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.15.0
+- Saved file names end with the date and time: "QB 360 Plans 2026-11-10 1432.pdf", and the same for exports ("... - counts 2026-11-10 1432.csv", "... - markups ... .xlsx", "... - counts by room ... .csv", "... - markup summary ... .pdf"). Saving a file that already has a stamp replaces it rather than adding another. The name can still be edited in the save bar before saving. Settings > Date and time in saved file names turns it off.
+
 ## 3.14.1
 - The app opens with the Select tool (it used to start on Circle), so the first tap selects instead of drawing.
 

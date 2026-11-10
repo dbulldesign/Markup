@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.14.1">
+<meta name="app-version" content="3.15.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -2382,7 +2382,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.14.1';
+var APP_VERSION = '3.15.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -5393,19 +5393,28 @@ function xlsx(sheets) {
   ].concat(sheets.map(function (s, i) { return { name: 'xl/worksheets/sheet' + (i + 1) + '.xml', data: sheetXml(s) }; }));
   return zipStore(files);
 }
-function exportBase() { return state.fileName.replace(/\.pdf$/i, '') || 'markups'; }
+// File names: the open file's name without a date stamp from an earlier save.
+var STAMP_RE = /[ _-]+\d{4}-\d{2}-\d{2}[ _]\d{4}(\d{2})?$/;
+function exportBase() { return (state.fileName.replace(/\.pdf$/i, '').replace(/ \(flattened\)$/i, '').replace(STAMP_RE, '') || 'markups').trim(); }
+function nowStamp() { var d = new Date(), z = function (n) { return (n < 10 ? '0' : '') + n; }; return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + z(d.getMinutes()); }
+// Adds the date and time at the end of a file name (before the extension), replacing an older stamp.
+function stampFile(name) {
+  if (ui().nameStamp === false) return name;
+  var m = /^(.*?)(\.[a-z0-9]{2,5})?$/i.exec(name), base = m[1].replace(STAMP_RE, ''), ext = m[2] || '';
+  return base + ' ' + nowStamp() + ext;
+}
 function doExport(kind) {
   if (!state.pdf) { toast('Open a PDF first.'); return; }
   var c = countRows(null), m = markupRows();
-  if (kind === 'counts') downloadFile(new Blob([toCSV(c)], { type: 'text/csv' }), exportBase() + ' - counts.csv');
-  else if (kind === 'markups') downloadFile(new Blob([toCSV(m)], { type: 'text/csv' }), exportBase() + ' - markups.csv');
-  else if (kind === 'rooms') { if (!rooms().length) { toast('Draw rooms with the Room tool first (tap the corners of each room, then name it).', 5000); return; } downloadFile(new Blob([toCSV(roomRows())], { type: 'text/csv' }), exportBase() + ' - counts by room.csv'); }
+  if (kind === 'counts') downloadFile(new Blob([toCSV(c)], { type: 'text/csv' }), stampFile(exportBase() + ' - counts.csv'));
+  else if (kind === 'markups') downloadFile(new Blob([toCSV(m)], { type: 'text/csv' }), stampFile(exportBase() + ' - markups.csv'));
+  else if (kind === 'rooms') { if (!rooms().length) { toast('Draw rooms with the Room tool first (tap the corners of each room, then name it).', 5000); return; } downloadFile(new Blob([toCSV(roomRows())], { type: 'text/csv' }), stampFile(exportBase() + ' - counts by room.csv')); }
   else if (kind === 'summary') { summaryPdf(); }
   else {
     var pages = state.pages.map(function (p) { return { name: ('Counts p. ' + pageLabel(p.index)).slice(0, 31), t: countRows(p.index) }; }).filter(function (x) { return x.t.rows.length; });
     var rr = rooms().length ? [Object.assign({ name: 'By room' }, roomRows())] : [];
     var sheets = [{ name: 'Counts', head: c.head, rows: c.rows }].concat(rr).concat(pages.length > 1 ? pages.map(function (x) { return { name: x.name, head: x.t.head, rows: x.t.rows }; }) : []).concat([{ name: 'Markups', head: m.head, rows: m.rows }]);
-    downloadFile(xlsx(sheets), exportBase() + ' - markups.xlsx');
+    downloadFile(xlsx(sheets), stampFile(exportBase() + ' - markups.xlsx'));
   }
 }
 /* Printable summary: counts, counts by room, measurement totals, every markup and the site photos, as a PDF. */
@@ -5484,7 +5493,7 @@ async function summaryPdf() {
     pgs.forEach(function (pg, i) { pg.drawText(clean(state.fileName + '  \u00b7  page ' + (i + 1) + ' of ' + pgs.length), { x: M, y: 20, size: 8, font: F, color: mute }); pg.drawRectangle({ x: M, y: H - 14, width: 40, height: 3, color: acc }); });
     var out = await doc.save();
     setBusy(null);
-    downloadFile(new Blob([out], { type: 'application/pdf' }), exportBase() + ' - markup summary.pdf');
+    downloadFile(new Blob([out], { type: 'application/pdf' }), stampFile(exportBase() + ' - markup summary.pdf'));
   } catch (e) { setBusy(null); console.error(e); toast('Could not make the summary: ' + (e && e.message || e), 6000); }
 }
 /* Legend: a symbol and "Subject - count" for each kind of symbol, as a group of normal markups placed
@@ -5899,7 +5908,7 @@ async function savePdf() {
     toast('The markups could not be written: ' + (e && e.message ? e.message : 'unknown error'), 6000); return;
   }
   setBusy(null);
-  var outName = state.fileName.replace(/\.pdf$/i, '') + '.pdf';
+  var outName = stampFile(exportBase() + '.pdf');
   if (!(window.claude && window.claude.use)) {
     // Hosted outside claude.ai (for example GitHub Pages): share or download directly, from a tap.
     state.pendingSave = { bytes: out, name: outName };
@@ -5931,7 +5940,7 @@ async function saveDirect() {
     setBusy('Flattening markups\u2026'); await nextFrame();
     try { bytes = await MarkupIO.flatten(p0.bytes); } catch (e) { setBusy(null); console.error(e); toast('Could not flatten: ' + (e && e.message || e), 6000); return; }
     setBusy(null);
-    if (!/flat/i.test(nm)) nm += ' (flattened)';
+    if (!/flat/i.test(nm)) { var sm = STAMP_RE.exec(nm); nm = sm ? nm.replace(STAMP_RE, '') + ' (flattened)' + sm[0] : nm + ' (flattened)'; }
   }
   var p = { bytes: bytes, name: nm + '.pdf' };
   var blob = new Blob([p.bytes], { type: 'application/pdf' });
@@ -7243,6 +7252,7 @@ function openSettings() {
       row('Snap', chk('snap', state.snap), 'To corners, ends and centres, and level or plumb lines') +
       row('Multi-select', chk('multi', state.multiToggle), 'Tapping markups adds them to the selection') +
       row('Save symbols as stamps', chk('symStamp', u.symStamp), 'Revu keeps the label or number inside, but cannot restyle them') +
+      row('Date and time in saved file names', chk('nameStamp', u.nameStamp !== false), 'Adds e.g. "2026-11-10 1432" to the end of saved PDFs and exports (CSV, Excel, summary)') +
       row('Install updates automatically', chk('autoUpdate', u.autoUpdate !== false), 'When the app opens or you come back to it; your file and markups reopen') +
       row('Your name', '<input type="text" class="fld-in" data-set="author" value="' + esc(state.author || '') + '" placeholder="Shows as Author in Revu">') + '</div>' +
     '<div class="setsec"><h3>Measurements</h3>' +
@@ -7334,6 +7344,7 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'symStamp') u.symStamp = v;
   else if (k === 'panelPos') { u.panelPos = v; saveUI(); layoutClasses(); renderVisible(); if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } }
   else if (k === 'autoUpdate') { u.autoUpdate = v; }
+  else if (k === 'nameStamp') { u.nameStamp = v; }
   else if (k === 'toolChip') { u.toolChip = v; saveUI(); renderToolChip(); }
   else if (k === 'haptics') { u.haptics = v; }
   else if (k === 'rpMins' || k === 'saveRemind') { u[k] = +v; }
