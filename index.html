@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.8.1">
+<meta name="app-version" content="3.8.2">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -309,7 +309,17 @@ body.portrait #btnHelp { display: none; }
   display: flex; flex-direction: column; min-height: 0; padding-bottom: var(--safe-bottom);
 }
 .panel[hidden] { display: none; }
-.panel-head { display: flex; align-items: center; gap: 10px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
+.panel-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 12px 14px 10px; border-bottom: 1px solid var(--line); }
+.panel-head .ph-title { display: inline-flex; align-items: baseline; gap: 8px; flex: none; }
+/* The buttons stay together and move to their own row when the list is narrow. */
+.panel-head .ph-acts { display: flex; align-items: center; gap: 6px; margin-left: auto; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
+.panel-head .ph-acts .btn { padding-left: 12px; padding-right: 12px; }
+#btnClosePanel .ico { display: none; }
+.panel { container-type: inline-size; }
+@container (max-width: 400px) {
+  .panel-head .ph-acts .btn { padding-left: 9px; padding-right: 9px; }
+  #btnClosePanel .lbl { display: none; } #btnClosePanel .ico { display: block; }
+}
 .panel-head h2 { font-size: 16px; margin: 0; font-weight: 600; }
 .panel-head .count { color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .panel-head .x { margin-left: 0; }
@@ -356,7 +366,7 @@ body.narrow .sbb span { display: none; } body.narrow .sbb { min-width: 44px; }
 .props-mini .btn { padding: 4px 12px; min-height: 0; font-size: 13px; }
 body.pbottom #btnPanelPos .pp-side, body.pside #btnPanelPos .pp-bottom { display: none; }
 #btnPanelPos { padding: 6px 8px; }
-.panel.named .author-row { display: none; }
+.panel .author-row { display: none; }
 .props .title { font-weight: 600; display: flex; align-items: center; gap: 8px; }
 .props .title .meta { color: var(--ink-2); font-weight: 400; font-size: 13px; }
 .props label.fld { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); }
@@ -863,11 +873,13 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <div class="pedge" id="panelEdge" title="Drag to make the list wider or narrower (double-tap: default width)" aria-hidden="true"></div>
     <div class="grab" id="sheetGrab" title="Drag to resize" aria-label="Resize the markups panel"></div>
     <div class="panel-head">
-      <h2>Markups</h2><span class="count" id="count2">0</span>
+      <span class="ph-title"><h2>Markups</h2><span class="count" id="count2">0</span></span>
+      <span class="ph-acts">
       <button class="btn" id="btnListSelect" type="button" title="Tick markups and groups in the list (drag down the ticks to pick several), then Group, Combine, Ungroup or Remove in the bar">Select</button>
-      <button class="btn icon" id="btnPanelPos" type="button" aria-label="Move the markups list" style="margin-left:auto"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path class="pp-side" d="M15 4v16"/><path class="pp-bottom" d="M3 14h18"/></svg></button>
+      <button class="btn icon" id="btnPanelPos" type="button" aria-label="Move the markups list"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path class="pp-side" d="M15 4v16"/><path class="pp-bottom" d="M3 14h18"/></svg></button>
       <button class="btn" id="btnExport" type="button" title="Export counts and markups to Excel or CSV, or place a legend">Export</button>
-      <button class="btn x" id="btnClosePanel" type="button">Close</button>
+      <button class="btn x" id="btnClosePanel" type="button" title="Close the markups list" aria-label="Close the markups list"><span class="lbl">Close</span><svg class="ico" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+      </span>
     </div>
     <label class="author-row">Author <input id="author" placeholder="Your name (shows in Revu)" autocomplete="name"></label>
     <div class="props-mini" id="propsMini" hidden><span class="t" id="pmTitle"></span><button class="btn" type="button" id="pmOpen">Properties</button></div>
@@ -2306,7 +2318,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.8.1';
+var APP_VERSION = '3.8.2';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -4737,7 +4749,7 @@ function renderProps() {
   if (sbWas && !$('#selBar').hidden) placeSelBar();
   if (s.length) $('#selN').textContent = s.length === 1 ? '1 selected' : s.length + ' selected';
   if (s.length && !show) { var a0 = s[0]; $('#pmTitle').textContent = s.length === 1 ? (a0.subject || typeLabel(a0.subtype, a0.intent)) + (MarkupIO.symLabel(a0) || a0.mtext ? ' \u00b7 ' + (MarkupIO.symLabel(a0) || a0.mtext) : '') + ' \u00b7 p. ' + pageLabel(a0.pageIndex) : s.length + ' markups selected'; }
-  $('#panel').classList.toggle('named', propsCompact() && !!(state.author || '').trim());
+
   if (!s.length) return;
   var a = s[0], same = function (k) { return s.every(function (x) { return x[k] === a[k]; }); };
   $('#propsTitle').textContent = s.length === 1 ? (a.sym ? (a.sym.n != null ? 'Number' : 'Symbol') : MKIND_LABEL[a.mkind] || typeLabel(a.subtype, a.intent)) + ' on page ' + pageLabel(a.pageIndex) : s.length + ' markups';
@@ -5411,6 +5423,7 @@ $('#filter').addEventListener('input', function (e) { state.filter = e.target.va
 /* ---------- save ---------- */
 async function savePdf() {
   if (!state.pdf) return;
+  if (!(state.author || '').trim() && !ui().authorTip) { ui().authorTip = 1; saveUI(); setTimeout(function () { toast('Tip: set your name in Settings > Your name so Revu shows you as the Author.', 6000); }, 1500); }
   setBusy('Writing markups into the PDF…'); await nextFrame();
   var out;
   try {

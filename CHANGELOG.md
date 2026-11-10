@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.8.2
+- The Author field is no longer in the markups list; set it in Settings > Your name (the first save without a name shows a one-time reminder). The list gets that space.
+- The markups list header fits any width: when you make the list narrow, its buttons (Select, side/bottom, Export, Close) move together onto their own row and get more compact; Close becomes an x.
+
 ## 3.8.1
 - The toolbar's tool drop-down now shows your Favourites first and then every Tool Chest palette (your own palettes, imported Revu tool sets and fixture schedules), each as a section with its tools. Tap a section's title to fold it away (remembered); tap a tool to use it. Tools Revu made that cannot be drawn here are greyed out. "Manage in Tool Chest..." opens the chest for starring, editing and arranging.
 - The button appears as soon as you have any palette tools, even without favourites, and shows the tool in use whichever palette it came from.
