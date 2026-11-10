@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.5.2">
+<meta name="app-version" content="3.6.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -315,6 +315,7 @@ body.portrait #btnHelp { display: none; }
 .propspop.dragging { opacity: .96; } .propspop.dragging .title { cursor: grabbing; }
 .propspop.moved { transform: none; }
 body.big .propspop { width: min(460px, calc(100% - 20px)); }
+#qgrip { touch-action: none; }
 .selbar { position: absolute; top: calc(var(--vtop, 0px) + 10px); left: var(--vcx, 50%); transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: calc(var(--vw, 100%) - 20px); overflow-x: auto; scrollbar-width: none; }
 .selbar::-webkit-scrollbar { display: none; }
 .selbar[hidden] { display: none; }
@@ -460,6 +461,9 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 }
 .row:active { background: var(--surface-2); }
 .row.sel { background: var(--accent-soft); }
+.row.flash { animation: rowflash 1s ease-out; }
+@keyframes rowflash { 0% { box-shadow: inset 4px 0 0 var(--accent), 0 0 0 2px var(--accent); } 100% { box-shadow: inset 4px 0 0 var(--accent), 0 0 0 0 transparent; } }
+.row.sel { box-shadow: inset 4px 0 0 var(--accent); }
 .row .sw { grid-area: sw; width: 14px; height: 14px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(128,128,128,.4); align-self: center; }
 .row .subj { grid-area: subj; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row .subj .muted { color: var(--ink-2); font-weight: 400; }
@@ -2269,7 +2273,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.5.2';
+var APP_VERSION = '3.6.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3471,11 +3475,28 @@ function afterSelectionChange() {
     var h = headOf(a), grp = membersOf(a);
     if (grp.length > 1 && !state.expanded.has(h.id) && !grp.every(function (m) { return state.sel.has(m.id); })) { state.expanded.add(h.id); opened = true; }
   });
-  if (opened) { renderList(); return; }
-  $$('#rows .row').forEach(function (r) {
+  if (opened) renderList();
+  else $$('#rows .row').forEach(function (r) {
     if (r.dataset.id) r.classList.toggle('sel', state.sel.has(r.dataset.id));
     else if (r.dataset.group) { var h = byId(r.dataset.group); r.classList.toggle('sel', !!h && membersOf(h).every(function (m) { return state.sel.has(m.id); })); }
   });
+  revealInList();
+}
+// Bring the selected markup's row (or its group's row) into view in the markups list, and flash it.
+function revealInList() {
+  if (state.fromList) { state.fromList = false; return; }
+  var s = selected(); if (!s.length || $('#panel').hidden) return;
+  var a = s[0], row = null, list = $('#rows');
+  if (!$('#rows .row[data-id="' + a.id.replace(/"/g, '') + '"]') && !$('#rows .row[data-group="' + headOf(a).id.replace(/"/g, '') + '"]')) {
+    // Not built yet (long lists show 250 rows at a time): show enough rows to include it.
+    state.listLimit = Math.max(state.listLimit || 250, live().length); renderList();
+  }
+  var whole = membersOf(a).length > 1 && membersOf(a).every(function (m) { return state.sel.has(m.id); });
+  row = (whole && $('#rows .row[data-group="' + headOf(a).id + '"]')) || $('#rows .row[data-id="' + a.id + '"]') || $('#rows .row[data-group="' + headOf(a).id + '"]');
+  if (!row) return;
+  var lr = list.getBoundingClientRect(), rr = row.getBoundingClientRect();
+  if (rr.top < lr.top || rr.bottom > lr.bottom) list.scrollTop += rr.top - lr.top - (lr.height - rr.height) / 2;
+  row.classList.remove('flash'); void row.offsetWidth; row.classList.add('flash');
 }
 
 /* ---------- pointer input ---------- */
@@ -5199,6 +5220,7 @@ $('#btnPanelPos').addEventListener('click', function () {
   if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; }
 });
 $('#rows').addEventListener('click', function (e) {
+  state.fromList = true; setTimeout(function () { state.fromList = false; }, 0);
   if (!propsPopup() && e.target.closest && e.target.closest('.row') && !e.target.closest('[data-twist]')) state.propsOpen = true;
   if (e.target.id === 'moreRows') { state.listLimit = (state.listLimit || 250) + 250; renderList(); return; }
   var tw = e.target.closest ? e.target.closest('[data-twist]') : null;
@@ -6371,7 +6393,11 @@ function renderPalette() {
     (favs.length ? '<span class="sep"></span>' + favs.map(function (f) { return '<button type="button" class="tb fav' + (isActiveTool(f.set, f.tool) ? ' on' : '') + '" data-qf="' + esc(f.set.id) + '|' + esc(f.tool.id) + '" title="' + esc(f.tool.title) + '">' + toolPreview(f.tool) + '</button>'; }).join('') : '') +
     '<span class="sep"></span><button type="button" class="tb" data-qa="undo" title="Undo" aria-label="Undo">' + $('#btnUndo').innerHTML + '</button><button type="button" class="tb" data-qa="redo" title="Redo" aria-label="Redo">' + $('#btnRedo').innerHTML + '</button>';
   var pos = ui().palPos || { x: ui().lefty ? 12 : Math.max(12, window.innerWidth - 470), y: window.innerHeight - (document.body.classList.contains('tb-bottom') ? 170 : 90) };
-  q.style.left = clamp(pos.x, 4, window.innerWidth - 80) + 'px'; q.style.top = clamp(pos.y, 4, window.innerHeight - 50) + 'px';
+  // Saved with the window size: after rotating or resizing it keeps the same relative spot.
+  var x = pos.x, y = pos.y;
+  if (pos.w && pos.h && (pos.w !== window.innerWidth || pos.h !== window.innerHeight)) { x = pos.x / pos.w * window.innerWidth; y = pos.y / pos.h * window.innerHeight; }
+  var qw = q.offsetWidth || 300, qh = q.offsetHeight || 50;
+  q.style.left = clamp(x, 4, Math.max(4, window.innerWidth - Math.min(qw, window.innerWidth - 8) - 4)) + 'px'; q.style.top = clamp(y, 4, Math.max(4, window.innerHeight - qh - 4)) + 'px';
 }
 $('#btnPalette').addEventListener('click', function () { ui().palette = !ui().palette; saveUI(); renderPalette(); });
 $('#qbtns').addEventListener('click', function (e) {
@@ -6385,7 +6411,9 @@ $('#qbtns').addEventListener('click', function (e) {
   var drag = null;
   $('#qgrip').addEventListener('pointerdown', function (e) { var r = $('#qpal').getBoundingClientRect(); drag = { dx: e.clientX - r.left, dy: e.clientY - r.top }; $('#qgrip').setPointerCapture(e.pointerId); e.preventDefault(); });
   $('#qgrip').addEventListener('pointermove', function (e) { if (!drag) return; var q = $('#qpal'); q.style.left = clamp(e.clientX - drag.dx, 0, window.innerWidth - 60) + 'px'; q.style.top = clamp(e.clientY - drag.dy, 0, window.innerHeight - 44) + 'px'; });
-  $('#qgrip').addEventListener('pointerup', function () { if (!drag) return; drag = null; var r = $('#qpal').getBoundingClientRect(); ui().palPos = { x: r.left, y: r.top }; saveUI(); });
+  // Saved when the drag ends however it ends (iPad can end a touch drag with a cancel instead of a lift).
+  var keep = function () { if (!drag) return; drag = null; var r = $('#qpal').getBoundingClientRect(); ui().palPos = { x: Math.round(r.left), y: Math.round(r.top), w: window.innerWidth, h: window.innerHeight }; saveUI(); };
+  $('#qgrip').addEventListener('pointerup', keep); $('#qgrip').addEventListener('pointercancel', keep); $('#qgrip').addEventListener('lostpointercapture', keep);
 })();
 
 /* ---------- tool ring: press and hold the Pencil ---------- */

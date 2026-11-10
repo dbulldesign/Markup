@@ -1,5 +1,5 @@
 {
-  "version": "3.5.2",
+  "version": "3.6.0",
   "date": "2026-11-10",
-  "notes": "The selection bar can be dragged anywhere over the drawing."
+  "notes": "Selecting on the drawing highlights the markup in the list and scrolls to it; the floating palette remembers its position."
 }

@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.6.0
+- Selecting a markup on the drawing highlights its row in the markups list and scrolls the list to it (with a short flash). A markup inside a collapsed group opens the group; a whole group selected shows the group's row. Works for long lists too (more rows are shown if needed). Selected rows also get an accent bar on the left.
+- Floating tool palette remembers its position: fixed for iPad drags that ended without saving. After rotating the iPad or resizing the window it keeps the same relative spot, and it always stays fully on screen.
+
 ## 3.5.2
 - The selection bar is draggable: drag it by the dots at its left end (or the "N selected" text) and it stays there for the next selection. Double-tap the dots to put it back at the top centre.
 
