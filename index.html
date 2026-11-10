@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.7.0">
+<meta name="app-version" content="3.7.1">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -78,7 +78,7 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
   flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
   padding: calc(8px + var(--safe-top)) calc(12px + env(safe-area-inset-right, 0px)) 8px calc(12px + env(safe-area-inset-left, 0px));
   background: var(--surface);
-  border-bottom: 1px solid var(--line); position: relative; z-index: 5;
+  border-bottom: 1px solid var(--line); position: relative; z-index: 40; /* above the selection bar, palette and properties pop-up, so its menus are never covered */
 }
 .seg { display: inline-flex; background: var(--surface-2); border-radius: 12px; padding: 3px; gap: 2px; }
 .tb {
@@ -470,6 +470,7 @@ body.list-select .row .sw::before { content: ""; position: absolute; inset: -12p
 body.list-select .row.sel .sw { background: var(--accent); box-shadow: none; }
 body.list-select .row.sel .sw::after { content: ""; position: absolute; left: 7px; top: 3px; width: 6px; height: 11px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
 #btnListSelect.on { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.rows .row { -webkit-touch-callout: none; }
 .row .sw { grid-area: sw; width: 14px; height: 14px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(128,128,128,.4); align-self: center; }
 .row .subj { grid-area: subj; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row .subj .muted { color: var(--ink-2); font-weight: 400; }
@@ -2286,7 +2287,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.7.0';
+var APP_VERSION = '3.7.1';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3519,7 +3520,7 @@ function afterSelectionChange() {
 function setListSelect(on) {
   state.listSelect = !!on; document.body.classList.toggle('list-select', state.listSelect);
   $('#btnListSelect').classList.toggle('on', state.listSelect); $('#btnListSelect').textContent = state.listSelect ? 'Done' : 'Select';
-  if (on) toast('Tap rows to tick them, or drag down the circles to tick several. Then use Group, Combine, Ungroup or Remove in the bar.', 4500);
+  if (on) toast('Tap rows to tick them, or drag down the circles to tick several. Then use Group, Combine, Ungroup or Remove in the bar. Done to finish.', 4500);
 }
 $('#btnListSelect').addEventListener('click', function () { setListSelect(!state.listSelect); });
 // Drag down the tick circles (or, with the Pencil or a mouse, anywhere on the rows in Select mode) to select a run of rows.
@@ -3537,6 +3538,26 @@ $('#btnListSelect').addEventListener('click', function () { setListSelect(!state
     rows.slice(Math.min(i0, i1), Math.max(i0, i1) + 1).forEach(function (r) { rowItems(r).forEach(function (a) { if (d.adding) sel.add(a.id); else sel.delete(a.id); }); });
     state.sel = sel; state.fromList = true; afterSelectionChange();
   };
+  // Press and hold a row (outside Select mode) to start Select mode with that row ticked.
+  var hold = null;
+  list.addEventListener('pointerdown', function (e) {
+    if (!hold) state.skipRowClick = false; // a new press: its click counts
+    if (state.listSelect) return;
+    var r = e.target.closest ? e.target.closest('.row[data-id], .row[data-group]') : null; if (!r || (e.target.closest && e.target.closest('[data-twist]'))) return;
+    var x0 = e.clientX, y0 = e.clientY, pid = e.pointerId;
+    clearTimeout(hold && hold.t);
+    hold = { id: pid, x0: x0, y0: y0, t: setTimeout(function () {
+      hold = null; setListSelect(true);
+      state.sel = new Set(rowItems(r).map(function (a) { return a.id; })); state.fromList = true; afterSelectionChange();
+      state.skipRowClick = true; // only the click from lifting this press
+
+      try { if (navigator.vibrate) navigator.vibrate(10); } catch (err) { /* ignore */ }
+    }, 550) };
+  });
+  var dropHold = function (e) { if (hold && (!e || e.type !== 'pointermove' || Math.hypot(e.clientX - hold.x0, e.clientY - hold.y0) > 8)) { clearTimeout(hold.t); hold = null; } };
+  list.addEventListener('pointermove', dropHold); list.addEventListener('pointerup', function () { dropHold(); }); list.addEventListener('pointercancel', function () { dropHold(); });
+  list.addEventListener('scroll', function () { dropHold(); }, { passive: true });
+  list.addEventListener('contextmenu', function (e) { if (e.target.closest && e.target.closest('.row')) e.preventDefault(); });
   list.addEventListener('pointerdown', function (e) {
     if (!state.listSelect) return;
     var onTick = e.target.closest && e.target.closest('.sw');
@@ -3671,6 +3692,24 @@ function tapUp(e) {
   pts.forEach(function (q) { cx += q[0] / pts.length; cy += q[1] / pts.length; });
   if (t.max === 2) twoFingerTap(cx, cy, pts); else if (t.max === 3) { redo(); toast('Redo', 900); }
 }
+/* One finger (when fingers do not draw): tap a markup to select it (or to finish Add to group / Combine),
+   tap a link to follow it, tap empty paper to deselect. */
+function fingerTap(cx, cy) {
+  var el = document.elementFromPoint(cx, cy), pe = el && el.closest ? el.closest('.page') : null;
+  if (!pe) { if (state.combine) endCombine(); return; }
+  var p = state.pages[+pe.dataset.index]; if (!p) return;
+  var pt = toPdf(p, cx, cy), hit = hitTest(p, pt);
+  if (state.combine) { if (hit) finishCombine(hit); else endCombine(); return; }
+  if (state.draft || state.editing) return;
+  if (hit && hit.subtype === 'FreeText' && hit.owned && hit.box && state.sel.size === 1 && state.sel.has(hit.id)) { openTextEditor(hit); return; }
+  if (hit) {
+    var grp = membersOf(hit), wholeSel = grp.length > 1 && grp.every(function (m) { return state.sel.has(m.id); }) && state.sel.size === grp.length;
+    if (wholeSel && !isMulti()) { state.sel = new Set([hit.id]); afterSelectionChange(); toast('One markup in the group selected. Tap Remove to take it out, or Combine to add it to another group.', 3500); return; }
+    selectAnnot(hit, isMulti()); return;
+  }
+  var lk = linkAtSync(p, pt); if (lk) { followLink(lk); return; }
+  if (!isMulti()) clearSel();
+}
 function twoFingerTap(cx, cy, pts) {
   var hit = null, pg = null;
   [[cx, cy]].concat(pts).some(function (q) {
@@ -3705,7 +3744,7 @@ function onDown(e) {
       if (gesture && gesture.mode === 'poly' && state.draft) { if (gesture.first) cancelDraft(); else { state.draft.live = null; refreshDraft(); } }
       startPinch(); return;
     }
-    if (!state.fingerDraw) { gesture = { mode: 'pan', id: e.pointerId, lastX: e.clientX, lastY: e.clientY }; return; }
+    if (!state.fingerDraw) { gesture = { mode: 'pan', id: e.pointerId, lastX: e.clientX, lastY: e.clientY, x0: e.clientX, y0: e.clientY, t0: Date.now(), moved: false }; return; }
   }
   if (gesture && gesture.mode !== 'pan') return;
   e.preventDefault();
@@ -3783,7 +3822,9 @@ function onMove(e) {
   if (gesture.mode === 'pan') {
     if (gesture.id !== e.pointerId) return;
     viewer.scrollLeft -= e.clientX - gesture.lastX; viewer.scrollTop -= e.clientY - gesture.lastY;
-    gesture.lastX = e.clientX; gesture.lastY = e.clientY; return;
+    gesture.lastX = e.clientX; gesture.lastY = e.clientY;
+    if (Math.hypot(e.clientX - gesture.x0, e.clientY - gesture.y0) > 10) gesture.moved = true;
+    return;
   }
   if (gesture.mode === 'pinch') {
     var a = ptrs.get(gesture.ids[0]), b = ptrs.get(gesture.ids[1]); if (!a || !b) return;
@@ -3885,7 +3926,13 @@ function onUp(e) {
     return; // otherwise the ring stays open for a tap
   }
   if (!gesture) return;
-  if (gesture.mode === 'pan') { if (gesture.id === e.pointerId) gesture = null; return; }
+  if (gesture.mode === 'pan') {
+    if (gesture.id !== e.pointerId) return;
+    var pg0 = gesture; gesture = null;
+    // A quick finger tap that did not scroll selects, like the Pencil does.
+    if (!pg0.moved && Date.now() - pg0.t0 < 450 && ptrs.size <= 1) fingerTap(e.clientX, e.clientY);
+    return;
+  }
   if (gesture.mode === 'pinch') {
     var touches = Array.from(ptrs.values()).filter(function (q) { return q.type === 'touch'; }).length;
     if (touches < 2) { var g = gesture; gesture = null; pinchClear(g); if (Math.abs(g.scale - 1) > 0.02) setZoom(g.startZoom * g.scale, g.anchor); else scheduleDetail(); }
@@ -4658,7 +4705,7 @@ function renderProps() {
   if (!s.length) state.propsOpen = false;
   // The pop-up belongs to the selection it was opened for; a new selection closes it.
   if (propsPopup() && state.propsOpen && state.propsFor != null && state.propsFor !== Array.from(state.sel).sort().join(',')) state.propsOpen = false;
-  var show = s.length && state.propsOpen;
+  var show = s.length && (state.propsOpen || ui().propsMode === 'always');
   box.hidden = !show;
   var ppWas = $('#propsPop').hidden;
   $('#propsPop').hidden = !(propsPopup() && show);
@@ -6579,7 +6626,7 @@ function openSettings() {
       row('Floating quick palette', chk('palette', u.palette), 'A small bar of tools and favourites you can drag anywhere') +
       row('Toolbar at the bottom in portrait', chk('bottomBar', u.bottomBar !== false), 'Within reach of your thumb when holding the iPad upright') +
       row('Markups list', sel('panelPos', u.panelPos || 'auto', [['auto', 'Automatic'], ['right', 'Right side'], ['bottom', 'Bottom'], ['left', 'Left side']]), 'Automatic: at the bottom when the iPad is upright, at the side when it is sideways') +
-      row('Properties', sel('propsMode', propsPopup() ? 'popup' : 'panel', [['popup', 'Pop-up window'], ['panel', 'In the markups list']]), 'Pop-up: select a markup or group, tap Properties in the bar over the drawing; tap outside to close') +
+      row('Properties', sel('propsMode', propsPopup() ? 'popup' : ui().propsMode === 'always' ? 'always' : 'panel', [['popup', 'Pop-up window'], ['panel', 'In the list, when picked there'], ['always', 'In the list, always open']]), 'Pop-up: select a markup or group, tap Properties in the bar over the drawing; tap outside to close') +
       row('Left-handed', chk('lefty', u.lefty), 'Tool ring and palette away from your hand (and the list on the left when Automatic)') +
       row('Larger touch targets', chk('big', u.big), 'Bigger buttons, colours and handles, for gloves or site use') + '</div>' +
     '<div class="setsec"><h3>Apple Pencil and touch</h3>' +

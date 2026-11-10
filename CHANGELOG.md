@@ -2,6 +2,14 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.7.1 (bug pass)
+- Fixed: a finger tap on the drawing did nothing (only the Pencil selected). With "Finger draws" off, a quick finger tap now selects a markup, finishes Add to group / Combine (which is why Add to group seemed not to work), follows a link, or deselects on empty paper; a finger that moves still scrolls. Tapping a selected text box again with a finger opens it for editing.
+- Fixed: the selection bar (and properties pop-up) covered the toolbar's menus (style, tool chest, tool picker), so menu items under it could not be tapped. Menus are now always on top.
+- List multi-select: press and hold a row to start Select mode with that row ticked (or tap Select). Tick more rows, or drag down the circles, then Group / Combine / Ungroup / Remove in the selection bar.
+- Fixed: right after a long-press, the next quick tap on a row was ignored.
+- Settings > Properties has a third choice again: "In the list, always open" (properties shown in the list whenever something is selected).
+- Ran every test from all rounds against the current app (with real touch input for the new ones); all current features pass.
+
 ## 3.7.0
 - Resizable markups list: drag the handle on its inner edge to make it wider or narrower (the drawing re-fits when Fit is on). The width is remembered; double-tap the handle for the default. At the bottom, drag its top edge as before.
 - Select mode in the list (Select button in the list header): the colour dots become tick circles. Tap rows to tick or untick them (a group row ticks the whole group, a row inside an open group just that markup), or drag down the circles to tick a run of rows; the list scrolls when you drag to its top or bottom edge. With the Pencil or a mouse you can drag anywhere on the rows. Then use the selection bar: Group, Combine (several groups into one), Ungroup, or Remove (take the ticked markups out of their group). Done leaves Select mode.

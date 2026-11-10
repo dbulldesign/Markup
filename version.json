@@ -1,5 +1,5 @@
 {
-  "version": "3.7.0",
+  "version": "3.7.1",
   "date": "2026-11-10",
-  "notes": "Resize the markups list by dragging its edge; Select mode in the list to tick or drag-select markups and groups, then Group, Combine, Ungroup or Remove."
+  "notes": "Fixes: finger taps select markups (so Add to group and Combine work by touch), menus no longer hidden under the selection bar; press and hold a row to multi-select in the list."
 }
