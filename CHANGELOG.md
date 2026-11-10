@@ -2,6 +2,12 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.9.0 (safety net)
+- Recovery points: while you have markups not yet saved into a PDF, the app keeps a copy of them on the iPad every 5 minutes (2, 5, 10 or off in Settings) and when you leave the app, the newest 10 per file. Settings > Safety net lists them with time and markup count; Restore brings one back (your current markups are kept as a recovery point first, and Undo also works). "Make one now" makes one by hand.
+- Save reminder: after 30 minutes (15, 30, 60 or off) with markups not saved into a PDF, a bar reminds you to tap Save PDF; it goes away when you save.
+- Native iPad app: also writes a marked-up copy of the PDF to Files (On My iPad > Pencil Markup > Autosave) at the same interval, so work survives even if the app's storage is cleared. (A website cannot write to Files on its own, so this is only in the native app.)
+- Closing a file removes its recovery points.
+
 ## 3.8.2
 - The Author field is no longer in the markups list; set it in Settings > Your name (the first save without a name shows a one-time reminder). The list gets that space.
 - The markups list header fits any width: when you make the list narrow, its buttons (Select, side/bottom, Export, Close) move together onto their own row and get more compact; Close becomes an x.

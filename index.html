@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.8.2">
+<meta name="app-version" content="3.9.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -2318,7 +2318,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.8.2';
+var APP_VERSION = '3.9.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2687,6 +2687,8 @@ function redo() { if (!state.future.length) return; state.history.push(snapshot(
 function updateUndoButtons() { $('#btnUndo').disabled = !state.history.length; $('#btnRedo').disabled = !state.future.length; scheduleKeep(); }
 function markUnsaved() {
   state.unsaved = state.annots.some(function (a) { return a.isNew ? !a.deleted : (a.dirty || a.deleted); }) || groupsChanged() || state.scaleDirty.size > 0;
+  if (state.unsaved) { if (!safety.unsavedSince) safety.unsavedSince = Date.now(); safety.changedAt = Date.now(); }
+  else { safety.unsavedSince = 0; if (warnKind === 'save') hideWarn(); }
   syncCanvasHidden();
   $('#btnSave').classList.toggle('unsaved', state.unsaved);
   scheduleKeep();
@@ -2737,6 +2739,69 @@ function renderTabs() {
   }).join('') + '<button type="button" class="tab add" id="tabAdd" title="Open another PDF" aria-label="Open another PDF">+</button>';
 }
 var warnKind = null;
+/* ---------- safety net ----------
+   1. Recovery points: while there are unsaved markups, a copy of them is kept on the iPad every few
+      minutes (the newest 10 per file). Settings > Recovery points restores one.
+   2. Save reminder: after a while with markups not saved into a PDF, a bar reminds you to save.
+   3. In the native iPad app: a marked-up copy of the PDF is also written to Files
+      (On My iPad > Pencil Markup > Autosave) every few minutes. */
+var safety = { lastPoint: 0, unsavedSince: 0, changedAt: 0, reminded: 0, nativeAt: 0, busy: false };
+async function makeRecoveryPoint(reason) {
+  if (!state.pdf || !state.docId) return false;
+  var snap = { at: Date.now(), name: state.fileName, n: live().length, reason: reason || 'auto', annots: state.annots, scales: state.scales, vps: state.vps || [], scaleDirty: Array.from(state.scaleDirty || []), series: state.series, nextId: state.nextId };
+  try { await idb.set('rp:' + state.docId + ':' + snap.at, JSON.parse(JSON.stringify(snap))); } catch (e) { return false; }
+  safety.lastPoint = Date.now();
+  try {
+    var keys = ((await idb.keys()) || []).map(String).filter(function (k) { return k.indexOf('rp:' + state.docId + ':') === 0; }).sort();
+    while (keys.length > 10) await idb.del(keys.shift());
+  } catch (e) { /* ignore */ }
+  return true;
+}
+async function recoveryPoints() {
+  if (!state.docId) return [];
+  var keys = []; try { keys = ((await idb.keys()) || []).map(String).filter(function (k) { return k.indexOf('rp:' + state.docId + ':') === 0; }).sort().reverse(); } catch (e) { keys = []; }
+  var out = []; for (var i = 0; i < keys.length; i++) { try { var r = await idb.get(keys[i]); if (r) out.push({ key: keys[i], at: r.at, n: r.n, reason: r.reason }); } catch (e) { /* ignore */ } }
+  return out;
+}
+async function restoreRecoveryPoint(key) {
+  var r = null; try { r = await idb.get(key); } catch (e) { r = null; }
+  if (!r || !r.annots) { toast('That recovery point could not be read.'); return; }
+  await makeRecoveryPoint('before restore');
+  pushHistory();
+  state.annots = r.annots; state.scales = r.scales || state.scales; state.vps = r.vps || []; state.scaleDirty = new Set(r.scaleDirty || []);
+  if (r.series) state.series = r.series; if (r.nextId) state.nextId = Math.max(state.nextId, r.nextId);
+  state.sel = new Set(); state.pages.forEach(drawOverlay); markUnsaved(); renderList(); renderProps(); updateScaleButton(); updateSeqBar();
+  toast('Restored the markups from ' + new Date(r.at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) + ' (' + r.n + ' markups). Undo puts things back.', 5000);
+}
+function maybeRemind() {
+  var mins = ui().saveRemind == null ? 30 : +ui().saveRemind; if (!mins || !state.unsaved || !safety.unsavedSince) return;
+  var now = Date.now();
+  if (now - safety.unsavedSince > mins * 60000 && now - safety.reminded > mins * 60000 && $('#warnBar').hidden) {
+    safety.reminded = now;
+    showWarn('Markups not saved into a PDF for ' + Math.round((now - safety.unsavedSince) / 60000) + ' minutes. They are kept on this iPad, but tap Save PDF to keep a copy in Files or send it to Revu.', 'save');
+  }
+}
+async function nativeAutosave() {
+  if (!Native || !Native.FS || ui().nativeAutosave === false || !state.unsaved || safety.busy) return;
+  var mins = +(ui().rpMins || 5); if (Date.now() - safety.nativeAt < mins * 60000 || safety.changedAt < safety.nativeAt) return;
+  safety.busy = true;
+  try {
+    var scales = {}, vps = {};
+    state.scaleDirty.forEach(function (i) { scales[i] = state.scales[i] || null; vps[i] = (state.vps && state.vps[i]) || []; });
+    var out = await MarkupIO.applyMarkups(state.bytes, JSON.parse(JSON.stringify(state.annots)), { author: state.author || '', scales: scales, vps: vps, photos: await photosForSave(), symAsStamp: !!ui().symStamp });
+    var bin = '', u8 = new Uint8Array(out); for (var i = 0; i < u8.length; i += 32768) bin += String.fromCharCode.apply(null, u8.subarray(i, i + 32768));
+    var nm = String(state.fileName || 'markups.pdf').replace(/\.pdf$/i, '').replace(/[\\/:*?"<>|]+/g, '-') + ' (autosave).pdf';
+    await Native.FS.writeFile({ path: 'Autosave/' + nm, data: btoa(bin), directory: 'DOCUMENTS', recursive: true });
+    safety.nativeAt = Date.now();
+  } catch (e) { console.warn('Autosave to Files failed', e); }
+  safety.busy = false;
+}
+setInterval(function () {
+  var mins = ui().rpMins == null ? 5 : +ui().rpMins;
+  if (mins && state.unsaved && Date.now() - safety.lastPoint > mins * 60000 && safety.changedAt > safety.lastPoint) makeRecoveryPoint('auto');
+  maybeRemind(); nativeAutosave();
+}, 30000);
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'hidden' && state.unsaved && safety.changedAt > safety.lastPoint) makeRecoveryPoint('app closed'); });
 function showWarn(text, kind) { warnKind = kind; $('#warnText').textContent = text; $('#warnBar').hidden = false; }
 function hideWarn() { warnKind = null; $('#warnBar').hidden = true; }
 $('#warnClose').addEventListener('click', function () { if (warnKind === 'homescreen') { try { localStorage.setItem('pencil-markup-a2hs', String(Date.now())); } catch (e) { /* ignore */ } } hideWarn(); });
@@ -2777,7 +2842,7 @@ async function closeTabNow(id) {
   var unsaved = id === tabs.active ? state.unsaved : false;
   if (id !== tabs.active) { try { var ss = await idb.get('session:' + id); unsaved = !!(ss && ss.unsaved); } catch (e) { /* ignore */ } }
   if (unsaved && !confirm('Close ' + t.name + '? Markups not yet saved into a PDF will be lost.')) return;
-  try { var ks = (await idb.keys()) || []; for (var ki = 0; ki < ks.length; ki++) { if (String(ks[ki]).indexOf('photo:') === 0) { var pr = await idb.get(ks[ki]); if (pr && pr.doc === id) await idb.del(ks[ki]); } } } catch (e) { /* ignore */ }
+  try { var ks = (await idb.keys()) || []; for (var ki = 0; ki < ks.length; ki++) { if (String(ks[ki]).indexOf('photo:') === 0) { var pr = await idb.get(ks[ki]); if (pr && pr.doc === id) await idb.del(ks[ki]); } else if (String(ks[ki]).indexOf('rp:' + id + ':') === 0) await idb.del(ks[ki]); } } catch (e) { /* ignore */ }
   try { await idb.del('doc:' + id); await idb.del('session:' + id); } catch (e) { /* ignore */ }
   tabs.list = tabs.list.filter(function (x) { return x.id !== id; });
   if (id === tabs.active) {
@@ -6728,14 +6793,36 @@ function openSettings() {
       row('Area units', sel('area', m.area, [['auto', 'sf / m\u00b2'], ['sy', 'Square yards'], ['acre', 'Acres'], ['ha', 'Hectares']])) +
       row('Angle decimals', sel('adec', m.adec, [[0, '0'], [1, '1'], [2, '2']])) + '</div>' +
     '<div class="setsec"><h3>Toolbar tools</h3><p class="hint">Tick the tools to show; use the arrows to change their order (also the order in the tool picker).</p><div class="tlist" id="tlist"></div></div>' +
+    '<div class="setsec"><h3>Safety net</h3>' +
+      row('Recovery points', sel('rpMins', u.rpMins == null ? 5 : u.rpMins, [[2, 'Every 2 minutes'], [5, 'Every 5 minutes'], [10, 'Every 10 minutes'], [0, 'Off']]), 'While markups are unsaved, a copy is kept on this iPad (newest 10 per file)') +
+      row('Save reminder', sel('saveRemind', u.saveRemind == null ? 30 : u.saveRemind, [[15, 'After 15 minutes'], [30, 'After 30 minutes'], [60, 'After an hour'], [0, 'Off']]), 'A reminder bar when markups have not been saved into a PDF') +
+      (Native ? row('Autosave a copy to Files', chk('nativeAutosave', u.nativeAutosave !== false), 'On My iPad > Pencil Markup > Autosave, at the recovery point interval') : '') +
+      '<div id="rpList" class="hint">Checking\u2026</div></div>' +
     '<div class="setsec"><h3>Storage on this iPad</h3><div id="storeInfo" class="hint">Checking\u2026</div></div>' +
     '<div class="setsec"><h3>Your data</h3><div class="actions"><button class="btn" type="button" data-sa="backup">Back up tools and settings</button><button class="btn" type="button" data-sa="restore">Restore\u2026</button><button class="btn" type="button" data-sa="resettb">Reset toolbar</button></div></div>' +
     '<div class="setsec"><h3>About</h3><div class="setrow"><span>Pencil Markup v' + APP_VERSION + '</span><span class="actions"><button class="btn" type="button" data-sa="update">Check for updates</button><button class="btn" type="button" data-sa="help">Help</button></span></div></div>';
   renderToolList();
   $('#setModal').hidden = false;
-  renderStorage();
+  renderStorage(); renderRecovery();
 }
 function fmtBytes(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB'; }
+async function renderRecovery() {
+  var el = $('#rpList'); if (!el) return;
+  if (!state.pdf) { el.className = 'hint'; el.textContent = 'Open a PDF to see its recovery points.'; return; }
+  var list = await recoveryPoints();
+  el.className = '';
+  el.innerHTML = (list.length ? list.map(function (r) {
+    var d = new Date(r.at);
+    return '<div class="setrow"><span>' + esc(d.toLocaleDateString([], { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })) + '<br><span class="sub2">' + r.n + ' markups' + (r.reason && r.reason !== 'auto' ? ', ' + esc(r.reason) : '') + '</span></span><button class="btn" type="button" data-rp="' + esc(r.key) + '">Restore</button></div>';
+  }).join('') : '<p class="hint">No recovery points for ' + esc(state.fileName) + ' yet (they are made while markups are unsaved).</p>') +
+    '<div class="actions"><button class="btn" type="button" data-rpnow="1">Make one now</button></div>';
+}
+$('#setBody').addEventListener('click', async function (e) {
+  var b = e.target.closest ? e.target.closest('[data-rp], [data-rpnow]') : null; if (!b) return;
+  if (b.dataset.rpnow) { if (await makeRecoveryPoint('made by hand')) toast('Recovery point made.'); renderRecovery(); return; }
+  if (!confirm('Restore the markups from this recovery point? Your current markups are kept as a recovery point first, and Undo also brings them back.')) return;
+  $('#setModal').hidden = true; await restoreRecoveryPoint(b.dataset.rp);
+});
 async function renderStorage() {
   var el = $('#storeInfo'); if (!el) return;
   var est = null, persisted = null, keys = [];
@@ -6789,6 +6876,8 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'symStamp') u.symStamp = v;
   else if (k === 'panelPos') { u.panelPos = v; saveUI(); layoutClasses(); renderVisible(); if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } }
   else if (k === 'autoUpdate') { u.autoUpdate = v; }
+  else if (k === 'rpMins' || k === 'saveRemind') { u[k] = +v; }
+  else if (k === 'nativeAutosave') { u.nativeAutosave = v; }
   else if (k === 'favMode') { u.favMode = v; saveUI(); $('#favPop').hidden = true; renderFavBar(); }
   else if (k === 'propsMode') { u.propsMode = v; state.propsOpen = false; saveUI(); renderProps(); }
   else if (k === 'bottomBar' || k === 'lefty' || k === 'big') { u[k] = v; saveUI(); layoutClasses(); renderPalette(); renderVisible(); }

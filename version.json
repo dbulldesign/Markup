@@ -1,5 +1,5 @@
 {
-  "version": "3.8.2",
+  "version": "3.9.0",
   "date": "2026-11-10",
-  "notes": "Author moved to Settings; the markups list header fits any width."
+  "notes": "Safety net: recovery points every few minutes (restore from Settings), a save reminder, and in the native app an autosaved copy in Files."
 }
