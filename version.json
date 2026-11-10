@@ -1,5 +1,5 @@
 {
-  "version": "3.1.1",
+  "version": "3.2.0",
   "date": "2026-11-10",
-  "notes": "Fix: toolbar blurred by the iPad status bar. Plus 3.1: markups list right/bottom/left and properties only when picked in the list."
+  "notes": "Fixture lengths: give a symbol a length (and quantity) and see total lengths in the list, counts, legend and exports; written into the Comments Revu shows."
 }

@@ -2,6 +2,14 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.2.0 (fixture lengths)
+- Length on fixtures: select a symbol (pick it in the list, or tap Properties) and type its length (4', 4'-0", 1.2 with m) and an optional quantity. The total (4'-0" x 3 = 12'-0") shows in the properties, the markups list, the Counts chips (total per subject), legends, the counts and markups CSV/Excel (Length qty, Total length) and the printable summary. Several symbols can be set at once.
+- Revu: the length is written into the markup's Comments as "Length: 4'-0" x 3 = 12'-0"", which Revu shows in its Comments column. It is also stored with the symbol, so it comes back as a length (not plain text) when reopened here.
+- Tools: a symbol tool can carry a default "Length each" and "Qty" (tool editor), so every fixture placed with it already has its length.
+- Fixture schedule import reads optional Length and Qty columns; the template now has them.
+- Fixed: a long tool name no longer pushes the toolbar onto two rows.
+- Corrected wording: custom fields show in Revu's Comments column (not as separate Revu columns).
+
 ## 3.1.1
 - Fixed: the top toolbar looked fuzzy (most visible with favourites in the toolbar). The app was drawn underneath the iPad status bar, and newer iPadOS versions blur a band under the status bar. The app now starts below the status bar, so iPadOS has nothing of ours to blur. The status bar keeps the toolbar colour (light or dark).
 

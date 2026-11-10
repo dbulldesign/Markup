@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.1.1">
+<meta name="app-version" content="3.2.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -211,6 +211,13 @@ body.narrow #saveName { width: 120px; }
 .cmpbar .key-a { color: #d32f2f; font-weight: 700; } .cmpbar .key-r { color: #1e5bd8; font-weight: 700; }
 .vh { margin: 12px 0 4px; font-size: 14px; }
 .sigpad { display: block; width: 100%; height: 200px; border: 1px solid var(--line); border-radius: 10px; background: #fff; touch-action: none; margin: 8px 0; }
+#counts .cl { color: var(--accent); font-weight: 600; }
+.row .comm .len { color: var(--accent); font-weight: 600; }
+#btnToolPick .tn { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.lenrow { display: flex; align-items: center; gap: 6px; }
+.lenrow #pLenV { flex: 2 1 0; min-width: 0; } .lenrow #pLenQ { flex: 1 1 0; min-width: 0; max-width: 70px; } .lenrow select { flex: none; width: auto; }
+.lenrow .btn { padding: 4px 10px; min-height: 0; }
+.lentot { margin-left: auto; font-weight: 700; color: var(--ink); font-variant-numeric: tabular-nums; }
 .phgrid { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0; }
 .phgrid button { width: 72px; height: 72px; padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface-2); cursor: pointer; }
 .phgrid img { width: 100%; height: 100%; object-fit: cover; display: block; }
@@ -793,6 +800,10 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
         <button class="btn" type="button" data-rot="15">+15&#xB0;</button>
         <button class="btn" type="button" data-rot="90" aria-label="Rotate 90 degrees clockwise">&#x21BB; 90&#xB0;</button>
       </div>
+      <div class="fieldsbox" id="pLen" hidden>
+        <div class="fhead"><span>Length</span><span class="lentot" id="pLenTot"></span></div>
+        <div class="lenrow"><input class="fld-in" id="pLenV" placeholder="each, e.g. 4'-0&quot;" autocomplete="off" spellcheck="false" aria-label="Length of each"><span>\u00d7</span><input class="fld-in" id="pLenQ" inputmode="decimal" placeholder="1" aria-label="Quantity"><select class="fld-in" id="pLenU" aria-label="Units"></select><button class="btn" type="button" id="pLenClear" title="Remove the length">\u00d7</button></div>
+      </div>
       <div class="fieldsbox" id="pPhotos" hidden>
         <div class="fhead"><span>Photos</span><label class="btn" id="pAddPhoto">+ Photo<input type="file" id="photoFile" accept="image/*" multiple hidden></label></div>
         <div class="phgrid" id="pPhotoGrid"></div>
@@ -932,7 +943,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
 <div class="modal" id="schedModal" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="schedTitle">
     <h2 id="schedTitle">Import a fixture schedule</h2>
-    <p class="sub">Each row becomes a symbol tool in a new palette: its label is the fixture type, and the other columns become custom fields that Revu shows as columns.</p>
+    <p class="sub">Each row becomes a symbol tool in a new palette: its label is the fixture type, and the other columns become custom fields (shown in Revu's Comments column).</p>
     <table class="schedtbl"><tbody>
       <tr><th>Type</th><td><b>Required.</b> The fixture type or mark (A, A1, B, X...). Also accepted: Mark, Tag, Fixture Type.</td></tr>
       <tr><th>Description</th><td>Shown in Comments and as a field.</td></tr>
@@ -940,6 +951,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <tr><th>Color, Fill, Text Color</th><td>#RRGGBB or a colour name. Leave Fill empty for no fill.</td></tr>
       <tr><th>Size, Height</th><td>Symbol size in points on the sheet (default 18); Height for rect, oval, roundrect.</td></tr>
       <tr><th>Subject</th><td>Optional; default "Type A". Counts are grouped by subject.</td></tr>
+      <tr><th>Length, Qty</th><td>Optional length of each fixture (4'-0", 4', 1.2 m) and how many per symbol; placed fixtures get it, and totals add up in counts and exports.</td></tr>
       <tr><th>Any other column</th><td>Manufacturer, Catalog Number, Lamp, Watts, Voltage, Mounting, Notes... become custom fields.</td></tr>
     </tbody></table>
     <p class="hint">The first row with a Type (or Mark) column is the header. Excel (.xlsx, first sheet), CSV and tab-separated files work.</p>
@@ -974,6 +986,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <label class="fld">Subject<input id="tSubject" list="subjects" placeholder="Shows as Subject in Revu"></label>
     <label class="fld">Comments<input id="tContents" placeholder="Optional default comment"></label>
     <label class="fld">Custom fields<textarea id="tFields" rows="2" placeholder="One per line, e.g.&#10;Type = L1&#10;Wattage = 25W"></textarea></label>
+    <div class="two"><label class="fld">Length each (symbols)<input id="tLen" placeholder="optional, e.g. 4'-0&quot;" autocomplete="off" spellcheck="false"></label><label class="fld">Qty<input id="tQty" inputmode="decimal" placeholder="1"></label></div>
     <div class="style-box">
       <div class="head"><span>Style</span><button class="btn" id="tUseCurrent" type="button">Use current style</button></div>
       <div class="style" id="styleTool"></div>
@@ -1272,7 +1285,8 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
           if (hs0 instanceof L.PDFArray) { holes = []; for (var hi = 0; hi < hs0.size(); hi++) { var hv = numsOf(ctx, hs0.get(hi)) || [], hp = []; for (var hq = 0; hq + 1 < hv.length; hq += 2) hp.push([hv[hq], hv[hq + 1]]); if (hp.length >= 3) holes.push(hp); } }
         }
         // Symbols placed by this app carry their settings in /PMSymbol so they stay editable here.
-        var sym = null, pmd = ctx.lookup(dict.get(N('PMSymbol')));
+        var sym = null, fixLen = null, fixQty = null, fixFmt = null, pmd = ctx.lookup(dict.get(N('PMSymbol')));
+        if (pmd instanceof L.PDFDict) { fixLen = numOf(ctx.lookup(pmd.get(N('Len'))), null); fixQty = numOf(ctx.lookup(pmd.get(N('Qty'))), null); fixFmt = textOf(ctx.lookup(pmd.get(N('LenU')))) || null; }
         if (pmd instanceof L.PDFDict && (subtype === 'Circle' || subtype === 'Square' || subtype === 'Polygon' || subtype === 'Stamp')) {
           var nn = numOf(ctx.lookup(pmd.get(N('N'))), null);
           sym = { shape: nameOf(pmd.get(N('Shape'))) || 'circle', size: numOf(ctx.lookup(pmd.get(N('Size'))), null), height: numOf(ctx.lookup(pmd.get(N('Height'))), null),
@@ -1313,7 +1327,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
           cloudI: (be instanceof L.PDFDict) ? numOf(ctx.lookup(be.get(N('I'))), 1) : null,
           mkind: mkind === 'area' ? null : mkind, ctr: mctr, rad: mrad, holes: holes, wallH: wallH, runN: runN, roomName: roomName,
           rect: [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])],
-          inkList: inkList, link: link, layer: layer,
+          inkList: inkList, link: link, layer: layer, fixLen: fixLen, fixQty: fixQty, fixFmt: fixFmt,
           color: colorOf(ctx, dict.get(N('C'))), fillColor: colorOf(ctx, dict.get(N('IC'))),
           fillOpacity: fillOpacity, highlight: highlight, opacity: opacity, lineWidth: lineWidth,
           subject: textOf(ctx.lookup(dict.get(N('Subj')))), contents: textOf(ctx.lookup(dict.get(N('Contents')))),
@@ -1704,6 +1718,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     var contentsOut = function (a) {
       var lines = [], head = a.mtext || symLabel(a);
       if (head) lines.push(head);
+      if (a.sym && a.fixText) lines.push(a.fixText);
       if (a.fields) Object.keys(a.fields).forEach(function (k) { if (a.fields[k] !== '' && a.fields[k] != null) lines.push(k + ': ' + a.fields[k]); });
       if (a.contents) lines.push(a.contents);
       return lines.join('\n');
@@ -1734,6 +1749,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
         if (+a.sym.angle) sd.Angle = fix(+a.sym.angle, 2);
         if (a.sym.legend) sd.Legend = true;
         if (a.sym.label) sd.Label = L.PDFHexString.fromText(a.sym.label);
+        if (a.fixLen > 0) { sd.Len = fix(a.fixLen, 6); sd.Qty = a.fixQty > 0 ? a.fixQty : 1; sd.LenU = L.PDFString.of(a.fixFmt || 'ft-in'); }
         if (hexRgb(a.sym.textColor)) sd.TextColor = hexRgb(a.sym.textColor).map(function (v) { return fix(v, 4); });
         if (a.sym.n != null) { sd.N = a.sym.n; sd.Series = L.PDFString.of(a.sym.series || ''); sd.Prefix = L.PDFHexString.fromText(a.sym.prefix || ''); }
         dict.set(N('PMSymbol'), ctx.obj(sd));
@@ -2200,7 +2216,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.1.1';
+var APP_VERSION = '3.2.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2428,6 +2444,30 @@ function updateGeom(a) {
   if (a.mkind === 'angle' && v.length === 3) { var ar = (a.lsize || 10) * 1.3; x0 = Math.min(x0, v[1][0] - ar); y0 = Math.min(y0, v[1][1] - ar); x1 = Math.max(x1, v[1][0] + ar); y1 = Math.max(y1, v[1][1] + ar); }
   a.rect = [x0, y0, x1, y1];
 }
+/* Fixture length: a length on a symbol (each), times a quantity, for a total length.
+   Saved with the symbol and written into its Comments as "Length: 4'-0" x 3 = 12'-0"" so Revu shows it. */
+var LEN_FMTS = [['ft-in', 'ft-in'], ['ft', 'ft'], ['in', 'in'], ['m', 'm'], ['mm', 'mm']];
+function lenSc(fmt) { fmt = fmt || 'ft-in'; return { fmt: fmt, unit: FMT_BASE[fmt] || 'ft', label: '' }; }
+function defaultLenFmt(pageIndex) { var sc = pageIndex != null ? scaleFor(pageIndex) : null; return ui().lenFmt || (sc && FMT_BASE[sc.fmt] ? sc.fmt : 'ft-in'); }
+function fixTotal(a) { return a && a.fixLen > 0 ? a.fixLen * (a.fixQty > 0 ? a.fixQty : 1) : 0; }
+function fmtLen(v, fmt) { return fmtLength(v, lenSc(fmt)); }
+function fixDesc(a) {
+  if (!(a && a.fixLen > 0)) return '';
+  var q = a.fixQty > 0 ? a.fixQty : 1;
+  return fmtLen(a.fixLen, a.fixFmt) + (q !== 1 ? ' \u00d7 ' + q + ' = ' + fmtLen(fixTotal(a), a.fixFmt) : '');
+}
+function setFix(a, len, qty, fmt) {
+  if (len > 0) { a.fixLen = len; a.fixQty = qty > 0 ? qty : 1; a.fixFmt = fmt || a.fixFmt || 'ft-in'; a.fixText = 'Length: ' + fixDesc(a); }
+  else { a.fixLen = null; a.fixQty = null; a.fixText = ''; }
+}
+// Sum of total lengths for markups that have one, in the first one's units.
+function sumLen(list) {
+  var withL = list.filter(function (x) { return x.fixLen > 0; }); if (!withL.length) return '';
+  var fmt = withL[0].fixFmt || 'ft-in', base = FMT_BASE[fmt] || 'ft', tot = 0;
+  withL.forEach(function (x) { var b = FMT_BASE[x.fixFmt || 'ft-in'] || 'ft'; tot += fixTotal(x) * (b === base ? 1 : (UNIT_M[b] || 1) / (UNIT_M[base] || 1)); });
+  return fmtLen(tot, fmt);
+}
+function sumQty(list) { var t = 0; list.forEach(function (x) { if (x.fixLen > 0) t += x.fixQty > 0 ? x.fixQty : 1; }); return t; }
 function copyScale(sc) { return sc ? { factor: sc.factor, unit: sc.unit, fmt: sc.fmt, label: sc.label || '', ratio: sc.ratio || '' } : null; }
 function scaleFor(pageIndex) { return state.scales[pageIndex] || null; }
 // The scale that applies at a point: a scale area (detail drawn at another scale) if the point is in one, else the page scale.
@@ -2928,6 +2968,7 @@ async function loadPdf(bytes, name, opts) {
   // Measurement text and symbol labels are written ahead of any comment in /Contents; split them back off on read.
   state.annots.forEach(function (a) {
     a.rot = pageRot(a.pageIndex);
+    if (a.sym && a.fixLen > 0) { setFix(a, a.fixLen, a.fixQty, a.fixFmt); a.contents = (a.contents || '').split('\n').filter(function (ln) { return ln.indexOf('Length: ') !== 0; }).join('\n'); }
     if (a.cloud && !a.cr) a.cr = clamp(defaultLabelSize(a.pageIndex) * 0.9 * Math.max(1, +a.cloudI || 1), 5, 40);
     if (a.fields) {
       // Field lines ("Name: value") follow the label/measurement in Comments; take them back off.
@@ -3732,6 +3773,10 @@ function newAnnot(tool, pageIndex, pt, opts) {
     } else if (T.numbered) { var sid = ensureSeries(); a.sym.series = sid; a.sym.prefix = state.series.defs[sid].prefix || ''; a.sym.n = nextNumber(sid); }
     centerSym(a, pt);
   }
+  if (T.symbol && !T.stamp && chest && chest.fixLenText) {
+    var lf = defaultLenFmt(pageIndex), lv = parseLength(chest.fixLenText, lf);
+    if (lv > 0) setFix(a, lv, +chest.fixQty || 1, lf);
+  }
   if (chest && chest.fields && chest.fields.length) { a.fields = {}; chest.fields.forEach(function (f) { a.fields[f.name] = f.value || ''; }); }
   if (a.vertices) updateGeom(a);
   return a;
@@ -4395,7 +4440,7 @@ function renderProps() {
   var rs = s.filter(function (x) { return x.sym && x.owned; });
   $('#pRotate').hidden = !rs.length;
   if (rs.length) $('#pAngle').textContent = (rs.every(function (x) { return (+x.sym.angle || 0) === (+rs[0].sym.angle || 0); }) ? (+rs[0].sym.angle || 0) + '\u00b0' : 'mixed');
-  renderFieldRows(s); renderPhotos(s);
+  renderFieldRows(s); renderPhotos(s); renderLen(s);
   var lks = s.length === 1 && a.subtype === 'Link';
   $('#pLinkRow').hidden = !lks;
   if (lks) $('#pLinkTo').textContent = a.link ? (a.link.url || (a.link.page != null ? 'Page ' + pageLabel(a.link.page) : '')) : '';
@@ -4500,6 +4545,40 @@ async function photosForSave() {
   for (var i = 0; i < list.length; i++) for (var j = 0; j < list[i].photos.length; j++) { var id = list[i].photos[j].id, b = await photoBytes(id); if (b) out[id] = b; }
   return out;
 }
+function renderLen(s) {
+  var syms = s.filter(function (x) { return countable(x) && x.owned; }), box = $('#pLen');
+  box.hidden = !syms.length; if (!syms.length) return;
+  var a = syms[0], act = document.activeElement, same = function (k) { return syms.every(function (x) { return x[k] === a[k]; }); };
+  if (!$('#pLenU').options.length) $('#pLenU').innerHTML = LEN_FMTS.map(function (f) { return '<option value="' + f[0] + '">' + f[1] + '</option>'; }).join('');
+  if (act !== $('#pLenV')) { $('#pLenV').value = same('fixLen') && a.fixLen > 0 ? fmtLen(a.fixLen, a.fixFmt) : ''; $('#pLenV').placeholder = same('fixLen') ? 'each, e.g. 4\'-0"' : 'Mixed'; }
+  if (act !== $('#pLenQ')) $('#pLenQ').value = same('fixQty') && a.fixQty > 0 ? a.fixQty : '';
+  if (act !== $('#pLenU')) $('#pLenU').value = a.fixLen > 0 ? (a.fixFmt || 'ft-in') : defaultLenFmt(a.pageIndex);
+  $('#pLenTot').textContent = syms.some(function (x) { return x.fixLen > 0; }) ? 'Total ' + sumLen(syms) : '';
+}
+function applyLen() {
+  var syms = selected().filter(function (x) { return countable(x) && x.owned; }); if (!syms.length) return;
+  var fmt = $('#pLenU').value, raw = $('#pLenV').value.trim(), qraw = $('#pLenQ').value.trim();
+  var len = raw ? parseLength(raw, fmt) : null, qty = qraw ? parseFloat(qraw) : null;
+  if (raw && !(len > 0)) { toast(fmt === 'ft-in' ? 'Type a length such as 4\'-0" or 4\'' : 'Type a length such as 1.2'); return; }
+  if (qraw && !(qty > 0)) { toast('Quantity must be more than 0.'); return; }
+  pushHistory('len');
+  syms.forEach(function (x) {
+    var l = raw ? len : x.fixLen, q = qraw ? qty : (x.fixQty || 1);
+    if (!raw && !x.fixLen) return;
+    setFix(x, l, q, fmt); if (!x.isNew) { x.dirty = true; x.styleDirty = true; }
+  });
+  ui().lenFmt = fmt; saveUI();
+  markUnsaved(); renderList(); renderLen(selected());
+}
+['#pLenV', '#pLenQ', '#pLenU'].forEach(function (id) {
+  $(id).addEventListener('change', applyLen);
+  $(id).addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); e.target.blur(); } });
+});
+$('#pLenClear').addEventListener('click', function () {
+  var syms = selected().filter(function (x) { return countable(x) && x.owned && x.fixLen > 0; }); if (!syms.length) return;
+  pushHistory(); syms.forEach(function (x) { setFix(x, 0); if (!x.isNew) { x.dirty = true; x.styleDirty = true; } });
+  markUnsaved(); renderList(); renderLen(selected());
+});
 function renderFieldRows(s) {
   var names = [], seen = {};
   s.forEach(function (x) { Object.keys(x.fields || {}).forEach(function (k) { if (!seen[k]) { seen[k] = 1; names.push(k); } }); });
@@ -4624,13 +4703,14 @@ function countRows(pageIndex) {
     if (!groups[key]) { groups[key] = { items: [], first: a }; order.push(key); }
     groups[key].items.push(a);
   });
-  var head = ['Subject', 'Label / numbers', 'Count', 'Pages', 'Shape', 'Line colour', 'Fill colour'].concat(names);
+  var hasLen = list.some(function (a) { return a.fixLen > 0; });
+  var head = ['Subject', 'Label / numbers', 'Count', 'Pages', 'Shape', 'Line colour', 'Fill colour'].concat(hasLen ? ['Length qty', 'Total length'] : []).concat(names);
   var rows = order.map(function (k) {
     var g = groups[k], a = g.first, label;
     if (a.sym.n != null) { var ns = g.items.map(function (x) { return x.sym.n; }).sort(function (x, y) { return x - y; }); label = (a.sym.prefix || '') + ns[0] + (ns.length > 1 ? '\u2013' + (a.sym.prefix || '') + ns[ns.length - 1] : ''); }
     else label = a.sym.label || '';
     var pages = Array.from(new Set(g.items.map(function (x) { return x.pageIndex; }))).sort(function (x, y) { return x - y; }).map(pageLabel).join(', ');
-    return [a.subject || typeLabel(a.subtype), label, g.items.length, pages, a.sym.shape, hexOf(a.color), hexOf(a.fillColor)].concat(names.map(function (n) {
+    return [a.subject || typeLabel(a.subtype), label, g.items.length, pages, a.sym.shape, hexOf(a.color), hexOf(a.fillColor)].concat(hasLen ? [sumQty(g.items) || '', sumLen(g.items)] : []).concat(names.map(function (n) {
       var vs = Array.from(new Set(g.items.map(function (x) { return x.fields && x.fields[n] != null ? x.fields[n] : ''; }))); return vs.length === 1 ? vs[0] : vs.filter(Boolean).join(' / ');
     }));
   });
@@ -4642,11 +4722,12 @@ function markupRows() {
   var list = live().filter(function (a) { return !(a.sym && a.sym.legend) && (!state.exVisible || isVisible(a)); });
   list.sort(function (a, b) { return a.pageIndex - b.pageIndex || String(a.subject).localeCompare(String(b.subject)); });
   var names = allFieldNames(list);
-  var rs = rooms(), head = ['Page'].concat(rs.length ? ['Room'] : []).concat(['Subject', 'Type', 'Label / number', 'Measurement', 'Status', 'Comments', 'Author', 'Date', 'Line colour', 'Fill colour', 'Group', 'Photos']).concat(names);
+  var rs = rooms(), head = ['Page'].concat(rs.length ? ['Room'] : []).concat(['Subject', 'Type', 'Label / number', 'Measurement', 'Status', 'Comments', 'Author', 'Date', 'Line colour', 'Fill colour', 'Group', 'Photos']).concat(list.some(function (a) { return a.fixLen > 0; }) ? ['Length each', 'Qty', 'Total length'] : []).concat(names);
+  var hasLen2 = list.some(function (a) { return a.fixLen > 0; });
   var rows = list.map(function (a) {
     var g = membersOf(a).length > 1 ? 'Group ' + (headOf(a).subject || '') + ' (' + membersOf(a).length + ')' : '';
     var rm = a.mkind === 'room' ? '' : (function () { var r = roomOf(a, rs); return r ? r.roomName || 'Room' : ''; })();
-    return [pageLabel(a.pageIndex)].concat(rs.length ? [rm] : []).concat([a.subject || '', a.sym ? (a.sym.n != null ? 'Number' : a.sym.shape === 'stamp' ? 'Stamp' : 'Symbol') : typeLabel(a.subtype, a.intent), MarkupIO.symLabel(a), a.mtext || '', STATUS_LABEL[a.status] || '', a.contents || '', a.author || '', a.date ? fmtDate(a.date) : '', hexOf(a.color), hexOf(a.fillColor), g, a.photos && a.photos.length ? a.photos.length : '']).concat(names.map(function (n) { return a.fields && a.fields[n] != null ? a.fields[n] : ''; }));
+    return [pageLabel(a.pageIndex)].concat(rs.length ? [rm] : []).concat([a.subject || '', a.sym ? (a.sym.n != null ? 'Number' : a.sym.shape === 'stamp' ? 'Stamp' : 'Symbol') : typeLabel(a.subtype, a.intent), MarkupIO.symLabel(a), a.mtext || '', STATUS_LABEL[a.status] || '', a.contents || '', a.author || '', a.date ? fmtDate(a.date) : '', hexOf(a.color), hexOf(a.fillColor), g, a.photos && a.photos.length ? a.photos.length : '']).concat(hasLen2 ? (a.fixLen > 0 ? [fmtLen(a.fixLen, a.fixFmt), a.fixQty || 1, fmtLen(fixTotal(a), a.fixFmt)] : ['', '', '']) : []).concat(names.map(function (n) { return a.fields && a.fields[n] != null ? a.fields[n] : ''; }));
   });
   return { head: head, rows: rows };
 }
@@ -4741,7 +4822,9 @@ async function summaryPdf() {
     var all = live().filter(function (a) { return !(a.sym && a.sym.legend) && !(a.legendKey); });
     page.drawText(clean(state.fileName + '  \u00b7  ' + new Date().toLocaleString() + (state.author ? '  \u00b7  ' + state.author : '') + '  \u00b7  ' + all.length + ' markups on ' + state.pages.length + ' pages'), { x: M, y: y - 10, size: 10, font: F, color: mute }); y -= 22;
     var c = countRows(null);
-    if (c.rows.length) { heading('Counts'); table(['Subject', 'Label / numbers', 'Count', 'Pages'], c.rows.map(function (r) { return [r[0], r[1], String(r[2]), r[3]]; }), [0.34, 0.26, 0.1, 0.3]); }
+    var tli = c.head.indexOf('Total length');
+    if (c.rows.length && tli >= 0) { heading('Counts'); table(['Subject', 'Label / numbers', 'Count', 'Pages', 'Total length'], c.rows.map(function (r) { return [r[0], r[1], String(r[2]), r[3], r[tli]]; }), [0.3, 0.22, 0.08, 0.22, 0.18]); }
+    else if (c.rows.length) { heading('Counts'); table(['Subject', 'Label / numbers', 'Count', 'Pages'], c.rows.map(function (r) { return [r[0], r[1], String(r[2]), r[3]]; }), [0.34, 0.26, 0.1, 0.3]); }
     if (rooms().length) { var rr = roomRows(); heading('Counts by room'); table(rr.head, rr.rows.map(function (r) { return r.map(String); }), [0.2, 0.08, 0.14, 0.26, 0.24, 0.08]); }
     // Measurement totals by subject (same units only).
     var tot = {}, tord = [];
@@ -4757,7 +4840,7 @@ async function summaryPdf() {
     if (tord.length) { heading('Measurement totals'); table(['Subject', 'Kind', 'Count', 'Total'], tord.map(function (k) { var t = tot[k]; return [t.subj, t.kind, String(t.n), t.v ? (t.area ? fmtArea(t.v, t.sc) : fmtLength(t.v, t.sc)) : '']; }), [0.4, 0.2, 0.1, 0.3]); }
     var m = markupRows(), col = function (n) { return m.head.indexOf(n); };
     heading('Markups');
-    table(['Page', 'Subject', 'Label / measurement', 'Status', 'Comments', 'Author', 'Photos'], m.rows.map(function (r) { return [r[col('Page')], r[col('Subject')] || r[col('Type')], r[col('Measurement')] || r[col('Label / number')], r[col('Status')], r[col('Comments')], r[col('Author')], String(r[col('Photos')] || '')]; }), [0.06, 0.18, 0.2, 0.09, 0.3, 0.11, 0.06]);
+    table(['Page', 'Subject', 'Label / measurement', 'Status', 'Comments', 'Author', 'Photos'], m.rows.map(function (r) { return [r[col('Page')], r[col('Subject')] || r[col('Type')], (r[col('Measurement')] || r[col('Label / number')]) + (col('Total length') >= 0 && r[col('Total length')] ? ' \u00b7 ' + r[col('Length each')] + (r[col('Qty')] > 1 ? ' \u00d7 ' + r[col('Qty')] + ' = ' + r[col('Total length')] : '') : ''), r[col('Status')], r[col('Comments')], r[col('Author')], String(r[col('Photos')] || '')]; }), [0.06, 0.18, 0.2, 0.09, 0.3, 0.11, 0.06]);
     var withPh = all.filter(function (a) { return a.photos && a.photos.length; });
     if (withPh.length) {
       heading('Site photos');
@@ -4784,7 +4867,7 @@ async function summaryPdf() {
 }
 /* Legend: a symbol and "Subject - count" for each kind of symbol, as a group of normal markups placed
    at the top left of what is on screen. */
-function legendText(r, n) { return (r.subject || typeLabel(r.subtype)) + (r.sym.n == null && r.sym.label ? ' (' + r.sym.label + ')' : '') + '  \u00d7' + n; }
+function legendText(r, n, items) { var tl = items ? sumLen(items) : ''; return (r.subject || typeLabel(r.subtype)) + (r.sym.n == null && r.sym.label ? ' (' + r.sym.label + ')' : '') + (tl ? '  ' + tl : '') + '  \u00d7' + n; }
 // Legend counts follow the markups: each row text remembers which count it shows.
 function refreshLegends() {
   var rows = live().filter(function (a) { return a.legendKey && a.legendKey !== '#title' && a.subtype === 'FreeText'; }); if (!rows.length) return;
@@ -4792,7 +4875,7 @@ function refreshLegends() {
   rows.forEach(function (a) {
     var sc = a.legendScope || 'all', pg = sc.indexOf('page:') === 0 ? +sc.slice(5) : null;
     var c = cache[sc] || (cache[sc] = countRows(pg)), g = c.groups.filter(function (x) { return x.key === a.legendKey; })[0];
-    var txt = g ? legendText(g.first, g.items.length) : a.contents.replace(/\u00d7\d+$/, '\u00d70');
+    var txt = g ? legendText(g.first, g.items.length, g.items) : a.contents.replace(/\u00d7\d+$/, '\u00d70');
     if (txt !== a.contents) { a.contents = txt; fitTextBox(a, false); if (!a.isNew) { a.dirty = true; a.styleDirty = true; a.geomDirty = true; } var pp = state.pages[a.pageIndex]; if (pp) drawOverlay(pp); }
   });
 }
@@ -4828,7 +4911,7 @@ function insertLegend(scope, at) {
     var sy = Object.assign({}, r.sym, { size: d[0] * k, height: d[1] * k, angle: 0, legend: true, n: null, series: null, label: r.sym.n != null ? (r.sym.prefix || '') + '#' : r.sym.label });
     var s0 = Object.assign({}, base, { id: 'n' + (state.nextId++), nm: MarkupIO.makeNM(), subtype: r.subtype, subject: 'Legend', color: r.color, fillColor: r.fillColor, fillOpacity: r.fillOpacity, highlight: r.highlight, lineWidth: r.lineWidth, sym: sy });
     centerSym(s0, pt(symMax / 2, uy + symMax / 2)); made.push(s0);
-    var rowT = addText(legendText(r, g.items.length), symMax + fs * 0.6, uy + symMax / 2 - (fs * 1.2 + 8) / 2, fs * 16, fs);
+    var rowT = addText(legendText(r, g.items.length, g.items), symMax + fs * 0.6, uy + symMax / 2 - (fs * 1.2 + 8) / 2, fs * 16, fs);
     rowT.legendKey = g.key; rowT.legendScope = scope === 'page' ? 'page:' + pi : 'all';
   });
   if (!at) pushHistory();
@@ -4849,10 +4932,11 @@ function closeExport() { $('#exportModal').hidden = true; }
 function renderCounts() {
   refreshLegends();
   var by = {}, order = [];
-  live().forEach(function (a) { if (!countable(a) || !isVisible(a)) return; var k = a.subject || typeLabel(a.subtype); if (!by[k]) { by[k] = 0; order.push(k); } by[k]++; });
+  var lists = {};
+  live().forEach(function (a) { if (!countable(a) || !isVisible(a)) return; var k = a.subject || typeLabel(a.subtype); if (!by[k]) { by[k] = 0; order.push(k); lists[k] = []; } by[k]++; lists[k].push(a); });
   var el = $('#counts');
   el.hidden = !order.length;
-  el.innerHTML = order.length ? '<span>Counts</span>' + order.sort().map(function (k) { return '<button type="button" data-count="' + esc(k) + '" title="Show only these">' + esc(k) + ' <b>\u00d7' + by[k] + '</b></button>'; }).join('') : '';
+  el.innerHTML = order.length ? '<span>Counts</span>' + order.sort().map(function (k) { return '<button type="button" data-count="' + esc(k) + '" title="Show only these">' + esc(k) + ' <b>\u00d7' + by[k] + '</b>' + (sumLen(lists[k]) ? ' <span class="cl">' + esc(sumLen(lists[k])) + '</span>' : '') + '</button>'; }).join('') : '';
 }
 $('#counts').addEventListener('click', function (e) {
   var b = e.target.closest ? e.target.closest('[data-count]') : null; if (!b) return;
@@ -4879,7 +4963,7 @@ function renderList() {
       '<span class="sw" style="--c:' + rgbToHex(a.color || [0.5, 0.5, 0.5]) + '"></span>' +
       '<span class="subj">' + (isVisible(a) ? '' : '<span class="muted" title="Hidden">\u25CC </span>') + (a.subject ? esc(a.subject) : '<span class="muted">' + esc(typeLabel(a.subtype, a.intent)) + '</span>') + (a.status ? ' <span class="st st-' + esc(a.status) + '">' + esc(STATUS_LABEL[a.status] || a.status) + '</span>' : '') + '</span>' +
       '<span class="pg">p. ' + esc(pageLabel(a.pageIndex)) + '</span>' +
-      '<span class="comm">' + ((a.mtext || MarkupIO.symLabel(a)) ? '<b>' + esc(a.mtext || MarkupIO.symLabel(a)) + '</b>' + (a.contents ? ' · ' : '') : '') + esc(a.contents || '') + '</span>' +
+      '<span class="comm">' + ((a.mtext || MarkupIO.symLabel(a)) ? '<b>' + esc(a.mtext || MarkupIO.symLabel(a)) + '</b>' + (a.fixLen > 0 || a.contents ? ' · ' : '') : '') + (a.fixLen > 0 ? '<span class="len">' + esc(fixDesc(a)) + '</span>' + (a.contents ? ' · ' : '') : '') + esc(a.contents || '') + '</span>' +
       '<span class="meta">' + esc(meta) + '</span></div>';
   };
   groups.forEach(function (g) {
@@ -5194,7 +5278,7 @@ async function importBtx(files) {
 }
 $('#btnChest').addEventListener('click', function (e) { e.stopPropagation(); var pop = $('#chestPop'); pop.hidden = !pop.hidden; $('#stylePop').hidden = true; $('#verPop').hidden = true; if (!pop.hidden) { renderChest(); fitPop(pop); } });
 $('#btnImportBtx').addEventListener('click', function () { $('#btxFile').click(); });
-var SCHEDULE_TEMPLATE = "Type,Description,Manufacturer,Catalog Number,Lamp,Watts,Voltage,Mounting,Shape,Color,Fill,Text Color,Size,Height,Notes\nA,2x4 LED troffer,Example Lighting Co,EX-24-4000K,LED 4000K,32,120-277,Recessed,square,#1F6FEB,#DCE8FD,#0B3D91,18,,\nA1,\"2x4 LED troffer, emergency battery\",Example Lighting Co,EX-24-4000K-EM,LED 4000K,32,120-277,Recessed,square,#1F6FEB,#FFF4C2,#0B3D91,18,,Wire to unswitched leg\nB,6 in LED downlight,Example Lighting Co,EX-DL6-3500K,LED 3500K,15,120-277,Recessed,circle,#D93025,,#D93025,14,,\nC,4 ft LED strip,Example Lighting Co,EX-STRIP-4,LED 4000K,38,120-277,Surface,rect,#188038,,#188038,28,10,\nD,Wall pack,Example Lighting Co,EX-WP-30,LED 5000K,30,120-277,Wall 12 ft AFF,triangle,#8E24AA,,#8E24AA,16,,Photocell\nX,Exit sign,Example Lighting Co,EX-EXIT-R,LED,3,120-277,Ceiling,hexagon,#E37400,#FFE0B2,#E37400,16,,Arrows per plan\n";
+var SCHEDULE_TEMPLATE = "Type,Description,Manufacturer,Catalog Number,Lamp,Watts,Voltage,Mounting,Shape,Color,Fill,Text Color,Size,Height,Length,Qty,Notes\nA,2x4 LED troffer,Example Lighting Co,EX-24-4000K,LED 4000K,32,120-277,Recessed,square,#1F6FEB,#DCE8FD,#0B3D91,18,,\"4'-0\"\"\",,\nA1,\"2x4 LED troffer, emergency battery\",Example Lighting Co,EX-24-4000K-EM,LED 4000K,32,120-277,Recessed,square,#1F6FEB,#FFF4C2,#0B3D91,18,,\"4'-0\"\"\",,Wire to unswitched leg\nB,6 in LED downlight,Example Lighting Co,EX-DL6-3500K,LED 3500K,15,120-277,Recessed,circle,#D93025,,#D93025,14,,,,\nC,4 ft LED strip,Example Lighting Co,EX-STRIP-4,LED 4000K,38,120-277,Surface,rect,#188038,,#188038,28,10,\"4'-0\"\"\",3,\nD,Wall pack,Example Lighting Co,EX-WP-30,LED 5000K,30,120-277,Wall 12 ft AFF,triangle,#8E24AA,,#8E24AA,16,,,,Photocell\nX,Exit sign,Example Lighting Co,EX-EXIT-R,LED,3,120-277,Ceiling,hexagon,#E37400,#FFE0B2,#E37400,16,,,,Arrows per plan\n";
 $('#btnSchedule').addEventListener('click', function () { $('#chestPop').hidden = true; $('#schedModal').hidden = false; });
 $('#schedClose').addEventListener('click', function () { $('#schedModal').hidden = true; });
 $('#schedModal').addEventListener('pointerdown', function (e) { if (e.target === $('#schedModal')) $('#schedModal').hidden = true; });
@@ -5280,8 +5364,10 @@ async function importSchedule(file) {
     else if (/^(size|symbol size|width)$/.test(k)) role.size = j;
     else if (/^(height|symbol height)$/.test(k)) role.height = j;
     else if (/^subject$/.test(k)) role.subject = j;
+    else if (/^(length|fixture length|length each|len)$/.test(k)) role.len = j;
+    else if (/^(qty|quantity|qty each)$/.test(k)) role.qty = j;
   });
-  var styleCols = new Set([cols.type, role.shape, role.color, role.fill, role.text, role.size, role.height, role.subject].filter(function (x) { return x != null; }));
+  var styleCols = new Set([cols.type, role.shape, role.color, role.fill, role.text, role.size, role.height, role.subject, role.len, role.qty].filter(function (x) { return x != null; }));
   var tools = [], seen = {};
   rows.slice(hi + 1).forEach(function (r) {
     var type = String(r[cols.type] || '').trim(); if (!type || seen[type]) return; seen[type] = 1;
@@ -5293,7 +5379,8 @@ async function importSchedule(file) {
     tools.push({ id: newId('t'), layer: '', mode: '', title: 'Type ' + type + (desc ? ' \u2013 ' + desc : ''), subtype: MarkupIO.SYM_SUB[shape] || 'Circle', intent: '', drawTool: 'symbol', supported: true, fs: null,
       sym: { angle: 0, shape: shape, size: size, height: MarkupIO.SYM_WIDE[shape] ? ht : null, label: type.slice(0, 8), textColor: tc ? rgbToHex(tc) : null, numbered: false },
       color: col, fillColor: fill, fillOpacity: fill ? 1 : 0.35, opacity: 1, lineWidth: 1.5, highlight: false,
-      subject: get(role.subject) || 'Type ' + type, contents: desc, fav: false, icon: null, fields: fields });
+      subject: get(role.subject) || 'Type ' + type, contents: desc, fav: false, icon: null, fields: fields,
+      fixLenText: get(role.len), fixQty: parseFloat(get(role.qty)) > 0 ? parseFloat(get(role.qty)) : null });
   });
   if (!tools.length) { toast('No fixture types found under the header row.', 5000); return; }
   var title = String(file.name).replace(/\.(csv|tsv|txt|xlsx)$/i, '') || 'Fixture schedule';
@@ -5392,6 +5479,7 @@ function openToolEditor(set, tool) {
     $('#tSubject').value = tool.subject || '';
     $('#tContents').value = tool.contents || '';
     $('#tFields').value = (tool.fields || []).map(function (f) { return f.name + ' = ' + (f.value || ''); }).join('\n');
+    $('#tLen').value = tool.fixLenText || ''; $('#tQty').value = tool.fixQty || '';
     $('#tFav').checked = !!tool.fav;
     fillSetOptions(set.id);
   } else {
@@ -5404,6 +5492,7 @@ function openToolEditor(set, tool) {
     $('#tSubject').value = subj;
     $('#tContents').value = ct ? (ct.contents || '') : '';
     $('#tFields').value = ct && ct.fields ? ct.fields.map(function (f) { return f.name + ' = ' + (f.value || ''); }).join('\n') : '';
+    $('#tLen').value = ct && ct.fixLenText || ''; $('#tQty').value = ct && ct.fixQty || '';
     $('#tFav').checked = true;
     var mine = state.chestSets.filter(function (s) { return s.custom; });
     var lastId = state.lastPalette && state.chestSets.some(function (s) { return s.id === state.lastPalette; }) ? state.lastPalette : (mine.length ? mine[mine.length - 1].id : null);
@@ -5429,6 +5518,7 @@ function editorFields() {
     color: hexToRgb(st.color), fillColor: st.fill && MarkupIO.FILLABLE.has(symSub || T.sub) ? hexToRgb(st.fillColor || st.color) : null,
     fillOpacity: st.fillOpacity, opacity: st.opacity, lineWidth: st.lineWidth, highlight: !!st.highlight,
     subject: $('#tSubject').value.trim(), contents: $('#tContents').value, fav: $('#tFav').checked, icon: null,
+    fixLenText: T.symbol && !T.stamp ? $('#tLen').value.trim() : '', fixQty: T.symbol && !T.stamp && parseFloat($('#tQty').value) > 0 ? parseFloat($('#tQty').value) : null,
     fields: $('#tFields').value.split(/\n/).map(function (l) { var m = /^\s*([^=:]+?)\s*[=:]\s*(.*?)\s*$/.exec(l); return m ? { name: m[1], value: m[2] } : (l.trim() ? { name: l.trim(), value: '' } : null); }).filter(Boolean)
   };
 }
