@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.7.1">
+<meta name="app-version" content="3.7.2">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -2287,7 +2287,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.7.1';
+var APP_VERSION = '3.7.2';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -6846,10 +6846,19 @@ window.addEventListener('scroll', function () {
   if (!el || !/^(INPUT|TEXTAREA|SELECT)$/.test(el.tagName)) resetWindowScroll();
 }, { passive: true });
 function resetWindowScroll() { if (window.scrollX || window.scrollY) window.scrollTo(0, 0); document.documentElement.scrollTop = 0; document.body.scrollTop = 0; }
-document.addEventListener('focusout', function () { setTimeout(resetWindowScroll, 60); setTimeout(resetWindowScroll, 400); });
-if (window.visualViewport) window.visualViewport.addEventListener('resize', function () {
-  var el = document.activeElement; if (!el || !/^(INPUT|TEXTAREA)$/.test(el.tagName)) resetWindowScroll();
-});
+/* iPadOS scrolls the whole app up to keep a text field above the keyboard (naming a tool, a fixture
+   schedule, comments...) and does not always scroll back when the keyboard closes. Left like that, the
+   toolbar sits under the status bar and gets blurred. Put it back whenever nobody is typing. */
+function typingNow() { var el = document.activeElement; return !!el && (el.tagName === 'TEXTAREA' || el.tagName === 'SELECT' || (el.tagName === 'INPUT' && !/^(checkbox|radio|range|button|color|file)$/.test(el.type)) || el.isContentEditable); }
+function scrolledAway() { return !!(window.scrollX || window.scrollY || document.documentElement.scrollTop || document.body.scrollTop); }
+function settleScroll() { [0, 60, 250, 500, 900, 1500, 2500].forEach(function (t) { setTimeout(function () { if (!typingNow() && scrolledAway()) resetWindowScroll(); }, t); }); }
+document.addEventListener('focusout', settleScroll);
+if (window.visualViewport) ['resize', 'scroll'].forEach(function (t) { window.visualViewport.addEventListener(t, function () { if (!typingNow()) settleScroll(); }); });
+// Any dialog closing (tool editor, settings, schedule...) settles the page too.
+if (window.MutationObserver) { var modalObs = new MutationObserver(function () { settleScroll(); }); $$('.modal, .pop, #propsPop').forEach(function (m) { modalObs.observe(m, { attributes: true, attributeFilter: ['hidden'] }); }); }
+// And as a last resort, the next touch anywhere fixes it.
+document.addEventListener('pointerup', function () { if (scrolledAway() && !typingNow()) resetWindowScroll(); }, true);
+document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') settleScroll(); });
 ['gesturestart', 'gesturechange', 'gestureend'].forEach(function (t) { document.addEventListener(t, function (e) { e.preventDefault(); }, { passive: false }); });
 
 /* ---------- init ---------- */

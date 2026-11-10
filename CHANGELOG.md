@@ -2,6 +2,9 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.7.2
+- Fixed: the top of the app going blurry after adding a new tool (or typing in any dialog). The iPad keyboard scrolls the app up to keep the text field visible and sometimes leaves it there, with the toolbar under the status bar. The app now puts itself back whenever the keyboard closes, a dialog or menu closes, the iPad's visible area changes, the app comes back to the front, or (as a last resort) on the next tap anywhere, as long as you are not typing.
+
 ## 3.7.1 (bug pass)
 - Fixed: a finger tap on the drawing did nothing (only the Pencil selected). With "Finger draws" off, a quick finger tap now selects a markup, finishes Add to group / Combine (which is why Add to group seemed not to work), follows a link, or deselects on empty paper; a finger that moves still scrolls. Tapping a selected text box again with a finger opens it for editing.
 - Fixed: the selection bar (and properties pop-up) covered the toolbar's menus (style, tool chest, tool picker), so menu items under it could not be tapped. Menus are now always on top.

@@ -1,5 +1,5 @@
 {
-  "version": "3.7.1",
+  "version": "3.7.2",
   "date": "2026-11-10",
-  "notes": "Fixes: finger taps select markups (so Add to group and Combine work by touch), menus no longer hidden under the selection bar; press and hold a row to multi-select in the list."
+  "notes": "Fix: the top of the app going blurry after typing in a dialog (for example naming a new tool)."
 }
