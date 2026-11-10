@@ -1,5 +1,5 @@
 {
-  "version": "3.3.0",
+  "version": "3.4.0",
   "date": "2026-11-10",
-  "notes": "Combine groups: select a group, tap Combine with..., then tap the other group."
+  "notes": "Selection bar over the drawing: Group, Combine, Ungroup, Duplicate, Delete and Properties are one tap away whenever markups are selected."
 }

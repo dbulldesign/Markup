@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.3.0">
+<meta name="app-version" content="3.4.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -304,6 +304,18 @@ body.portrait #btnHelp { display: none; }
 .style details[open] summary { color: var(--ink); }
 .props[hidden] { display: none; }
 .props .title .hide-props { margin-left: auto; padding: 4px 10px; min-height: 0; font-size: 13px; }
+.selbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: calc(100% - 20px); overflow-x: auto; scrollbar-width: none; }
+.selbar::-webkit-scrollbar { display: none; }
+.selbar[hidden] { display: none; }
+.selbar .sb-n { padding: 0 8px 0 10px; font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
+.sbb { flex: none; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-width: 56px; min-height: 48px; padding: 4px 8px; border: 0; border-radius: 10px; background: transparent; color: var(--ink); font-size: 11px; font-weight: 500; cursor: pointer; }
+.sbb svg { width: 20px; height: 20px; }
+.sbb:active { background: var(--surface-3); }
+.sbb[hidden] { display: none; }
+.sbb.danger { color: var(--danger, #c62828); }
+#btnSelClear { min-width: 44px; }
+body.big .sbb { min-width: 64px; min-height: 56px; }
+body.narrow .sbb span { display: none; } body.narrow .sbb { min-width: 44px; }
 .props-mini { display: flex; align-items: center; gap: 10px; padding: 6px 14px; border-bottom: 1px solid var(--line); background: var(--accent-soft); font-size: 14px; }
 .props-mini[hidden] { display: none; }
 .props-mini .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; }
@@ -732,7 +744,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     </div>
     <div id="dPages" class="dbody">
       <input id="gotoIn" class="dinput" placeholder="Go to page (number or label)" inputmode="text" aria-label="Go to page">
-      <button class="btn cmp-open" id="btnCompare" type="button" title="Compare this drawing with an older revision: changes are highlighted and can be clouded">Compare with older revision\u2026</button>
+      <button class="btn cmp-open" id="btnCompare" type="button" title="Compare this drawing with an older revision: changes are highlighted and can be clouded">Compare with older revision&#8230;</button>
       <input type="file" id="cmpFile" accept="application/pdf,.pdf" hidden>
       <div class="thumbs" id="thumbs"></div>
     </div>
@@ -756,6 +768,17 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <button class="btn" id="cmpCloud" type="button">Cloud changes</button>
     <button class="btn" id="cmpAll" type="button">Cloud all pages</button>
     <button class="btn primary" id="cmpDone" type="button">Done</button>
+  </div>
+  <div class="selbar" id="selBar" role="toolbar" aria-label="Selected markups" hidden>
+    <span class="sb-n" id="selN"></span>
+    <button class="sbb" id="btnSelProps" type="button" title="Properties"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>Properties</span></button>
+    <button class="sbb" id="btnGroup" type="button" title="Group (Cmd+G)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M2 2h20v20H2z" stroke-dasharray="3 3"/></svg><span>Group</span></button>
+    <button class="sbb" id="btnCombine" type="button" title="Then tap another group or markup (on the drawing or in the list) to make them one group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/><path d="M11 12h2"/></svg><span>Combine&#8230;</span></button>
+    <button class="sbb" id="btnUngroup" type="button" title="Ungroup (Shift+Cmd+G)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M14 5l5 5M19 5l-5 5"/></svg><span>Ungroup</span></button>
+    <button class="sbb" id="btnRemoveFromGroup" type="button" title="Take the selected markups out of their group; the rest stays together"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2h20v20H2z" stroke-dasharray="3 3"/><rect x="8" y="8" width="8" height="8" rx="1.5"/><path d="M14 4l6 0"/></svg><span>Remove</span></button>
+    <button class="sbb" id="btnDuplicate" type="button" title="Duplicate (Cmd+D)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg><span>Duplicate</span></button>
+    <button class="sbb danger" id="btnDelete" type="button" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span>Delete</span></button>
+    <button class="sbb" id="btnSelClear" type="button" title="Deselect" aria-label="Deselect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
   <div class="polybar" id="combineBar" hidden>
     <span class="info" id="combineInfo"></span>
@@ -793,7 +816,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <button class="btn x" id="btnClosePanel" type="button">Close</button>
     </div>
     <label class="author-row">Author <input id="author" placeholder="Your name (shows in Revu)" autocomplete="name"></label>
-    <div class="props-mini" id="propsMini" hidden><span class="t" id="pmTitle"></span><button class="btn" type="button" id="pmGroup" hidden>Group</button><button class="btn" type="button" id="pmCombine" hidden>Combine with\u2026</button><button class="btn" type="button" id="pmOpen">Properties</button></div>
+    <div class="props-mini" id="propsMini" hidden><span class="t" id="pmTitle"></span><button class="btn" type="button" id="pmOpen">Properties</button></div>
     <section class="props" id="props" hidden>
       <div class="title"><span id="propsTitle">1 markup</span><span class="meta" id="propsMeta"></span><button class="btn hide-props" type="button" id="pmHide" title="Hide the properties">Hide</button></div>
       <label class="fld">Subject<input class="fld-in" id="pSubject" list="subjects" placeholder="e.g. Ellipse, Issue, Verify"></label>
@@ -817,7 +840,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       </div>
       <div class="fieldsbox" id="pLen" hidden>
         <div class="fhead"><span>Length</span><span class="lentot" id="pLenTot"></span></div>
-        <div class="lenrow"><input class="fld-in" id="pLenV" placeholder="each, e.g. 4'-0&quot;" autocomplete="off" spellcheck="false" aria-label="Length of each"><span>\u00d7</span><input class="fld-in" id="pLenQ" inputmode="decimal" placeholder="1" aria-label="Quantity"><select class="fld-in" id="pLenU" aria-label="Units"></select><button class="btn" type="button" id="pLenClear" title="Remove the length">\u00d7</button></div>
+        <div class="lenrow"><input class="fld-in" id="pLenV" placeholder="each, e.g. 4'-0&quot;" autocomplete="off" spellcheck="false" aria-label="Length of each"><span>&#215;</span><input class="fld-in" id="pLenQ" inputmode="decimal" placeholder="1" aria-label="Quantity"><select class="fld-in" id="pLenU" aria-label="Units"></select><button class="btn" type="button" id="pLenClear" title="Remove the length">&#215;</button></div>
       </div>
       <div class="fieldsbox" id="pPhotos" hidden>
         <div class="fhead"><span>Photos</span><label class="btn" id="pAddPhoto">+ Photo<input type="file" id="photoFile" accept="image/*" multiple hidden></label></div>
@@ -828,14 +851,6 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
         <div id="pFieldRows"></div>
       </div>
       <div class="style" id="styleSel"></div>
-      <div class="actions">
-        <button class="btn" id="btnGroup" type="button">Group</button>
-        <button class="btn" id="btnCombine" type="button" title="Then tap another group or markup (on the drawing or in the list) to make them one group">Combine with\u2026</button>
-        <button class="btn" id="btnUngroup" type="button">Ungroup</button>
-        <button class="btn" id="btnRemoveFromGroup" type="button" title="Take the selected markups out of their group; the rest of the group stays together">Remove from group</button>
-        <button class="btn" id="btnDuplicate" type="button" title="Duplicate (Ctrl/Cmd+D)">Duplicate</button>
-        <button class="btn danger" id="btnDelete" type="button">Delete</button>
-      </div>
     </section>
     <div class="counts" id="counts" hidden></div>
     <div class="filter"><input id="filter" placeholder="Filter by subject, comment, page or author" type="search"></div>
@@ -975,7 +990,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <button class="btn" type="button" id="schedTemplate">Download template</button>
       <span class="spacer"></span>
       <button class="btn" type="button" id="schedClose">Close</button>
-      <button class="btn primary" type="button" id="schedPick">Choose schedule\u2026</button>
+      <button class="btn primary" type="button" id="schedPick">Choose schedule&#8230;</button>
     </div>
     <input type="file" id="schedFile" accept=".csv,.tsv,.txt,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
   </div>
@@ -2232,7 +2247,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.3.0';
+var APP_VERSION = '3.4.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -4444,13 +4459,8 @@ function renderProps() {
   box.hidden = !show;
   $('#pmHide').hidden = !propsCompact();
   $('#propsMini').hidden = !s.length || !!show;
-  if (s.length && !show) {
-    var gc0 = groupCount(s), whole0 = s.length > 1 && new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(s[0]).length;
-    $('#pmGroup').hidden = s.length < 2 || whole0;
-    $('#pmGroup').textContent = gc0 > 1 ? 'Combine groups' : gc0 === 1 ? 'Add to group' : 'Group';
-    $('#pmCombine').hidden = !(s.length === 1 || whole0);
-    $('#pmCombine').textContent = inGroup(s[0]) ? 'Combine with\u2026' : 'Add to a group\u2026';
-  }
+  $('#selBar').hidden = !s.length || !!state.combine;
+  if (s.length) $('#selN').textContent = s.length === 1 ? '1 selected' : s.length + ' selected';
   if (s.length && !show) { var a0 = s[0]; $('#pmTitle').textContent = s.length === 1 ? (a0.subject || typeLabel(a0.subtype, a0.intent)) + (MarkupIO.symLabel(a0) || a0.mtext ? ' \u00b7 ' + (MarkupIO.symLabel(a0) || a0.mtext) : '') + ' \u00b7 p. ' + pageLabel(a0.pageIndex) : s.length + ' markups selected'; }
   $('#panel').classList.toggle('named', propsCompact() && !!(state.author || '').trim());
   if (!s.length) return;
@@ -4498,11 +4508,12 @@ function renderProps() {
       (mk === 'area' && a.owned ? ' <button class="btn" type="button" id="pCutout">Cut out</button>' + (a.holes && a.holes.length ? ' <button class="btn" type="button" id="pClearCut">Remove cut-outs (' + a.holes.length + ')</button>' : '') : '')
     : 'No scale on this page. <button class="btn" type="button" id="pSetScale">Set scale</button>';
   var gcount = groupCount(s), whole = s.length > 1 && new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length;
-  $('#btnGroup').disabled = s.length < 2 || whole;
-  $('#btnCombine').textContent = inGroup(a) ? 'Combine with\u2026' : 'Add to a group\u2026';
-  $('#btnGroup').textContent = s.length < 2 ? 'Group' : gcount > 1 ? 'Combine groups' : gcount === 1 && !whole ? 'Add to group' : 'Group';
-  $('#btnUngroup').disabled = !gcount;
-  $('#btnRemoveFromGroup').hidden = !gcount;
+  $('#btnGroup').hidden = s.length < 2 || whole;
+  $('#btnCombine').hidden = !(s.length === 1 || whole);
+  $('#btnCombine').querySelector('span').textContent = inGroup(a) ? 'Combine\u2026' : 'Add to group\u2026';
+  $('#btnGroup').querySelector('span').textContent = s.length < 2 ? 'Group' : gcount > 1 ? 'Combine' : gcount === 1 && !whole ? 'Add to group' : 'Group';
+  $('#btnUngroup').hidden = !gcount;
+  $('#btnRemoveFromGroup').hidden = !gcount || whole;
   if (s.length === 1 && inGroup(a)) $('#propsMeta').textContent += ' · in a group of ' + membersOf(a).length + ' (tap Remove from group to take it out)';
 }
 /* ---------- site photos ---------- */
@@ -4651,17 +4662,22 @@ $('#pStatus').addEventListener('change', function (e) { applyToSelection({ statu
 $('#pSubject').addEventListener('input', function (e) { applyToSelection({ subject: e.target.value }, 'subject'); });
 $('#pContents').addEventListener('input', function (e) { applyToSelection({ contents: e.target.value }, 'contents'); });
 $('#btnGroup').addEventListener('click', groupSelection);
-$('#pmGroup').addEventListener('click', groupSelection);
+$('#btnSelProps').addEventListener('click', function () {
+  state.propsOpen = true; if ($('#panel').hidden) { $('#panel').hidden = false; renderVisible(); }
+  renderProps(); var pr = $('#props'); if (pr && pr.scrollIntoView) pr.scrollIntoView({ block: 'nearest' });
+});
+$('#btnSelClear').addEventListener('click', function () { clearSel(); });
 /* Combine: pick a group (or a markup), tap Combine with..., then tap the other group or markup. */
 function startCombine() {
   var s = selected(); if (!s.length) return;
+  $('#selBar').hidden = true;
   var a = s[0], grp = membersOf(a);
   state.combine = { head: headOf(a).id };
   if (state.tool !== 'select') setTool('select');
   $('#combineInfo').innerHTML = 'Tap the group or markup to combine with <b>' + esc(grp.length > 1 ? 'the group of ' + grp.length : (a.subject || typeLabel(a.subtype, a.intent))) + '</b> (on the drawing or in the list)';
   $('#combineBar').hidden = false;
 }
-function endCombine() { state.combine = null; $('#combineBar').hidden = true; }
+function endCombine() { state.combine = null; $('#combineBar').hidden = true; $('#selBar').hidden = !selected().length; }
 function finishCombine(b) {
   var c = state.combine; endCombine();
   var h = byId(c && c.head); if (!h || h.deleted || !b) return;
@@ -4671,7 +4687,6 @@ function finishCombine(b) {
   groupSelection(); afterSelectionChange();
 }
 $('#btnCombine').addEventListener('click', startCombine);
-$('#pmCombine').addEventListener('click', startCombine);
 $('#combineCancel').addEventListener('click', endCombine);
 $('#btnUngroup').addEventListener('click', ungroupSelection);
 $('#btnRemoveFromGroup').addEventListener('click', removeFromGroup);
@@ -6508,6 +6523,7 @@ document.addEventListener('keydown', function (e) {
   if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel.size) { e.preventDefault(); deleteSelection(); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelection(); }
+  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSelection(); else groupSelection(); }
   else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSelection(); else groupSelection(); }
   else if (e.key === 'Escape') { clearSel(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; }
   else if (plain && KEY_TOOL[e.key]) { var tb = document.querySelector('.topbar [data-tool="' + KEY_TOOL[e.key] + '"]'); if (tb) tb.click(); }

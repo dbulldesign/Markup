@@ -2,6 +2,12 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.4.0 (selection bar)
+- Selection bar: whenever markups are selected, a bar floats at the top of the drawing with Properties, Group (or Add to group / Combine), Combine... (one group or markup selected: then tap the other), Ungroup, Remove (from its group), Duplicate, Delete and Deselect. It shows only the buttons that apply, works with the markups list closed, and in narrow windows shows icons only.
+- These buttons moved out of the properties, which are now just the markup's details.
+- Keyboard: Cmd+G groups, Shift+Cmd+G ungroups (Cmd+D duplicates, Delete deletes, as before).
+- Fixed: a few labels showed "\u2026" or "\u00d7" instead of "..." and "x".
+
 ## 3.3.0 (combine groups)
 - Combine groups in two taps: select a group (or a single markup), tap "Combine with..." (in the one-line bar or the properties), then tap the other group or markup, on the drawing or in the markups list. They become one group, in one undo step. Cancel or Escape stops it.
 - When several markups or groups are selected (box select, or multi-select), the one-line bar now has Group / Add to group / Combine groups, so grouping no longer needs the properties opened.
