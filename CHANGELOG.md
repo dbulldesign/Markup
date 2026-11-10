@@ -2,6 +2,13 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.10.0 (round 2, phase 5: schedules, rooms, photos, summary)
+- Fixture schedule import (Tool Chest > Fixture schedule): a CSV or Excel (.xlsx) schedule becomes a palette with a symbol tool per fixture type. Type is the label; Shape, Color, Fill, Text Color, Size and Height set the look; every other column (Manufacturer, Catalog Number, Watts...) becomes a custom field Revu shows as a column. "Download template" gives the layout; it is also in the repo at templates/fixture-schedule-template.csv.
+- Room tool: tap the corners of a room and name it (101 Office). Its properties list what is inside ("Type A ×2, Type B ×1") and its area when the page has a scale.
+- Counts by room: in Counts and export, a CSV (and a By room sheet in the Excel workbook) counts each symbol type per room, with symbols outside any room listed separately. The markups CSV gets a Room column.
+- Site-walk photos: select a markup and tap + Photo to take or pick photos. They are kept on the iPad and saved in the PDF as attachments on the markup (Revu shows a paperclip that opens the photo); they come back when the PDF is reopened.
+- Printable summary (PDF): counts, counts by room, measurement totals, every markup with status and comments, and the site photos with their markup.
+
 ## 2.9.0 (round 2, phase 4: measurements)
 - Wall area tool: tap along a wall, type its height; shows length × height = area (height editable later in the properties). Saved as a Revu perimeter measurement with the area in the label.
 - Linear run tool: draw a path, choose "Every 8'" or "Count 6", with or without symbols at the ends; the current symbol is placed evenly along it and grouped with the run (one undo step).

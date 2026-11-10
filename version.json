@@ -1,5 +1,5 @@
 {
-  "version": "2.9.0",
+  "version": "2.10.0",
   "date": "2026-11-10",
-  "notes": "Wall area, linear runs that place symbols at a spacing, type lengths while drawing, and several scales on one page (scale areas for details)."
+  "notes": "Fixture schedule import (CSV or Excel) with a template, Room tool and counts by room, site-walk photos saved in the PDF, and a printable markup summary."
 }

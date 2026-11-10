@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="2.9.0">
+<meta name="app-version" content="2.10.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -203,6 +203,16 @@ body.narrow #saveName { width: 120px; }
 .page svg .vp { pointer-events: none; }
 .polybar .fld-in { width: 120px; min-width: 0; }
 .polybar .pb-x { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted, #666); }
+.phgrid { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 0; }
+.phgrid button { width: 72px; height: 72px; padding: 0; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; background: var(--surface-2); cursor: pointer; }
+.phgrid img { width: 100%; height: 100%; object-fit: cover; display: block; }
+#pAddPhoto { cursor: pointer; }
+.photo-sheet { max-width: min(96vw, 1000px); }
+.photo-sheet img { display: block; max-width: 100%; max-height: 70vh; margin: 0 auto 10px; border-radius: 8px; }
+.schedtbl { width: 100%; border-collapse: collapse; font-size: 13px; margin: 6px 0; }
+.schedtbl th { text-align: left; white-space: nowrap; padding: 5px 10px 5px 0; vertical-align: top; }
+.schedtbl td { padding: 5px 0; color: var(--muted, #555); }
+.schedtbl tr + tr th, .schedtbl tr + tr td { border-top: 1px solid var(--line); }
 .more-rows { display: block; width: calc(100% - 24px); margin: 10px 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--accent, #2a5bd7); font: inherit; font-weight: 600; cursor: pointer; }
 .tab { flex: none; display: inline-flex; align-items: center; gap: 4px; max-width: 240px; min-height: 34px; padding: 0 4px 0 12px; border-radius: 9px; font-size: 13px; color: var(--ink-2); cursor: pointer; border: 0; background: transparent; }
 .tab .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -563,6 +573,9 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <button class="tb" type="button" data-tool="perimeter" title="Measure a perimeter: tap each point, tap the last point again (or Finish) to end" aria-label="Perimeter">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 18 8 6l8 4 4 8"/><circle cx="4" cy="18" r="1.5"/><circle cx="8" cy="6" r="1.5"/><circle cx="16" cy="10" r="1.5"/><circle cx="20" cy="18" r="1.5"/></svg><span class="lbl">Perimeter</span>
     </button>
+    <button class="tb" type="button" data-tool="room" title="Room: tap the corners of a room, then name it; symbols inside are counted by room" aria-label="Room">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 4h18v16H3z"/><path d="M3 12h7M14 4v6M14 14v6"/></svg><span class="lbl">Room</span>
+    </button>
     <button class="tb" type="button" data-tool="wall" title="Wall area: tap along the wall, then Finish; area = length × the height you type" aria-label="Wall area">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20V8l6-3 12 4v11"/><path d="M3 20h18M9 5v15M3 14h6M9 12h12"/></svg><span class="lbl">Wall</span>
     </button>
@@ -632,6 +645,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <button class="btn" id="btnNewTool" type="button" title="Save the current tool and style as a tool">+ Tool</button>
       <button class="btn" id="btnNewPalette" type="button">+ Palette</button>
       <button class="btn" id="btnImportBtx" type="button" title="Import a Revu .btx tool set, an exported palette, or a settings backup">Import</button>
+      <button class="btn" id="btnSchedule" type="button" title="Make a symbol tool for each fixture type in a schedule (CSV or Excel)">Fixture schedule</button>
       <button class="btn" id="btnArrange" type="button" title="Move tools and palettes">Arrange</button>
       <button class="btn" id="btnBackup" type="button" title="Save all palettes, favourites and settings to a file">Back up</button>
       <input id="btxFile" type="file" multiple hidden>
@@ -750,6 +764,10 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
         <button class="btn" type="button" data-rot="15">+15&#xB0;</button>
         <button class="btn" type="button" data-rot="90" aria-label="Rotate 90 degrees clockwise">&#x21BB; 90&#xB0;</button>
       </div>
+      <div class="fieldsbox" id="pPhotos" hidden>
+        <div class="fhead"><span>Photos</span><label class="btn" id="pAddPhoto">+ Photo<input type="file" id="photoFile" accept="image/*" multiple hidden></label></div>
+        <div class="phgrid" id="pPhotoGrid"></div>
+      </div>
       <div class="fieldsbox" id="pFields" hidden>
         <div class="fhead"><span>Custom fields</span><button class="btn" type="button" id="pAddField">+ Field</button></div>
         <div id="pFieldRows"></div>
@@ -848,8 +866,10 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <button class="btn primary" type="button" data-ex="xlsx">Excel workbook (.xlsx)</button>
       <button class="btn" type="button" data-ex="counts">Counts (CSV)</button>
       <button class="btn" type="button" data-ex="markups">All markups (CSV)</button>
+      <button class="btn" type="button" data-ex="rooms">Counts by room (CSV)</button>
+      <button class="btn" type="button" data-ex="summary">Printable summary (PDF)</button>
     </div>
-    <p class="hint">The workbook has a Counts sheet (by subject and symbol, with pages and custom fields), a counts sheet per page, and a sheet listing every markup.</p>
+    <p class="hint">The workbook has a Counts sheet (by subject and symbol, with pages and custom fields), a By room sheet when you have drawn rooms, a counts sheet per page, and a sheet listing every markup. Draw rooms with the Room tool to count symbols room by room.</p>
     <h3 style="margin:6px 0 0;font-size:15px">Legend</h3>
     <p class="hint">Places the symbols with their counts at the top left of what is on screen, as a group you can drag.</p>
     <div class="actions">
@@ -858,6 +878,35 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <span class="spacer"></span>
       <button class="btn" type="button" id="exClose">Close</button>
     </div>
+  </div>
+</div>
+<div class="modal" id="photoModal" hidden>
+  <div class="sheet photo-sheet" role="dialog" aria-modal="true" aria-label="Photo">
+    <img id="photoBig" alt="">
+    <div class="actions"><span id="photoCap" class="hint"></span><span class="spacer"></span><button class="btn" type="button" id="photoDel">Remove</button><button class="btn primary" type="button" id="photoClose">Close</button></div>
+  </div>
+</div>
+<div class="modal" id="schedModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="schedTitle">
+    <h2 id="schedTitle">Import a fixture schedule</h2>
+    <p class="sub">Each row becomes a symbol tool in a new palette: its label is the fixture type, and the other columns become custom fields that Revu shows as columns.</p>
+    <table class="schedtbl"><tbody>
+      <tr><th>Type</th><td><b>Required.</b> The fixture type or mark (A, A1, B, X...). Also accepted: Mark, Tag, Fixture Type.</td></tr>
+      <tr><th>Description</th><td>Shown in Comments and as a field.</td></tr>
+      <tr><th>Shape</th><td>circle, square, rect, oval, roundrect, diamond, triangle or hexagon (default circle).</td></tr>
+      <tr><th>Color, Fill, Text Color</th><td>#RRGGBB or a colour name. Leave Fill empty for no fill.</td></tr>
+      <tr><th>Size, Height</th><td>Symbol size in points on the sheet (default 18); Height for rect, oval, roundrect.</td></tr>
+      <tr><th>Subject</th><td>Optional; default "Type A". Counts are grouped by subject.</td></tr>
+      <tr><th>Any other column</th><td>Manufacturer, Catalog Number, Lamp, Watts, Voltage, Mounting, Notes... become custom fields.</td></tr>
+    </tbody></table>
+    <p class="hint">The first row with a Type (or Mark) column is the header. Excel (.xlsx, first sheet), CSV and tab-separated files work.</p>
+    <div class="actions">
+      <button class="btn" type="button" id="schedTemplate">Download template</button>
+      <span class="spacer"></span>
+      <button class="btn" type="button" id="schedClose">Close</button>
+      <button class="btn primary" type="button" id="schedPick">Choose schedule\u2026</button>
+    </div>
+    <input type="file" id="schedFile" accept=".csv,.tsv,.txt,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
   </div>
 </div>
 <div class="modal" id="toolModal" hidden>
@@ -1073,7 +1122,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
 
   function readFromDoc(doc) {
     var L = lib();
-    var ctx = doc.context, pages = doc.getPages(), out = [], statusReplies = [];
+    var ctx = doc.context, pages = doc.getPages(), out = [], statusReplies = [], photoReplies = [];
     var N = function (k) { return L.PDFName.of(k); };
     pages.forEach(function (page, pageIndex) {
       var arr = null; try { arr = page.node.Annots(); } catch (e) { arr = null; }
@@ -1091,6 +1140,15 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
         if (irt && rt !== 'Group') {
           // Review status replies (Acrobat/Revu): /StateModel /Review with /State on a reply to the markup.
           var smod = textOf(ctx.lookup(dict.get(N('StateModel')))) || nameOf(dict.get(N('StateModel')));
+          if (subtype === 'FileAttachment' && dict.get(N('PMPhoto')) && irt instanceof L.PDFRef) {
+            // Site photos attached to a markup by this app: keep the picture with the markup.
+            try {
+              var fs0 = ctx.lookup(dict.get(N('FS'))), ef0 = fs0 && ctx.lookup(ctx.lookup(fs0.get(N('EF'))).get(N('F')));
+              var pb = ef0 instanceof L.PDFRawStream ? L.decodePDFRawStream(ef0).decode() : ef0 && ef0.getContents ? ef0.getContents() : null;
+              if (pb) photoReplies.push({ parent: refKey(irt), name: textOf(ctx.lookup(fs0.get(N('UF')))) || textOf(ctx.lookup(fs0.get(N('F')))) || 'Photo.jpg', bytes: pb, at: textOf(ctx.lookup(dict.get(N('M')))) });
+            } catch (e) { /* unreadable photo */ }
+            continue;
+          }
           if (smod === 'Review' && irt instanceof L.PDFRef) statusReplies.push({ parent: refKey(irt), state: textOf(ctx.lookup(dict.get(N('State')))) || nameOf(dict.get(N('State'))) || '', by: textOf(ctx.lookup(dict.get(N('T')))), at: parseDate(textOf(ctx.lookup(dict.get(N('M'))))) || '' });
           continue; // replies stay in the file but are not markups
         }
@@ -1152,10 +1210,10 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
         }
         var measure = readMeasure(ctx, dict.get(N('Measure')));
         // Angle, radius/diameter and area cut-outs made by this app: /PMMeasure.
-        var mkind = null, mctr = null, mrad = null, holes = null, wallH = null, runN = null, pmm = ctx.lookup(dict.get(N('PMMeasure')));
+        var mkind = null, mctr = null, mrad = null, holes = null, wallH = null, runN = null, roomName = null, pmm = ctx.lookup(dict.get(N('PMMeasure')));
         if (pmm instanceof L.PDFDict) {
           mkind = nameOf(pmm.get(N('Kind')));
-          wallH = numOf(ctx.lookup(pmm.get(N('H'))), null); runN = numOf(ctx.lookup(pmm.get(N('RN'))), null);
+          wallH = numOf(ctx.lookup(pmm.get(N('H'))), null); runN = numOf(ctx.lookup(pmm.get(N('RN'))), null); roomName = textOf(ctx.lookup(pmm.get(N('Name')))) || null;
           var cc0 = numsOf(ctx, pmm.get(N('C'))); if (cc0 && cc0.length >= 2) mctr = [cc0[0], cc0[1]];
           mrad = numOf(ctx.lookup(pmm.get(N('R'))), null);
           var hs0 = ctx.lookup(pmm.get(N('Holes')));
@@ -1201,7 +1259,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
           le: le, cloud: subtype === 'Polygon' && (cloudy || intent === 'PolygonCloud'), cr: null,
           box: ftBox, tip: ftTip, fs: ftFs, textColor: ftTc, fields: fields, bold: ftBold, legendKey: ftLK, legendScope: ftLS,
           cloudI: (be instanceof L.PDFDict) ? numOf(ctx.lookup(be.get(N('I'))), 1) : null,
-          mkind: mkind === 'area' ? null : mkind, ctr: mctr, rad: mrad, holes: holes, wallH: wallH, runN: runN,
+          mkind: mkind === 'area' ? null : mkind, ctr: mctr, rad: mrad, holes: holes, wallH: wallH, runN: runN, roomName: roomName,
           rect: [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])],
           inkList: inkList,
           color: colorOf(ctx, dict.get(N('C'))), fillColor: colorOf(ctx, dict.get(N('IC'))),
@@ -1218,6 +1276,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     statusReplies.sort(function (x, y) { return x.at < y.at ? -1 : x.at > y.at ? 1 : 0; });
     var byIdMap = {}; out.forEach(function (a) { byIdMap[a.id] = a; });
     statusReplies.forEach(function (r) { var a = byIdMap[r.parent]; if (a) { var st = String(r.state || '').toLowerCase(); a.status = st === 'none' ? '' : st; a.statusBy = r.by || ''; } });
+    photoReplies.forEach(function (r) { var a = byIdMap[r.parent]; if (a) (a.photosIn = a.photosIn || []).push({ name: r.name, bytes: r.bytes }); });
     var ids = new Set(out.map(function (a) { return a.id; }));
     out.forEach(function (a) { if (a.parentId && !ids.has(a.parentId)) a.parentId = null; });
     return out;
@@ -1611,6 +1670,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       if (a.holes && a.holes.length) pm.Holes = a.holes.map(function (h) { return h.reduce(function (acc, q) { acc.push(fix(q[0]), fix(q[1])); return acc; }, []); });
       if (a.wallH != null) pm.H = fix(a.wallH, 6);
       if (a.runN != null) pm.RN = a.runN;
+      if (a.roomName) pm.Name = L.PDFHexString.fromText(a.roomName);
       dict.set(N('PMMeasure'), ctx.obj(pm));
     };
     var setGeometry = function (dict, a) {
@@ -1671,7 +1731,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
           if (!(d instanceof L.PDFDict)) continue;
           var irt = d.get(N('IRT'));
           if (irt instanceof L.PDFRef && deletedRefs.some(function (r) { return sameRef(r, irt); })) {
-            if (isStatusReply(d)) { var rr = arr.get(i); arr.remove(i); if (rr instanceof L.PDFRef) ctx.delete(rr); i--; continue; }
+            if (isStatusReply(d) || d.get(N('PMPhoto'))) { var rr = arr.get(i); arr.remove(i); if (rr instanceof L.PDFRef) ctx.delete(rr); i--; continue; }
             d.delete(N('IRT')); d.delete(N('RT'));
           }
         }
@@ -1761,6 +1821,31 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       setText(reply, 'T', who); setText(reply, 'Contents', st + (who ? ' set by ' + who : ''));
       reply.set(N('M'), L.PDFString.fromDate(now)); reply.set(N('CreationDate'), L.PDFString.fromDate(now)); reply.set(N('NM'), L.PDFString.of(makeNM()));
       page.node.addAnnot(ctx.register(reply));
+    });
+
+    // 4b. Site photos: one file attachment per photo, a reply to the markup (Revu opens it from the paperclip)
+    var photos = opts.photos || {};
+    annots.forEach(function (a) {
+      if (a.deleted || !(a.photosDirty || (a.isNew && a.photos && a.photos.length))) return;
+      var ref = refOf.get(a.id), page = pages[a.pageIndex]; if (!ref || !page) return;
+      var arr1 = page.node.Annots();
+      if (arr1) for (var k1 = arr1.size() - 1; k1 >= 0; k1--) {
+        var d1; try { d1 = ctx.lookup(arr1.get(k1)); } catch (e) { continue; }
+        if (d1 instanceof L.PDFDict && d1.get(N('PMPhoto')) && sameRef(d1.get(N('IRT')), ref)) { var r1 = arr1.get(k1); arr1.remove(k1); if (r1 instanceof L.PDFRef) ctx.delete(r1); }
+      }
+      (a.photos || []).forEach(function (ph, i) {
+        var bytes = photos[ph.id]; if (!bytes) return;
+        var nm = ph.name || ('Photo ' + (i + 1) + '.jpg');
+        var ef = ctx.register(ctx.stream(bytes, { Type: 'EmbeddedFile', Subtype: N('image/jpeg'), Params: { Size: bytes.length, ModDate: L.PDFString.fromDate(now) } }));
+        var fsd = ctx.register(ctx.obj({ Type: 'Filespec', F: L.PDFString.of(nm.replace(/[^\x20-\x7e]/g, '_')), UF: L.PDFHexString.fromText(nm), Desc: L.PDFHexString.fromText(nm), EF: { F: ef } }));
+        var x = a.rect[2] + 2 + i * 15, y = a.rect[3] - 18, w = 13, h = 17;
+        var ap = ctx.register(ctx.stream('q 1 1 1 rg 0.16 0.36 0.84 RG 1 w 0.5 0.5 ' + (w - 1) + ' ' + (h - 1) + ' re B 0.16 0.36 0.84 rg 2.5 4 8 6 re f 1 1 1 rg 6.5 7 m 6.5 8.1 7.4 9 8.5 9 c 9.6 9 10.5 8.1 10.5 7 c 10.5 5.9 9.6 5 8.5 5 c 7.4 5 6.5 5.9 6.5 7 c f Q', { Type: 'XObject', Subtype: 'Form', BBox: [0, 0, w, h] }));
+        var at = ctx.obj({ Type: 'Annot', Subtype: 'FileAttachment', Rect: [fix(x), fix(y), fix(x + w), fix(y + h)], FS: fsd, Name: 'Paperclip', F: 4, P: page.ref, IRT: ref, C: [0.16, 0.36, 0.84], AP: { N: ap } });
+        at.set(N('PMPhoto'), L.PDFBool.True);
+        setText(at, 'Contents', nm); setText(at, 'T', a.author || author || ''); setText(at, 'Subj', 'Photo');
+        at.set(N('M'), L.PDFString.fromDate(now)); at.set(N('NM'), L.PDFString.of(makeNM()));
+        page.node.addAnnot(ctx.register(at));
+      });
     });
 
     // 5. Page scales (calibration) as a /VP viewport covering the page, the way Revu stores them
@@ -2027,7 +2112,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '2.9.0';
+var APP_VERSION = '2.10.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2055,7 +2140,8 @@ var TOOLS = {
   cutout: { sub: 'Polygon', subj: '', name: 'Cut-out', poly: true, closed: true, cutout: true },
   wall: { sub: 'PolyLine', subj: 'Wall Area', name: 'Wall area', intent: 'PolyLineDimension', measure: true, poly: true, mkind: 'wall' },
   run: { sub: 'PolyLine', subj: 'Linear Run', name: 'Run', intent: 'PolyLineDimension', measure: true, poly: true, mkind: 'run' },
-  scalebox: { sub: 'Square', subj: '', name: 'Scale area', scalebox: true }
+  scalebox: { sub: 'Square', subj: '', name: 'Scale area', scalebox: true },
+  room: { sub: 'Polygon', subj: 'Room', name: 'Room', intent: 'PolygonDimension', measure: true, poly: true, closed: true, mkind: 'room' }
 };
 var STAMPS = ['APPROVED', 'APPROVED AS NOTED', 'REVISE AND RESUBMIT', 'REJECTED', 'FOR REVIEW', 'VERIFY IN FIELD', 'NOT IN SCOPE', 'DRAFT', 'VOID'];
 var UNIT_M = { ft: 0.3048, 'in': 0.0254, m: 1, cm: 0.01, mm: 0.001 };
@@ -2111,7 +2197,7 @@ function fmtDate(iso) {
   return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) + ' ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 }
 var TYPE_LABEL = { Circle: 'Ellipse', Square: 'Rectangle', Ink: 'Pen', FreeText: 'Text', Text: 'Note', Line: 'Line', Polygon: 'Polygon', PolyLine: 'Polyline', Highlight: 'Highlight', Underline: 'Underline', StrikeOut: 'Strikeout', Squiggly: 'Squiggly', Stamp: 'Stamp', FileAttachment: 'Attachment', Caret: 'Caret' };
-var MKIND_LABEL = { wall: 'Wall area', run: 'Linear run', angle: 'Angle', radius: 'Radius', diameter: 'Diameter' };
+var MKIND_LABEL = { room: 'Room', wall: 'Wall area', run: 'Linear run', angle: 'Angle', radius: 'Radius', diameter: 'Diameter' };
 var INTENT_LABEL = { LineDimension: 'Length', PolyLineDimension: 'Perimeter', PolygonDimension: 'Area', PolygonCloud: 'Cloud', FreeTextCallout: 'Callout' };
 function typeLabel(sub, intent) { return INTENT_LABEL[intent] || TYPE_LABEL[sub] || sub || 'Markup'; }
 function pageLabel(i) { return (state.labels && state.labels[i]) ? state.labels[i] : String(i + 1); }
@@ -2177,6 +2263,7 @@ function measureText(a) {
   if (k === 'angle') return a.vertices && a.vertices.length === 3 ? numFmt(angleAt(a.vertices), +mset().adec) + '\u00b0' : '';
   if (k === 'radius' || k === 'diameter') return a.measure && a.rad ? (k === 'radius' ? 'R ' : 'Dia ') + fmtLength(a.rad * (k === 'radius' ? 1 : 2) * a.measure.factor, a.measure) : '';
   if (k === 'run' && a.vertices && !a.measure) return a.runN ? a.runN + ' along the run' : '';
+  if (k === 'room') return a.vertices && a.vertices.length >= 3 ? (a.roomName || 'Room') + (a.measure ? ' \u00b7 ' + fmtArea(netArea(a) * a.measure.factor * a.measure.factor, a.measure) : '') : '';
   if (!a.vertices || !a.measure) return '';
   if (k === 'area') return a.vertices.length < 3 ? '' : fmtArea(netArea(a) * a.measure.factor * a.measure.factor, a.measure);
   if (k === 'wall') {
@@ -2455,6 +2542,7 @@ async function closeTabNow(id) {
   var unsaved = id === tabs.active ? state.unsaved : false;
   if (id !== tabs.active) { try { var ss = await idb.get('session:' + id); unsaved = !!(ss && ss.unsaved); } catch (e) { /* ignore */ } }
   if (unsaved && !confirm('Close ' + t.name + '? Markups not yet saved into a PDF will be lost.')) return;
+  try { var ks = (await idb.keys()) || []; for (var ki = 0; ki < ks.length; ki++) { if (String(ks[ki]).indexOf('photo:') === 0) { var pr = await idb.get(ks[ki]); if (pr && pr.doc === id) await idb.del(ks[ki]); } } } catch (e) { /* ignore */ }
   try { await idb.del('doc:' + id); await idb.del('session:' + id); } catch (e) { /* ignore */ }
   tabs.list = tabs.list.filter(function (x) { return x.id !== id; });
   if (id === tabs.active) {
@@ -2717,6 +2805,7 @@ async function loadPdf(bytes, name, opts) {
   if (state.draft) { state.draft = null; updatePolyBar(); }
   state.series = { defs: {}, cur: null }; state.hideSubj = new Set(); state.hideAll = false;
   groupBaseline = groupKey(); markUnsaved(); updateUndoButtons();
+  if (state.annots.some(function (a) { return a.photosIn; })) await adoptPhotos();
   await buildPages(opts && opts.keepScroll);
   // Measurement text and symbol labels are written ahead of any comment in /Contents; split them back off on read.
   state.annots.forEach(function (a) {
@@ -3743,7 +3832,7 @@ function commitNew(a) {
   state.annots.push(a);
   state.sel = new Set([a.id]);
   markUnsaved(); renderList(); afterSelectionChange();
-  if (measureKind(a) && measureKind(a) !== 'angle' && !a.measure) {
+  if (measureKind(a) && measureKind(a) !== 'angle' && measureKind(a) !== 'room' && !a.measure) {
     toast('This page has no scale yet. Set one to see the measurement.', 4500);
     openScale(a.pageIndex);
   }
@@ -3790,6 +3879,11 @@ function finishDraft() {
   a.vertices = d.committed.slice(); updateGeom(a);
   updatePolyBar();
   if (d.tool === 'run') { finishRun(d.p, a); return; }
+  if (d.tool === 'room') {
+    var rn = prompt('Room name or number (for example 101 Office):', nextRoomName());
+    if (rn == null) { drawOverlay(d.p); return; }
+    a.roomName = rn.trim() || 'Room'; updateGeom(a);
+  }
   commitNew(a);
 }
 // Points spaced evenly along a path: n points, at both ends or centred in n equal parts.
@@ -4157,14 +4251,20 @@ function renderProps() {
   var rs = s.filter(function (x) { return x.sym && x.owned; });
   $('#pRotate').hidden = !rs.length;
   if (rs.length) $('#pAngle').textContent = (rs.every(function (x) { return (+x.sym.angle || 0) === (+rs[0].sym.angle || 0); }) ? (+rs[0].sym.angle || 0) + '\u00b0' : 'mixed');
-  renderFieldRows(s);
+  renderFieldRows(s); renderPhotos(s);
   var pm = $('#pMeasure'), mk = s.length === 1 ? measureKind(a) : null;
   pm.hidden = !mk && !(s.length === 1 && a.sym);
   if (!mk && s.length === 1 && a.sym) {
     var ser = a.sym.n != null ? allSeries().filter(function (x) { return x.id === a.sym.series; })[0] : null;
     pm.innerHTML = (a.sym.n != null ? 'Number <b>' + esc(MarkupIO.symLabel(a)) + '</b>' + (ser ? ' in ' + esc(seriesName(ser)) : '') : 'Symbol <b>' + esc(MarkupIO.symLabel(a) || a.sym.shape) + '</b>') + ' · ' + symSizeText(a.sym);
   }
-  if (mk === 'angle') pm.innerHTML = 'Angle: <b>' + esc(a.mtext || measureText(a)) + '</b>';
+  if (mk === 'room' && !(document.activeElement && document.activeElement.id === 'pRoomName')) {
+    var inside = roomContents(a);
+    pm.innerHTML = '<label class="pb-x" style="display:flex">Room<input class="fld-in" id="pRoomName" autocomplete="off" spellcheck="false" value="' + esc(a.roomName || '') + '"></label>' +
+      (a.measure ? '<div style="margin-top:6px">Area: <b>' + esc(fmtArea(netArea(a) * a.measure.factor * a.measure.factor, a.measure)) + '</b></div>' : '') +
+      '<div style="margin-top:6px">' + (inside.length ? 'Contains: ' + inside.map(function (x) { return '<b>' + esc(x[0]) + '</b> \u00d7' + x[1]; }).join(', ') : 'No symbols inside yet.') + '</div>';
+  } else if (mk === 'room') { /* typing the name */ }
+  else if (mk === 'angle') pm.innerHTML = 'Angle: <b>' + esc(a.mtext || measureText(a)) + '</b>';
   else if (mk && document.activeElement && pm.contains(document.activeElement) && document.activeElement.tagName === 'INPUT') { /* typing: leave it */ }
   else if (mk) pm.innerHTML = a.measure
     ? ({ area: 'Area', length: 'Length', radius: 'Radius', diameter: 'Diameter', wall: 'Wall area', run: 'Run' }[mk] || 'Measurement') + ': <b>' + esc(a.mtext || measureText(a)) + '</b> · scale ' + esc(scaleLabel(a.measure)) +
@@ -4178,6 +4278,78 @@ function renderProps() {
   $('#btnUngroup').disabled = !gcount;
   $('#btnRemoveFromGroup').hidden = !gcount;
   if (s.length === 1 && inGroup(a)) $('#propsMeta').textContent += ' · in a group of ' + membersOf(a).length + ' (tap Remove from group to take it out)';
+}
+/* ---------- site photos ---------- */
+var photoUrls = {};
+async function photoBytes(id) { try { var r = await idb.get('photo:' + id); return r && r.bytes ? new Uint8Array(r.bytes) : null; } catch (e) { return null; } }
+async function photoUrl(id) {
+  if (photoUrls[id]) return photoUrls[id];
+  var b = await photoBytes(id); if (!b) return '';
+  return (photoUrls[id] = URL.createObjectURL(new Blob([b], { type: 'image/jpeg' })));
+}
+function renderPhotos(s) {
+  var box = $('#pPhotos'), a = s[0];
+  box.hidden = s.length !== 1 || !a.owned && a.subtype === 'Text';
+  if (box.hidden) return;
+  var list = a.photos || [], grid = $('#pPhotoGrid');
+  grid.innerHTML = list.length ? list.map(function (ph) { return '<button type="button" data-ph="' + esc(ph.id) + '" title="' + esc(ph.name) + '"><img alt="' + esc(ph.name) + '"></button>'; }).join('') : '<span class="hint">Take or pick photos from the site walk; they are saved in the PDF with this markup.</span>';
+  list.forEach(function (ph) { photoUrl(ph.id).then(function (u) { var im = grid.querySelector('[data-ph="' + ph.id + '"] img'); if (im && u) im.src = u; }); });
+}
+async function addPhotos(files) {
+  var a = selected()[0]; if (!a || !files.length) return;
+  setBusy('Adding photo\u2026');
+  var added = [];
+  for (var i = 0; i < files.length; i++) {
+    try {
+      var bmp = await createImageBitmap(files[i]), k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height)), cv = document.createElement('canvas');
+      cv.width = Math.round(bmp.width * k); cv.height = Math.round(bmp.height * k); cv.getContext('2d').drawImage(bmp, 0, 0, cv.width, cv.height);
+      var blob = await new Promise(function (res) { cv.toBlob(res, 'image/jpeg', 0.82); }), buf = await blob.arrayBuffer();
+      var d = new Date(), pad = function (n) { return (n < 10 ? '0' : '') + n; };
+      var id = 'ph-' + Date.now().toString(36) + Math.random().toString(36).slice(2, 7), name = 'Photo ' + d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate()) + ' ' + pad(d.getHours()) + '.' + pad(d.getMinutes()) + '.' + pad(d.getSeconds()) + (i ? '-' + (i + 1) : '') + '.jpg';
+      await idb.set('photo:' + id, { bytes: buf, name: name, doc: state.docId, w: cv.width, h: cv.height });
+      added.push({ id: id, name: name });
+    } catch (e) { console.warn(e); toast('Could not add ' + (files[i].name || 'the photo') + ' (storage may be full).', 5000); }
+  }
+  setBusy(null);
+  if (!added.length) return;
+  pushHistory();
+  a.photos = (a.photos || []).concat(added); a.photosDirty = true; if (!a.isNew) a.dirty = true;
+  markUnsaved(); renderList(); renderProps();
+  toast(added.length === 1 ? 'Photo added to this markup.' : added.length + ' photos added.');
+}
+$('#photoFile').addEventListener('change', function (e) { var f = Array.from(e.target.files || []); e.target.value = ''; addPhotos(f); });
+var photoOpen = null;
+$('#pPhotoGrid').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-ph]') : null; if (!b) return;
+  var a = selected()[0], ph = a && (a.photos || []).filter(function (x) { return x.id === b.dataset.ph; })[0]; if (!ph) return;
+  photoOpen = { a: a, ph: ph }; $('#photoCap').textContent = ph.name; $('#photoBig').src = '';
+  photoUrl(ph.id).then(function (u) { $('#photoBig').src = u; }); $('#photoModal').hidden = false;
+});
+$('#photoClose').addEventListener('click', function () { $('#photoModal').hidden = true; photoOpen = null; });
+$('#photoModal').addEventListener('pointerdown', function (e) { if (e.target === $('#photoModal')) { $('#photoModal').hidden = true; photoOpen = null; } });
+$('#photoDel').addEventListener('click', function () {
+  if (!photoOpen) return; var a = photoOpen.a, id = photoOpen.ph.id;
+  pushHistory(); a.photos = (a.photos || []).filter(function (x) { return x.id !== id; }); a.photosDirty = true; if (!a.isNew) a.dirty = true;
+  $('#photoModal').hidden = true; photoOpen = null; markUnsaved(); renderList(); renderProps();
+});
+// Photos read from a saved PDF go into storage on this iPad under a stable id (so saving again does not copy them).
+async function adoptPhotos() {
+  var list = state.annots.filter(function (a) { return a.photosIn; });
+  for (var i = 0; i < list.length; i++) {
+    var a = list[i], arr = [];
+    for (var j = 0; j < a.photosIn.length; j++) {
+      var p0 = a.photosIn[j], id = 'pf-' + String(a.nm || a.id).replace(/[^\w-]/g, '') + '-' + j + '-' + p0.bytes.length;
+      try { await idb.set('photo:' + id, { bytes: p0.bytes.slice().buffer, name: p0.name, doc: state.docId }); } catch (e) { /* storage full: the photo stays in the PDF */ }
+      arr.push({ id: id, name: p0.name });
+    }
+    a.photos = arr; delete a.photosIn;
+  }
+}
+async function photosForSave() {
+  var out = {};
+  var list = state.annots.filter(function (a) { return !a.deleted && a.photos && a.photos.length && (a.photosDirty || a.isNew); });
+  for (var i = 0; i < list.length; i++) for (var j = 0; j < list[i].photos.length; j++) { var id = list[i].photos[j].id, b = await photoBytes(id); if (b) out[id] = b; }
+  return out;
 }
 function renderFieldRows(s) {
   var names = [], seen = {};
@@ -4219,11 +4391,13 @@ $('#btnUngroup').addEventListener('click', ungroupSelection);
 $('#btnRemoveFromGroup').addEventListener('click', removeFromGroup);
 $('#btnDelete').addEventListener('click', deleteSelection);
 $('#pMeasure').addEventListener('change', function (e) {
-  var s0 = selected(), a = s0[0]; if (s0.length !== 1 || !a.measure) return;
+  var s0 = selected(), a = s0[0]; if (s0.length !== 1 || (!a.measure && e.target.id !== 'pRoomName')) return;
   if (e.target.id === 'pSetLen') {
     var len = parseLength(e.target.value, a.measure.fmt); if (!(len > 0)) { toast('Type a length such as 12\'-6".'); return; }
     var v = a.vertices, dx = v[1][0] - v[0][0], dy = v[1][1] - v[0][1], l0 = Math.hypot(dx, dy) || 1, pts = len / a.measure.factor;
     pushHistory(); v[1] = [v[0][0] + dx / l0 * pts, v[0][1] + dy / l0 * pts];
+  } else if (e.target.id === 'pRoomName') {
+    pushHistory(); a.roomName = e.target.value.trim() || 'Room';
   } else if (e.target.id === 'pWallH') {
     var h = parseLength(e.target.value, a.measure.fmt); if (!(h > 0)) { toast('Type a height, for example 10\'.'); return; }
     pushHistory(); a.wallH = h;
@@ -4256,6 +4430,35 @@ function matchesFilter(a) {
   return [a.subject, a.contents, a.mtext, MarkupIO.symLabel(a), a.author, pageLabel(a.pageIndex), STATUS_LABEL[a.status] || ''].concat(a.fields ? Object.keys(a.fields).map(function (k) { return a.fields[k]; }) : []).some(function (v) { return String(v || '').toLowerCase().indexOf(f) >= 0; });
 }
 // Counted: symbols and numbered markups (not stamps, not the symbols drawn inside a legend).
+/* Rooms: polygons drawn with the Room tool. A symbol belongs to the room its centre is in. */
+function rooms() { return live().filter(function (a) { return a.mkind === 'room' && a.vertices && a.vertices.length >= 3; }); }
+function nextRoomName() { var n = rooms().length + 1; return String(100 + n); }
+function roomOf(a, list) {
+  var c = symCentre(a), rs = list || rooms();
+  for (var i = 0; i < rs.length; i++) { var r = rs[i]; if (r.pageIndex === a.pageIndex && inPoly(c, r.vertices) && !(r.holes || []).some(function (h) { return inPoly(c, h); })) return r; }
+  return null;
+}
+function roomContents(r) {
+  var by = {}, order = [];
+  live().forEach(function (a) { if (!countable(a) || a.pageIndex !== r.pageIndex || roomOf(a, [r]) !== r) return; var k = a.subject || typeLabel(a.subtype); if (!by[k]) { by[k] = 0; order.push(k); } by[k]++; });
+  return order.sort().map(function (k) { return [k, by[k]]; });
+}
+function roomRows() {
+  var rs = rooms(), list = live().filter(function (a) { return countable(a) && (!state.exVisible || isVisible(a)); }), g = {}, order = [];
+  list.forEach(function (a) {
+    var r = roomOf(a, rs), rn = r ? (r.roomName || 'Room') : '(not in a room)', key = rn + '|' + a.pageIndex + '|' + (a.subject || '') + '|' + (a.sym.n != null ? '#' + a.sym.series : a.sym.label || '');
+    if (!g[key]) { g[key] = { room: rn, page: a.pageIndex, a: a, items: [] }; order.push(key); }
+    g[key].items.push(a);
+  });
+  var rows = order.map(function (k) {
+    var x = g[k], a = x.a, label = a.sym.n != null ? x.items.map(function (i) { return (a.sym.prefix || '') + i.sym.n; }).sort(function (p, q) { return p.localeCompare(q, undefined, { numeric: true }); }).join(', ') : (a.sym.label || '');
+    var area = '', rr = rs.filter(function (r) { return (r.roomName || 'Room') === x.room && r.pageIndex === x.page; })[0];
+    if (rr && rr.measure) area = fmtArea(netArea(rr) * rr.measure.factor * rr.measure.factor, rr.measure);
+    return [x.room, pageLabel(x.page), area, a.subject || typeLabel(a.subtype), label, x.items.length];
+  });
+  rows.sort(function (p, q) { return (p[0] === '(not in a room)') - (q[0] === '(not in a room)') || String(p[0]).localeCompare(String(q[0]), undefined, { numeric: true }) || String(p[3]).localeCompare(String(q[3])); });
+  return { head: ['Room', 'Page', 'Room area', 'Subject', 'Label / numbers', 'Count'], rows: rows };
+}
 function countable(a) { return !!a.sym && !a.sym.legend && a.sym.shape !== 'stamp'; }
 function hexOf(c) { return c ? rgbToHex(c).toUpperCase() : ''; }
 function allFieldNames(list) { var n = [], seen = {}; list.forEach(function (a) { Object.keys(a.fields || {}).forEach(function (k) { if (!seen[k]) { seen[k] = 1; n.push(k); } }); }); return n; }
@@ -4286,11 +4489,11 @@ function markupRows() {
   var list = live().filter(function (a) { return !(a.sym && a.sym.legend) && (!state.exVisible || isVisible(a)); });
   list.sort(function (a, b) { return a.pageIndex - b.pageIndex || String(a.subject).localeCompare(String(b.subject)); });
   var names = allFieldNames(list);
-  var head = ['Page', 'Subject', 'Type', 'Label / number', 'Measurement', 'Status', 'Comments', 'Author', 'Date', 'Line colour', 'Fill colour', 'Group'].concat(names);
+  var rs = rooms(), head = ['Page'].concat(rs.length ? ['Room'] : []).concat(['Subject', 'Type', 'Label / number', 'Measurement', 'Status', 'Comments', 'Author', 'Date', 'Line colour', 'Fill colour', 'Group', 'Photos']).concat(names);
   var rows = list.map(function (a) {
     var g = membersOf(a).length > 1 ? 'Group ' + (headOf(a).subject || '') + ' (' + membersOf(a).length + ')' : '';
-    return [pageLabel(a.pageIndex), a.subject || '', a.sym ? (a.sym.n != null ? 'Number' : a.sym.shape === 'stamp' ? 'Stamp' : 'Symbol') : typeLabel(a.subtype, a.intent), MarkupIO.symLabel(a), a.mtext || '', STATUS_LABEL[a.status] || '', a.contents || '', a.author || '', a.date ? fmtDate(a.date) : '', hexOf(a.color), hexOf(a.fillColor), g]
-      .concat(names.map(function (n) { return a.fields && a.fields[n] != null ? a.fields[n] : ''; }));
+    var rm = a.mkind === 'room' ? '' : (function () { var r = roomOf(a, rs); return r ? r.roomName || 'Room' : ''; })();
+    return [pageLabel(a.pageIndex)].concat(rs.length ? [rm] : []).concat([a.subject || '', a.sym ? (a.sym.n != null ? 'Number' : a.sym.shape === 'stamp' ? 'Stamp' : 'Symbol') : typeLabel(a.subtype, a.intent), MarkupIO.symLabel(a), a.mtext || '', STATUS_LABEL[a.status] || '', a.contents || '', a.author || '', a.date ? fmtDate(a.date) : '', hexOf(a.color), hexOf(a.fillColor), g, a.photos && a.photos.length ? a.photos.length : '']).concat(names.map(function (n) { return a.fields && a.fields[n] != null ? a.fields[n] : ''; }));
   });
   return { head: head, rows: rows };
 }
@@ -4342,11 +4545,89 @@ function doExport(kind) {
   var c = countRows(null), m = markupRows();
   if (kind === 'counts') downloadFile(new Blob([toCSV(c)], { type: 'text/csv' }), exportBase() + ' - counts.csv');
   else if (kind === 'markups') downloadFile(new Blob([toCSV(m)], { type: 'text/csv' }), exportBase() + ' - markups.csv');
+  else if (kind === 'rooms') { if (!rooms().length) { toast('Draw rooms with the Room tool first (tap the corners of each room, then name it).', 5000); return; } downloadFile(new Blob([toCSV(roomRows())], { type: 'text/csv' }), exportBase() + ' - counts by room.csv'); }
+  else if (kind === 'summary') { summaryPdf(); }
   else {
     var pages = state.pages.map(function (p) { return { name: ('Counts p. ' + pageLabel(p.index)).slice(0, 31), t: countRows(p.index) }; }).filter(function (x) { return x.t.rows.length; });
-    var sheets = [{ name: 'Counts', head: c.head, rows: c.rows }].concat(pages.length > 1 ? pages.map(function (x) { return { name: x.name, head: x.t.head, rows: x.t.rows }; }) : []).concat([{ name: 'Markups', head: m.head, rows: m.rows }]);
+    var rr = rooms().length ? [Object.assign({ name: 'By room' }, roomRows())] : [];
+    var sheets = [{ name: 'Counts', head: c.head, rows: c.rows }].concat(rr).concat(pages.length > 1 ? pages.map(function (x) { return { name: x.name, head: x.t.head, rows: x.t.rows }; }) : []).concat([{ name: 'Markups', head: m.head, rows: m.rows }]);
     downloadFile(xlsx(sheets), exportBase() + ' - markups.xlsx');
   }
+}
+/* Printable summary: counts, counts by room, measurement totals, every markup and the site photos, as a PDF. */
+async function summaryPdf() {
+  if (!state.pdf) { toast('Open a PDF first.'); return; }
+  setBusy('Making the summary\u2026'); await nextFrame();
+  try {
+    var L = window.PDFLib, doc = await L.PDFDocument.create(), F = await doc.embedFont(L.StandardFonts.Helvetica), B = await doc.embedFont(L.StandardFonts.HelveticaBold);
+    var cs = new Set(F.getCharacterSet()), clean = function (t) { return Array.from(String(t == null ? '' : t).replace(/[\r\n\t]+/g, ' ')).map(function (c) { return cs.has(c.codePointAt(0)) ? c : '?'; }).join(''); };
+    var W = 792, H = 612, M = 40, page, y, ink = L.rgb(0.1, 0.1, 0.12), mute = L.rgb(0.42, 0.42, 0.46), line = L.rgb(0.85, 0.85, 0.87), acc = L.rgb(0.16, 0.36, 0.84);
+    var newPage = function () { page = doc.addPage([W, H]); y = H - M; };
+    var need = function (h) { if (y - h < M + 14) newPage(); };
+    var wrap = function (t, font, size, w) {
+      var words = clean(t).split(' '), out = [], cur = '';
+      words.forEach(function (wd) { var tr = cur ? cur + ' ' + wd : wd; if (font.widthOfTextAtSize(tr, size) <= w || !cur) cur = tr; else { out.push(cur); cur = wd; } });
+      if (cur || !out.length) out.push(cur);
+      return out.map(function (l) { while (l.length > 1 && font.widthOfTextAtSize(l, size) > w) l = l.slice(0, -2) + '\u2026'; return l; });
+    };
+    var heading = function (t) { need(40); y -= 10; page.drawText(clean(t), { x: M, y: y - 14, size: 14, font: B, color: ink }); y -= 24; };
+    var table = function (head, rows, widths) {
+      var tw = W - 2 * M, ws = widths.map(function (w) { return w * tw; }), size = 8.5, lh = 11;
+      var drawHead = function () { need(20); var x = M; head.forEach(function (h, i) { page.drawText(clean(h), { x: x + 2, y: y - 10, size: size, font: B, color: mute }); x += ws[i]; }); y -= 15; page.drawLine({ start: { x: M, y: y + 2 }, end: { x: W - M, y: y + 2 }, thickness: 0.6, color: line }); };
+      drawHead();
+      rows.forEach(function (r) {
+        var cells = r.map(function (v, i) { return wrap(v, F, size, ws[i] - 6).slice(0, 6); }), hgt = Math.max.apply(null, cells.map(function (c) { return c.length; })) * lh + 4;
+        if (y - hgt < M + 14) { newPage(); drawHead(); }
+        var x = M; cells.forEach(function (c, i) { c.forEach(function (ln, k) { page.drawText(ln, { x: x + 2, y: y - 9 - k * lh, size: size, font: F, color: ink }); }); x += ws[i]; });
+        y -= hgt; page.drawLine({ start: { x: M, y: y + 1 }, end: { x: W - M, y: y + 1 }, thickness: 0.3, color: line });
+      });
+      y -= 6;
+    };
+    newPage();
+    page.drawText('Markup summary', { x: M, y: y - 22, size: 22, font: B, color: ink }); y -= 34;
+    var all = live().filter(function (a) { return !(a.sym && a.sym.legend) && !(a.legendKey); });
+    page.drawText(clean(state.fileName + '  \u00b7  ' + new Date().toLocaleString() + (state.author ? '  \u00b7  ' + state.author : '') + '  \u00b7  ' + all.length + ' markups on ' + state.pages.length + ' pages'), { x: M, y: y - 10, size: 10, font: F, color: mute }); y -= 22;
+    var c = countRows(null);
+    if (c.rows.length) { heading('Counts'); table(['Subject', 'Label / numbers', 'Count', 'Pages'], c.rows.map(function (r) { return [r[0], r[1], String(r[2]), r[3]]; }), [0.34, 0.26, 0.1, 0.3]); }
+    if (rooms().length) { var rr = roomRows(); heading('Counts by room'); table(rr.head, rr.rows.map(function (r) { return r.map(String); }), [0.2, 0.08, 0.14, 0.26, 0.24, 0.08]); }
+    // Measurement totals by subject (same units only).
+    var tot = {}, tord = [];
+    all.forEach(function (a) {
+      var k = measureKind(a); if (!k || k === 'angle' || !a.measure) return;
+      var key = (a.subject || typeLabel(a.subtype, a.intent)) + '|' + k + '|' + a.measure.unit;
+      var t = tot[key] || (tot[key] = { subj: a.subject || typeLabel(a.subtype, a.intent), kind: MKIND_LABEL[k] || (k === 'area' ? 'Area' : 'Length'), n: 0, v: 0, sc: a.measure, area: k === 'area' || k === 'room' || k === 'wall' });
+      if (t.n === 0) tord.push(key);
+      var f = a.measure.factor;
+      t.v += k === 'area' || k === 'room' ? netArea(a) * f * f : k === 'wall' ? polyLength(a.vertices) * f * (+a.wallH || 0) : k === 'radius' || k === 'diameter' ? 0 : polyLength(a.vertices) * f;
+      t.n++;
+    });
+    if (tord.length) { heading('Measurement totals'); table(['Subject', 'Kind', 'Count', 'Total'], tord.map(function (k) { var t = tot[k]; return [t.subj, t.kind, String(t.n), t.v ? (t.area ? fmtArea(t.v, t.sc) : fmtLength(t.v, t.sc)) : '']; }), [0.4, 0.2, 0.1, 0.3]); }
+    var m = markupRows(), col = function (n) { return m.head.indexOf(n); };
+    heading('Markups');
+    table(['Page', 'Subject', 'Label / measurement', 'Status', 'Comments', 'Author', 'Photos'], m.rows.map(function (r) { return [r[col('Page')], r[col('Subject')] || r[col('Type')], r[col('Measurement')] || r[col('Label / number')], r[col('Status')], r[col('Comments')], r[col('Author')], String(r[col('Photos')] || '')]; }), [0.06, 0.18, 0.2, 0.09, 0.3, 0.11, 0.06]);
+    var withPh = all.filter(function (a) { return a.photos && a.photos.length; });
+    if (withPh.length) {
+      heading('Site photos');
+      for (var i = 0; i < withPh.length; i++) {
+        var a = withPh[i];
+        need(200); page.drawText(clean('p. ' + pageLabel(a.pageIndex) + '  \u00b7  ' + (a.subject || typeLabel(a.subtype, a.intent)) + (MarkupIO.symLabel(a) || a.mtext ? '  \u00b7  ' + (MarkupIO.symLabel(a) || a.mtext) : '') + (a.contents ? '  \u00b7  ' + a.contents : '')).slice(0, 140), { x: M, y: y - 10, size: 10, font: B, color: ink }); y -= 18;
+        var x = M, rowH = 0;
+        for (var j = 0; j < a.photos.length; j++) {
+          var bytes = await photoBytes(a.photos[j].id); if (!bytes) continue;
+          var img = await doc.embedJpg(bytes), k = Math.min(230 / img.width, 170 / img.height), iw = img.width * k, ih = img.height * k;
+          if (x + iw > W - M) { x = M; y -= rowH + 8; rowH = 0; }
+          if (y - ih < M + 14) { newPage(); x = M; rowH = 0; }
+          page.drawImage(img, { x: x, y: y - ih, width: iw, height: ih }); x += iw + 10; rowH = Math.max(rowH, ih);
+        }
+        y -= rowH + 14;
+      }
+    }
+    var pgs = doc.getPages();
+    pgs.forEach(function (pg, i) { pg.drawText(clean(state.fileName + '  \u00b7  page ' + (i + 1) + ' of ' + pgs.length), { x: M, y: 20, size: 8, font: F, color: mute }); pg.drawRectangle({ x: M, y: H - 14, width: 40, height: 3, color: acc }); });
+    var out = await doc.save();
+    setBusy(null);
+    downloadFile(new Blob([out], { type: 'application/pdf' }), exportBase() + ' - markup summary.pdf');
+  } catch (e) { setBusy(null); console.error(e); toast('Could not make the summary: ' + (e && e.message || e), 6000); }
 }
 /* Legend: a symbol and "Subject - count" for each kind of symbol, as a group of normal markups placed
    at the top left of what is on screen. */
@@ -4523,7 +4804,7 @@ async function savePdf() {
     var vps = {};
     state.scaleDirty.forEach(function (i) { scales[i] = state.scales[i] || null; vps[i] = (state.vps && state.vps[i]) || []; });
     state.annots.forEach(function (a) { if (a.vertices && !a.deleted && (a.isNew || a.geomDirty || a.styleDirty)) updateGeom(a); });
-    out = await MarkupIO.applyMarkups(state.bytes, state.annots, { author: state.author || '', scales: scales, vps: vps, symAsStamp: !!ui().symStamp });
+    out = await MarkupIO.applyMarkups(state.bytes, state.annots, { author: state.author || '', scales: scales, vps: vps, photos: await photosForSave(), symAsStamp: !!ui().symStamp });
     var keepId = state.docId; state.docId = null;
     await loadPdf(out, state.fileName, { keepScroll: true });
     state.docId = keepId; await storeDoc(out, state.fileName, true);
@@ -4747,6 +5028,115 @@ async function importBtx(files) {
 }
 $('#btnChest').addEventListener('click', function (e) { e.stopPropagation(); var pop = $('#chestPop'); pop.hidden = !pop.hidden; $('#stylePop').hidden = true; $('#verPop').hidden = true; if (!pop.hidden) { renderChest(); fitPop(pop); } });
 $('#btnImportBtx').addEventListener('click', function () { $('#btxFile').click(); });
+var SCHEDULE_TEMPLATE = "Type,Description,Manufacturer,Catalog Number,Lamp,Watts,Voltage,Mounting,Shape,Color,Fill,Text Color,Size,Height,Notes\nA,2x4 LED troffer,Example Lighting Co,EX-24-4000K,LED 4000K,32,120-277,Recessed,square,#1F6FEB,#DCE8FD,#0B3D91,18,,\nA1,\"2x4 LED troffer, emergency battery\",Example Lighting Co,EX-24-4000K-EM,LED 4000K,32,120-277,Recessed,square,#1F6FEB,#FFF4C2,#0B3D91,18,,Wire to unswitched leg\nB,6 in LED downlight,Example Lighting Co,EX-DL6-3500K,LED 3500K,15,120-277,Recessed,circle,#D93025,,#D93025,14,,\nC,4 ft LED strip,Example Lighting Co,EX-STRIP-4,LED 4000K,38,120-277,Surface,rect,#188038,,#188038,28,10,\nD,Wall pack,Example Lighting Co,EX-WP-30,LED 5000K,30,120-277,Wall 12 ft AFF,triangle,#8E24AA,,#8E24AA,16,,Photocell\nX,Exit sign,Example Lighting Co,EX-EXIT-R,LED,3,120-277,Ceiling,hexagon,#E37400,#FFE0B2,#E37400,16,,Arrows per plan\n";
+$('#btnSchedule').addEventListener('click', function () { $('#chestPop').hidden = true; $('#schedModal').hidden = false; });
+$('#schedClose').addEventListener('click', function () { $('#schedModal').hidden = true; });
+$('#schedModal').addEventListener('pointerdown', function (e) { if (e.target === $('#schedModal')) $('#schedModal').hidden = true; });
+$('#schedTemplate').addEventListener('click', function () { downloadFile(new Blob(['\uFEFF' + SCHEDULE_TEMPLATE], { type: 'text/csv' }), 'fixture-schedule-template.csv'); });
+$('#schedPick').addEventListener('click', function () { $('#schedFile').click(); });
+$('#schedFile').addEventListener('change', function (e) { var f = e.target.files[0]; e.target.value = ''; if (f) importSchedule(f); });
+/* Minimal readers: CSV/TSV, and the first sheet of an .xlsx (a zip of XML). */
+function parseCSV(text) {
+  text = text.replace(/^\uFEFF/, '');
+  var first = text.split(/\r?\n/)[0] || '', delim = (first.match(/\t/g) || []).length > (first.match(/,/g) || []).length ? '\t' : (first.match(/;/g) || []).length > (first.match(/,/g) || []).length ? ';' : ',';
+  var rows = [], row = [], cell = '', q = false;
+  for (var i = 0; i < text.length; i++) {
+    var ch = text[i];
+    if (q) { if (ch === '"') { if (text[i + 1] === '"') { cell += '"'; i++; } else q = false; } else cell += ch; continue; }
+    if (ch === '"') q = true;
+    else if (ch === delim) { row.push(cell); cell = ''; }
+    else if (ch === '\n' || ch === '\r') { if (ch === '\r' && text[i + 1] === '\n') i++; row.push(cell); rows.push(row); row = []; cell = ''; }
+    else cell += ch;
+  }
+  if (cell || row.length) { row.push(cell); rows.push(row); }
+  return rows;
+}
+function unzipFiles(buf) {
+  var u = new Uint8Array(buf), dv = new DataView(buf), out = {}, e = -1;
+  for (var i = u.length - 22; i >= Math.max(0, u.length - 65557); i--) if (dv.getUint32(i, true) === 0x06054b50) { e = i; break; }
+  if (e < 0) throw new Error('Not an Excel file');
+  var n = dv.getUint16(e + 10, true), off = dv.getUint32(e + 16, true), dec = new TextDecoder('utf-8');
+  for (var k = 0; k < n; k++) {
+    if (dv.getUint32(off, true) !== 0x02014b50) break;
+    var method = dv.getUint16(off + 10, true), csize = dv.getUint32(off + 20, true), nl = dv.getUint16(off + 28, true), xl = dv.getUint16(off + 30, true), cl = dv.getUint16(off + 32, true), lo = dv.getUint32(off + 42, true);
+    var name = dec.decode(u.subarray(off + 46, off + 46 + nl)), ds = lo + 30 + dv.getUint16(lo + 26, true) + dv.getUint16(lo + 28, true), data = u.subarray(ds, ds + csize);
+    out[name] = function (m, d) { return function () { return m === 8 ? pako.inflateRaw(d) : d; }; }(method, data);
+    off += 46 + nl + xl + cl;
+  }
+  return out;
+}
+function readXlsx(buf) {
+  var z = unzipFiles(buf), dec = new TextDecoder('utf-8'), xml = function (n) { return z[n] ? new DOMParser().parseFromString(dec.decode(z[n]()), 'application/xml') : null; };
+  var shared = [], ss = xml('xl/sharedStrings.xml');
+  if (ss) Array.prototype.forEach.call(ss.getElementsByTagName('si'), function (si) { shared.push(Array.prototype.map.call(si.getElementsByTagName('t'), function (t) { return t.textContent; }).join('')); });
+  var sheet = 'xl/worksheets/sheet1.xml';
+  try {
+    var wb = xml('xl/workbook.xml'), rels = xml('xl/_rels/workbook.xml.rels'), sh = wb && wb.getElementsByTagName('sheet')[0];
+    var rid = sh && (sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id'));
+    Array.prototype.forEach.call(rels ? rels.getElementsByTagName('Relationship') : [], function (r) { if (r.getAttribute('Id') === rid) { var t = r.getAttribute('Target').replace(/^\//, ''); sheet = t.indexOf('xl/') === 0 ? t : 'xl/' + t; } });
+  } catch (e) { /* first sheet */ }
+  if (!z[sheet]) sheet = Object.keys(z).filter(function (k) { return /^xl\/worksheets\/[^/]+\.xml$/.test(k); }).sort()[0];
+  var doc = xml(sheet); if (!doc) throw new Error('No sheet found');
+  var colIdx = function (ref) { var m = /^([A-Z]+)/.exec(ref || ''), n = 0; if (!m) return -1; for (var i = 0; i < m[1].length; i++) n = n * 26 + m[1].charCodeAt(i) - 64; return n - 1; };
+  return Array.prototype.map.call(doc.getElementsByTagName('row'), function (r) {
+    var row = [];
+    Array.prototype.forEach.call(r.getElementsByTagName('c'), function (c, j) {
+      var t = c.getAttribute('t'), v = c.getElementsByTagName('v')[0], ci = colIdx(c.getAttribute('r')); if (ci < 0) ci = j;
+      var val = t === 's' ? shared[+(v ? v.textContent : 0)] || '' : t === 'inlineStr' ? Array.prototype.map.call(c.getElementsByTagName('t'), function (x) { return x.textContent; }).join('') : v ? v.textContent : '';
+      while (row.length < ci) row.push(''); row[ci] = val;
+    });
+    return row;
+  });
+}
+var SHAPE_WORDS = { circle: 'circle', round: 'circle', dot: 'circle', square: 'square', box: 'square', rect: 'rect', rectangle: 'rect', linear: 'rect', strip: 'rect', oval: 'oval', ellipse: 'oval', roundrect: 'roundrect', rounded: 'roundrect', pill: 'roundrect', diamond: 'diamond', triangle: 'triangle', hexagon: 'hexagon', hex: 'hexagon' };
+function cssColor(v) {
+  v = String(v || '').trim(); if (!v) return null;
+  if (/^#?[0-9a-f]{6}$/i.test(v)) return hexToRgb(v.charAt(0) === '#' ? v : '#' + v);
+  try { var g = document.createElement('canvas').getContext('2d'); g.fillStyle = '#010203'; g.fillStyle = v; var h = g.fillStyle; if (h === '#010203' && !/^#?010203$/.test(v)) return null; return /^#[0-9a-f]{6}$/i.test(h) ? hexToRgb(h) : null; } catch (e) { return null; }
+}
+async function importSchedule(file) {
+  var rows;
+  try {
+    var buf = await file.arrayBuffer();
+    rows = /\.xlsx$/i.test(file.name) || new Uint8Array(buf.slice(0, 2))[0] === 0x50 ? readXlsx(buf) : parseCSV(new TextDecoder('utf-8').decode(buf));
+  } catch (e) { console.warn(e); toast('Could not read ' + file.name + ': ' + (e && e.message || e), 6000); return; }
+  var hi = -1, cols = null, norm = function (h) { return String(h || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); };
+  for (var i = 0; i < Math.min(rows.length, 15) && hi < 0; i++) { var c = rows[i].map(norm); var t = c.findIndex(function (h) { return /^(type|mark|tag|fixture type|fixture mark|fixture tag|fixture|id)$/.test(h); }); if (t >= 0) { hi = i; cols = { type: t }; } }
+  if (hi < 0) { toast('No Type (or Mark) column found. Download the template to see the layout.', 6000); return; }
+  var head = rows[hi], role = {};
+  head.forEach(function (h, j) {
+    var k = norm(h); if (j === cols.type || !k) return;
+    if (/^(description|desc|fixture description)$/.test(k)) role.desc = j;
+    else if (/^(shape|symbol|symbol shape)$/.test(k)) role.shape = j;
+    else if (/^(color|colour|line color|line colour|stroke)$/.test(k)) role.color = j;
+    else if (/^(fill|fill color|fill colour)$/.test(k)) role.fill = j;
+    else if (/^(text color|text colour|label color|label colour)$/.test(k)) role.text = j;
+    else if (/^(size|symbol size|width)$/.test(k)) role.size = j;
+    else if (/^(height|symbol height)$/.test(k)) role.height = j;
+    else if (/^subject$/.test(k)) role.subject = j;
+  });
+  var styleCols = new Set([cols.type, role.shape, role.color, role.fill, role.text, role.size, role.height, role.subject].filter(function (x) { return x != null; }));
+  var tools = [], seen = {};
+  rows.slice(hi + 1).forEach(function (r) {
+    var type = String(r[cols.type] || '').trim(); if (!type || seen[type]) return; seen[type] = 1;
+    var get = function (j) { return j == null ? '' : String(r[j] == null ? '' : r[j]).trim(); };
+    var shape = SHAPE_WORDS[get(role.shape).toLowerCase().replace(/[^a-z]/g, '')] || 'circle', col = cssColor(get(role.color)) || hexToRgb('#d93025');
+    var fill = cssColor(get(role.fill)), tc = cssColor(get(role.text)), size = clamp(parseFloat(get(role.size)) || 18, 4, 144), ht = clamp(parseFloat(get(role.height)) || Math.round(size * 0.6), 4, 144);
+    var desc = get(role.desc), fields = [];
+    head.forEach(function (h, j) { if (styleCols.has(j) || !String(h || '').trim()) return; fields.push({ name: String(h).trim(), value: get(j) }); });
+    tools.push({ id: newId('t'), layer: '', mode: '', title: 'Type ' + type + (desc ? ' \u2013 ' + desc : ''), subtype: MarkupIO.SYM_SUB[shape] || 'Circle', intent: '', drawTool: 'symbol', supported: true, fs: null,
+      sym: { angle: 0, shape: shape, size: size, height: MarkupIO.SYM_WIDE[shape] ? ht : null, label: type.slice(0, 8), textColor: tc ? rgbToHex(tc) : null, numbered: false },
+      color: col, fillColor: fill, fillOpacity: fill ? 1 : 0.35, opacity: 1, lineWidth: 1.5, highlight: false,
+      subject: get(role.subject) || 'Type ' + type, contents: desc, fav: false, icon: null, fields: fields });
+  });
+  if (!tools.length) { toast('No fixture types found under the header row.', 5000); return; }
+  var title = String(file.name).replace(/\.(csv|tsv|txt|xlsx)$/i, '') || 'Fixture schedule';
+  state.chestSets = state.chestSets.filter(function (x) { return !(x.custom && x.title === title && x.schedule); });
+  state.chestSets.push({ id: newId('set'), title: title, tools: tools, custom: true, schedule: true });
+  saveChest(); renderChest(); $('#schedModal').hidden = true;
+  $('#chestPop').hidden = false; renderChest(); fitPop($('#chestPop'));
+  toast(tools.length + ' fixture type' + (tools.length > 1 ? 's' : '') + ' imported into the palette "' + title + '". Tap one, then tap the drawing to place it.', 6000);
+}
 $('#btxFile').addEventListener('change', function (e) { importBtx(Array.from(e.target.files)); e.target.value = ''; });
 $('#chestSets').addEventListener('click', function (e) {
   var el = e.target.closest ? e.target.closest('button') : null; if (!el) return;

@@ -1,0 +1,7 @@
+Type,Description,Manufacturer,Catalog Number,Lamp,Watts,Voltage,Mounting,Shape,Color,Fill,Text Color,Size,Height,Notes
+A,2x4 LED troffer,Example Lighting Co,EX-24-4000K,LED 4000K,32,120-277,Recessed,square,#1F6FEB,#DCE8FD,#0B3D91,18,,
+A1,"2x4 LED troffer, emergency battery",Example Lighting Co,EX-24-4000K-EM,LED 4000K,32,120-277,Recessed,square,#1F6FEB,#FFF4C2,#0B3D91,18,,Wire to unswitched leg
+B,6 in LED downlight,Example Lighting Co,EX-DL6-3500K,LED 3500K,15,120-277,Recessed,circle,#D93025,,#D93025,14,,
+C,4 ft LED strip,Example Lighting Co,EX-STRIP-4,LED 4000K,38,120-277,Surface,rect,#188038,,#188038,28,10,
+D,Wall pack,Example Lighting Co,EX-WP-30,LED 5000K,30,120-277,Wall 12 ft AFF,triangle,#8E24AA,,#8E24AA,16,,Photocell
+X,Exit sign,Example Lighting Co,EX-EXIT-R,LED,3,120-277,Ceiling,hexagon,#E37400,#FFE0B2,#E37400,16,,Arrows per plan
