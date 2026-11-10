@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.13.0">
+<meta name="app-version" content="3.14.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -457,6 +457,12 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .crow.sub { padding-left: 16px; }
 .crow.warn .cn { color: var(--danger, #c62828); }
 .crow.ok .cv { color: #2e7d32; }
+.crow .cw { display: block; font-weight: 500; color: var(--ink-2); font-size: 11px; }
+.crow.s-ok .cv { color: #2e7d32; } .crow.s-under .cv { color: #e37400; } .crow.s-over .cv, .crow.s-warn .cv, .crow.s-warn .cn { color: var(--danger, #c62828); }
+.crow.s-grey { opacity: .55; }
+.crow .cn small { text-transform: none; }
+.chead.sub { text-transform: none; letter-spacing: 0; font-size: 12px; padding-top: 8px; color: var(--accent); }
+.ctabs2 { position: static; padding-top: 0; }
 .chead { font-weight: 600; padding: 10px 4px 4px; color: var(--ink-2); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 .counts button { border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 4px 10px; font-size: 13px; cursor: pointer; color: var(--ink); }
 .counts button b { font-variant-numeric: tabular-nums; }
@@ -965,6 +971,10 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
           <div class="lg-t"><span>Total</span><b id="pLenTot">&#8212;</b></div>
         </div>
       </div>
+      <div class="fieldsbox" id="pChan" hidden>
+        <div class="fhead"><span>Channel</span><span class="hint" id="pChanInfo"></span></div>
+        <select class="fld-in" id="pChanSel"></select>
+      </div>
       <div class="fieldsbox" id="pPhotos" hidden>
         <div class="fhead"><span>Photos</span><label class="btn" id="pAddPhoto">+ Photo<input type="file" id="photoFile" accept="image/*" multiple hidden></label></div>
         <div class="phgrid" id="pPhotoGrid"></div>
@@ -1117,7 +1127,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <button class="btn" type="button" id="schedClose">Close</button>
       <button class="btn primary" type="button" id="schedPick">Choose schedule&#8230;</button>
     </div>
-    <input type="file" id="schedFile" accept=".csv,.tsv,.txt,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" hidden>
+    <input type="file" id="schedFile" accept=".csv,.tsv,.txt,.xlsx,.xlsm,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12" hidden>
   </div>
 </div>
 <div class="modal" id="toolModal" hidden>
@@ -2372,7 +2382,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.13.0';
+var APP_VERSION = '3.14.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3173,7 +3183,7 @@ async function openFile(file) {
 async function loadPdf(bytes, name, opts) {
   if (state.pdf) { try { await state.pdf.destroy(); } catch (e) { /* ignore */ } }
   var pdf = await pdfjsLib.getDocument({ data: bytes.slice(0) }).promise;
-  hiddenOnCanvas = new Set(); state.textCache = []; thumbsFor = null;
+  hiddenOnCanvas = new Set(); state.textCache = []; thumbsFor = null; state.sheetPages = null; state.sheetPagesFor = null;
   if (!$('#drawer').hidden && state.drawerTab === 'pages') setTimeout(buildThumbs, 0);
   state.pdf = pdf; state.bytes = bytes; state.fileName = name || state.fileName;
   try { state.labels = await pdf.getPageLabels(); } catch (e) { state.labels = null; }
@@ -4990,7 +5000,7 @@ function renderProps() {
   var rs = s.filter(function (x) { return x.sym && x.owned; });
   $('#pRotate').hidden = !rs.length;
   if (rs.length) $('#pAngle').textContent = (rs.every(function (x) { return (+x.sym.angle || 0) === (+rs[0].sym.angle || 0); }) ? (+rs[0].sym.angle || 0) + '\u00b0' : 'mixed');
-  renderFieldRows(s); renderPhotos(s); renderLen(s);
+  renderFieldRows(s); renderPhotos(s); renderLen(s); renderChan(s);
   var lks = s.length === 1 && a.subtype === 'Link';
   $('#pLinkRow').hidden = !lks;
   if (lks) $('#pLinkTo').textContent = a.link ? (a.link.url || (a.link.page != null ? 'Page ' + pageLabel(a.link.page) : '')) : '';
@@ -5097,6 +5107,34 @@ async function photosForSave() {
   for (var i = 0; i < list.length; i++) for (var j = 0; j < list[i].photos.length; j++) { var id = list[i].photos[j].id, b = await photoBytes(id); if (b) out[id] = b; }
   return out;
 }
+function channelsForType(code) {
+  code = String(code || '').trim().toUpperCase(); var out = [];
+  state.chestSets.forEach(function (set) { (set.channels || []).forEach(function (c) { if (String(c.type).toUpperCase() === code) out.push(c); }); });
+  return out;
+}
+function renderChan(s) {
+  var box = $('#pChan'), syms = s.filter(function (x) { return countable(x) && x.owned; });
+  var codes = Array.from(new Set(syms.map(function (x) { return String(x.sym.label || '').toUpperCase(); })));
+  var chans = codes.length === 1 ? channelsForType(codes[0]) : [];
+  box.hidden = !chans.length; if (box.hidden) return;
+  var cur = syms.every(function (x) { return (x.fields && x.fields.Channel) === (syms[0].fields && syms[0].fields.Channel); }) ? (syms[0].fields && syms[0].fields.Channel) || '' : '__mixed';
+  $('#pChanSel').innerHTML = (cur === '__mixed' ? '<option value="__mixed">Mixed</option>' : '') + '<option value="">None</option>' + chans.map(function (c, i) {
+    var txt = (c.chan ? c.chan + ' · ' : '') + (c.desc || '').toLowerCase().replace(/(^|\s)\S/g, function (m) { return m.toUpperCase(); }) + (c.sheet ? ' · ' + c.sheet : '') + ' · qty ' + c.qty;
+    return '<option value="' + i + '"' + (String(c.chan) === String(cur) && cur !== '' ? ' selected' : '') + '>' + esc(txt) + '</option>';
+  }).join('');
+  if (cur === '__mixed') $('#pChanSel').value = '__mixed'; else if (!cur) $('#pChanSel').value = '';
+  var c0 = chans.filter(function (c) { return String(c.chan) === String(cur); })[0];
+  $('#pChanInfo').textContent = c0 ? [c0.circuit, c0.loc && c0.loc.toLowerCase()].filter(Boolean).join(' · ') : chans.length + ' for type ' + codes[0];
+}
+$('#pChanSel').addEventListener('change', function (e) {
+  var v = e.target.value; if (v === '__mixed') return;
+  var syms = selected().filter(function (x) { return countable(x) && x.owned; }); if (!syms.length) return;
+  var chans = channelsForType(syms[0].sym.label), c = v === '' ? null : chans[+v];
+  var tag = 'chan' + Date.now(); applyToSelection({ field: ['Channel', c ? c.chan : null] }, tag);
+  applyToSelection({ field: ['Circuit', c && c.circuit ? c.circuit : null] }, tag);
+  applyToSelection({ field: ['Location', c && c.loc ? c.loc : null] }, tag);
+  renderProps(); renderCountTable();
+});
 function renderLen(s) {
   var syms = s.filter(function (x) { return countable(x) && x.owned; }), box = $('#pLen');
   box.hidden = !syms.length; if (!syms.length) return;
@@ -5596,27 +5634,114 @@ function renderCountTable() {
   el.innerHTML = html;
 }
 /* Schedule check: every fixture type in your imported schedules against what is placed. */
+/* ---------- schedule check ----------
+   Types: placed against the scheduled quantity (linear types in feet of length).
+   Sheets: each sheet in the channel schedule against the drawing page showing that sheet number.
+   Channels: fixtures given a Channel (in their properties) against each channel's quantity. */
+function schedTools() { var out = []; state.chestSets.forEach(function (set) { if (set.schedule) set.tools.forEach(function (t) { out.push({ set: set, t: t }); }); }); return out; }
+function typeOfTool(t) { return String(t.typeCode || (t.sym && t.sym.label) || '').trim().toUpperCase(); }
+function fixtureMatches(a, t) {
+  var code = typeOfTool(t), lab = String(a.sym && a.sym.label || '').trim().toUpperCase();
+  if (code && lab && (lab === code || lab === code.slice(0, 8))) return true;
+  return !!(t.subject && a.subject && t.subject.trim().toLowerCase() === a.subject.trim().toLowerCase() && (!code || !lab));
+}
+function isAccessory(t) { return /-X$/i.test(typeOfTool(t)) || /power supply|transformer|\bdriver\b/i.test(t.contents || ''); }
+function feetOf(items) { var tot = 0, any = false; items.forEach(function (x) { if (x.fixLen > 0) { any = true; var b = FMT_BASE[x.fixFmt || 'ft-in'] || 'ft'; tot += fixTotal(x) * (UNIT_M[b] || 0.3048) / 0.3048; } }); return any ? tot : null; }
+function amountOf(items, linear) { if (linear) { var f = feetOf(items); if (f != null) return { v: f, txt: fmtLen(f, 'ft-in'), unit: 'ft' }; } return { v: items.length, txt: String(items.length), unit: 'n' }; }
+function schedRow(key, name, sub, items, want, linear, opts) {
+  opts = opts || {};
+  findLists[key] = readingOrder(items);
+  var have = amountOf(items, linear), cls = 'ok', note = '';
+  var wantTxt = want == null ? '' : linear && have.unit === 'ft' ? fmtLen(want, 'ft-in') : String(want);
+  if (opts.grey) cls = 'grey';
+  else if (want == null) cls = items.length ? 'ok' : 'warn';
+  else if (have.v === 0 && want > 0) cls = 'warn';
+  else if (Math.abs(have.v - want) < 0.01) cls = 'ok';
+  else cls = have.v < want ? 'under' : 'over';
+  if (linear && have.unit === 'n' && want) note = ' <small>(scheduled in feet; give these fixtures a length to compare)</small>';
+  return '<div class="crow s-' + cls + '"><span class="cn" title="' + esc(name + (sub ? ' ' + sub : '')) + '">' + esc(name) + (sub ? ' <small>' + esc(sub) + '</small>' : '') + note + '</span>' +
+    '<span class="cv">' + esc(have.txt) + (want != null ? '<span class="cw">of ' + esc(wantTxt) + '</span>' : '') + (opts.tag ? '<span class="cw">' + esc(opts.tag) + '</span>' : '') + '</span>' +
+    '<span class="fnd">' + (items.length ? '<button type="button" data-find="' + esc(key) + '|-1" aria-label="Previous">\u25C0</button><button type="button" data-find="' + esc(key) + '|1" aria-label="Next">\u25B6</button>' : '') + '</span></div>';
+}
+// Which page shows which sheet number: the page label, or the sheet number printed on the page (title block).
+function detectSheets() {
+  if (state.sheetPagesFor === state.pdf && state.sheetPages) return Promise.resolve(state.sheetPages);
+  var codes = []; state.chestSets.forEach(function (set) { (set.channels || []).forEach(function (c) { if (c.sheet && codes.indexOf(c.sheet) < 0) codes.push(c.sheet); }); });
+  if (!codes.length || !state.pdf) return Promise.resolve({});
+  var pdfNow = state.pdf;
+  return Promise.all(state.pages.map(function (p, i) { return pageText(i).then(function (items) { return { i: i, items: items, view: p.page.view }; }); })).then(function (texts) {
+    if (pdfNow !== state.pdf) return {};
+    var map = {};
+    // Each mention scores by its text size, and more in the title-block corner (bottom right), so the big
+    // sheet number beats a small "SEE LD-201" reference.
+    texts.forEach(function (t) {
+      var lab = pageLabel(t.i).toUpperCase(), best = null, bestN = 0, v = t.view, W = v[2] - v[0], H = v[3] - v[1];
+      codes.forEach(function (code) {
+        if (lab === code.toUpperCase()) { best = code; bestN = 1e9; return; }
+        var re = new RegExp('(^|[^A-Z0-9])' + code.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/-/g, '\\s*-\\s*') + '(?![A-Z0-9.])', 'i'), n = 0;
+        t.items.forEach(function (it) {
+          if (!re.test(it.str)) return;
+          var tr = it.transform || [1, 0, 0, 1, 0, 0], size = Math.max(1, Math.hypot(tr[2], tr[3])), x = (tr[4] - v[0]) / W, y = (tr[5] - v[1]) / H;
+          var exact = it.str.trim().toUpperCase().replace(/\s+/g, '') === code.toUpperCase().replace(/\s+/g, '');
+          n += size * (x > 0.6 && y < 0.35 ? 3 : 1) * (exact ? 2 : 1);
+        });
+        if (n > bestN) { bestN = n; best = code; }
+      });
+      if (best) (map[best] = map[best] || []).push(t.i);
+    });
+    // a sheet number named on several pages (references): keep the page that names it most often
+    state.sheetPages = map; state.sheetPagesFor = state.pdf;
+    return map;
+  });
+}
 function scheduleCheckHTML(list) {
   var scheds = state.chestSets.filter(function (x) { return x.schedule; });
-  if (!scheds.length) return '<p class="hint">Import a fixture schedule (Tool Chest > Fixture schedule) to check the drawings against it.</p>';
-  var html = '', known = {};
-  var keyOf = function (subject, label) { return String(subject || '').trim().toLowerCase() + '|' + String(label || '').trim().toLowerCase(); };
-  scheds.forEach(function (set, si) {
-    var placedN = 0, missing = 0, rows = '';
-    set.tools.forEach(function (t, ti) {
-      var subj = t.subject || t.title, lab = t.sym ? t.sym.label : '';
-      known[keyOf(subj, lab)] = 1;
-      var items = list.filter(function (a) { return keyOf(a.subject, a.sym.label) === keyOf(subj, lab); });
-      if (items.length) placedN++; else missing++;
-      rows += cRow('s' + si + '-' + ti, subj, t.contents || '', items, items.length ? 'ok' : 'warn');
+  if (!scheds.length) return '<p class="hint">Import a fixture schedule (Tool Chest > Fixture schedule) to check the drawings against it. A workbook with a Fixture List tab and a Channel Schedule tab is read in one go.</p>';
+  var sub = state.schTab || 'types', hasCh = scheds.some(function (x) { return x.channels && x.channels.length; });
+  var html = '<div class="ctabs ctabs2">' + [['types', 'Types'], ['sheets', 'By sheet'], ['channels', 'By channel']].filter(function (t) { return t[0] === 'types' || hasCh; }).map(function (t) { return '<button type="button" data-schtab="' + t[0] + '" class="' + (sub === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '</div>';
+  var used = new Set();
+  if (sub === 'types' || !hasCh) {
+    scheds.forEach(function (set, si) {
+      var rows = '', nOk = 0, nTot = 0, cat = null;
+      set.tools.forEach(function (t, ti) {
+        var items = list.filter(function (a) { return fixtureMatches(a, t); }); items.forEach(function (a) { used.add(a.id); });
+        var grey = isAccessory(t) || t.schedQty === 0;
+        if (t.category && t.category !== cat) { cat = t.category; rows += '<div class="chead sub">' + esc(cat) + '</div>'; }
+        if (!grey && t.schedQty != null) { nTot++; var have = amountOf(items, t.linear); if (Math.abs(have.v - t.schedQty) < 0.01) nOk++; }
+        rows += schedRow('s' + si + '-' + ti, typeOfTool(t) || t.subject, (t.contents || '').toLowerCase(), items, grey ? null : t.schedQty, t.linear, { grey: grey && !items.length, tag: grey ? (t.schedQty === 0 ? 'not used' : 'accessory') : '' });
+      });
+      html += '<div class="chead">' + esc(set.title) + (nTot ? ' \u00b7 ' + nOk + ' of ' + nTot + ' types match' : '') + '</div>' + rows;
     });
-    html += '<div class="chead">' + esc(set.title) + ' \u00b7 ' + placedN + ' of ' + set.tools.length + ' types placed' + (missing ? ' \u00b7 ' + missing + ' not placed' : '') + '</div>' + rows;
+    var extra = countGroups(list.filter(function (a) { return !used.has(a.id); }));
+    if (extra.length) { html += '<div class="chead">Placed but not on a schedule</div>'; extra.forEach(function (g, i) { html += cRow('x' + i, g.subject, g.label, g.items, 'warn'); }); }
+    return html;
+  }
+  var chans = []; scheds.forEach(function (set) { (set.channels || []).forEach(function (c) { chans.push(c); }); });
+  var toolFor = function (type) { var m = schedTools().filter(function (x) { return typeOfTool(x.t) === String(type).toUpperCase(); })[0]; return m ? m.t : { typeCode: type, sym: { label: type }, subject: 'Type ' + type }; };
+  if (sub === 'sheets') {
+    if (state.sheetPagesFor !== state.pdf) { detectSheets().then(function () { if (state.ctOpen && state.ctTab === 'sched' && state.schTab === 'sheets') renderCountTable(); }); return html + '<p class="hint">Finding the sheet numbers on the pages\u2026</p>'; }
+    var sheetsOrder = []; chans.forEach(function (c) { if (c.sheet && sheetsOrder.indexOf(c.sheet) < 0) sheetsOrder.push(c.sheet); });
+    sheetsOrder.forEach(function (sh, shi) {
+      var pages = (state.sheetPages || {})[sh] || [], want = {}, order = [];
+      chans.forEach(function (c) { if (c.sheet !== sh) return; var k = String(c.type).toUpperCase(); if (!(k in want)) { want[k] = 0; order.push(k); } want[k] += c.qty || 0; });
+      html += '<div class="chead">' + esc(sh) + ' \u00b7 ' + (pages.length ? 'page ' + pages.map(pageLabel).join(', ') : 'not found in this PDF') + '</div>';
+      order.forEach(function (k, ki) {
+        var t = toolFor(k), items = list.filter(function (a) { return pages.indexOf(a.pageIndex) >= 0 && fixtureMatches(a, t); });
+        var grey = isAccessory(t);
+        html += schedRow('sh' + shi + '-' + ki, k, (t.contents || '').toLowerCase(), items, grey ? null : want[k], t.linear, { grey: grey && !items.length, tag: grey ? 'accessory' : '' });
+      });
+    });
+    return html;
+  }
+  // channels
+  var assigned = list.filter(function (a) { return a.fields && a.fields.Channel; });
+  html += '<p class="hint" style="margin:4px">' + (assigned.length ? assigned.length + ' of ' + list.length + ' fixtures have a channel.' : 'Give fixtures a channel in their properties (Channel list) to check each channel here.') + '</p>';
+  var area = null;
+  chans.forEach(function (c, ci) {
+    if (c.area !== area) { area = c.area; html += '<div class="chead">' + esc(area || 'Channels') + '</div>'; }
+    var t = toolFor(c.type), items = assigned.filter(function (a) { return String(a.fields.Channel) === String(c.chan) && fixtureMatches(a, t); });
+    html += schedRow('c' + ci, (c.chan ? c.chan + ' ' : '') + (c.desc || '').toLowerCase().replace(/(^|\s)\S/g, function (m) { return m.toUpperCase(); }), c.type + (c.sheet ? ' \u00b7 ' + c.sheet : '') + (c.loc ? ' \u00b7 ' + c.loc.toLowerCase() : ''), items, isAccessory(t) ? null : c.qty, t.linear, { grey: isAccessory(t) && !items.length, tag: isAccessory(t) ? 'accessory' : '' });
   });
-  var extra = countGroups(list.filter(function (a) { return !known[keyOf(a.subject, a.sym.label)]; }));
-  if (extra.length) {
-    html += '<div class="chead">Placed but not on a schedule</div>';
-    extra.forEach(function (g, i) { html += cRow('x' + i, g.subject, g.label, g.items, 'warn'); });
-  } else html += '<div class="chead">Everything placed is on a schedule</div>';
   return html;
 }
 $('#stBar').addEventListener('click', function (e) {
@@ -5624,6 +5749,8 @@ $('#stBar').addEventListener('click', function (e) {
   state.statusFilter = b.dataset.st === state.statusFilter ? '' : b.dataset.st; state.listLimit = 250; renderList();
 });
 $('#ctable').addEventListener('click', function (e) {
+  var st = e.target.closest ? e.target.closest('[data-schtab]') : null;
+  if (st) { state.schTab = st.dataset.schtab; renderCountTable(); return; }
   var t = e.target.closest ? e.target.closest('[data-ctab]') : null;
   if (t) { state.ctTab = t.dataset.ctab; renderCountTable(); return; }
   var f = e.target.closest ? e.target.closest('[data-find]') : null; if (!f) return;
@@ -6043,47 +6170,59 @@ function unzipFiles(buf) {
   }
   return out;
 }
-function readXlsx(buf) {
+function readXlsxSheets(buf) {
   var z = unzipFiles(buf), dec = new TextDecoder('utf-8'), xml = function (n) { return z[n] ? new DOMParser().parseFromString(dec.decode(z[n]()), 'application/xml') : null; };
   var shared = [], ss = xml('xl/sharedStrings.xml');
   if (ss) Array.prototype.forEach.call(ss.getElementsByTagName('si'), function (si) { shared.push(Array.prototype.map.call(si.getElementsByTagName('t'), function (t) { return t.textContent; }).join('')); });
-  var sheet = 'xl/worksheets/sheet1.xml';
+  var list = [];
   try {
-    var wb = xml('xl/workbook.xml'), rels = xml('xl/_rels/workbook.xml.rels'), sh = wb && wb.getElementsByTagName('sheet')[0];
-    var rid = sh && (sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id'));
-    Array.prototype.forEach.call(rels ? rels.getElementsByTagName('Relationship') : [], function (r) { if (r.getAttribute('Id') === rid) { var t = r.getAttribute('Target').replace(/^\//, ''); sheet = t.indexOf('xl/') === 0 ? t : 'xl/' + t; } });
-  } catch (e) { /* first sheet */ }
-  if (!z[sheet]) sheet = Object.keys(z).filter(function (k) { return /^xl\/worksheets\/[^/]+\.xml$/.test(k); }).sort()[0];
-  var doc = xml(sheet); if (!doc) throw new Error('No sheet found');
-  var colIdx = function (ref) { var m = /^([A-Z]+)/.exec(ref || ''), n = 0; if (!m) return -1; for (var i = 0; i < m[1].length; i++) n = n * 26 + m[1].charCodeAt(i) - 64; return n - 1; };
-  return Array.prototype.map.call(doc.getElementsByTagName('row'), function (r) {
-    var row = [];
-    Array.prototype.forEach.call(r.getElementsByTagName('c'), function (c, j) {
-      var t = c.getAttribute('t'), v = c.getElementsByTagName('v')[0], ci = colIdx(c.getAttribute('r')); if (ci < 0) ci = j;
-      var val = t === 's' ? shared[+(v ? v.textContent : 0)] || '' : t === 'inlineStr' ? Array.prototype.map.call(c.getElementsByTagName('t'), function (x) { return x.textContent; }).join('') : v ? v.textContent : '';
-      while (row.length < ci) row.push(''); row[ci] = val;
+    var wb = xml('xl/workbook.xml'), rels = xml('xl/_rels/workbook.xml.rels'), tgt = {};
+    Array.prototype.forEach.call(rels ? rels.getElementsByTagName('Relationship') : [], function (r) { var t = r.getAttribute('Target').replace(/^\//, ''); tgt[r.getAttribute('Id')] = t.indexOf('xl/') === 0 ? t : 'xl/' + t; });
+    Array.prototype.forEach.call(wb ? wb.getElementsByTagName('sheet') : [], function (sh) {
+      var rid = sh.getAttribute('r:id') || sh.getAttributeNS('http://schemas.openxmlformats.org/officeDocument/2006/relationships', 'id');
+      if (tgt[rid] && z[tgt[rid]]) list.push({ name: sh.getAttribute('name') || '', path: tgt[rid] });
     });
-    return row;
+  } catch (e) { /* fall back to file order */ }
+  if (!list.length) Object.keys(z).filter(function (k) { return /^xl\/worksheets\/[^/]+\.xml$/.test(k); }).sort().forEach(function (k, i) { list.push({ name: 'Sheet' + (i + 1), path: k }); });
+  var colIdx = function (ref) { var m = /^([A-Z]+)/.exec(ref || ''), n = 0; if (!m) return -1; for (var i = 0; i < m[1].length; i++) n = n * 26 + m[1].charCodeAt(i) - 64; return n - 1; };
+  return list.map(function (sh) {
+    var cache = null;
+    return { name: sh.name, rows: function () {
+      if (cache) return cache;
+      var doc = xml(sh.path); if (!doc) return (cache = []);
+      cache = Array.prototype.map.call(doc.getElementsByTagName('row'), function (r) {
+        var row = [];
+        Array.prototype.forEach.call(r.getElementsByTagName('c'), function (c, j) {
+          var t = c.getAttribute('t'), v = c.getElementsByTagName('v')[0], ci = colIdx(c.getAttribute('r')); if (ci < 0) ci = j;
+          var val = t === 's' ? shared[+(v ? v.textContent : 0)] || '' : t === 'inlineStr' ? Array.prototype.map.call(c.getElementsByTagName('t'), function (x) { return x.textContent; }).join('') : v ? v.textContent : '';
+          while (row.length < ci) row.push(''); row[ci] = val;
+        });
+        return row;
+      });
+      return cache;
+    } };
   });
 }
+function readXlsx(buf) { var sh = readXlsxSheets(buf); if (!sh.length) throw new Error('No sheet found'); return sh[0].rows(); }
 var SHAPE_WORDS = { circle: 'circle', round: 'circle', dot: 'circle', square: 'square', box: 'square', rect: 'rect', rectangle: 'rect', linear: 'rect', strip: 'rect', oval: 'oval', ellipse: 'oval', roundrect: 'roundrect', rounded: 'roundrect', pill: 'roundrect', diamond: 'diamond', triangle: 'triangle', hexagon: 'hexagon', hex: 'hexagon' };
 function cssColor(v) {
   v = String(v || '').trim(); if (!v) return null;
   if (/^#?[0-9a-f]{6}$/i.test(v)) return hexToRgb(v.charAt(0) === '#' ? v : '#' + v);
   try { var g = document.createElement('canvas').getContext('2d'); g.fillStyle = '#010203'; g.fillStyle = v; var h = g.fillStyle; if (h === '#010203' && !/^#?010203$/.test(v)) return null; return /^#[0-9a-f]{6}$/i.test(h) ? hexToRgb(h) : null; } catch (e) { return null; }
 }
-async function importSchedule(file) {
-  var rows;
-  try {
-    var buf = await file.arrayBuffer();
-    rows = /\.xlsx$/i.test(file.name) || new Uint8Array(buf.slice(0, 2))[0] === 0x50 ? readXlsx(buf) : parseCSV(new TextDecoder('utf-8').decode(buf));
-  } catch (e) { console.warn(e); toast('Could not read ' + file.name + ': ' + (e && e.message || e), 6000); return; }
-  var hi = -1, cols = null, norm = function (h) { return String(h || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); };
-  for (var i = 0; i < Math.min(rows.length, 15) && hi < 0; i++) { var c = rows[i].map(norm); var t = c.findIndex(function (h) { return /^(type|mark|tag|fixture type|fixture mark|fixture tag|fixture|id)$/.test(h); }); if (t >= 0) { hi = i; cols = { type: t }; } }
-  if (hi < 0) { toast('No Type (or Mark) column found. Download the template to see the layout.', 6000); return; }
-  var head = rows[hi], role = {};
+var CAT_COLORS = ['#1f6feb', '#d93025', '#188038', '#8e24aa', '#e37400', '#00838f', '#c2185b', '#5d4037', '#3949ab', '#7cb342', '#f4511e', '#546e7a'];
+function normHead(h) { return String(h || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim(); }
+function findHeader(rows, test, maxRows) {
+  for (var i = 0; i < Math.min(rows.length, maxRows || 25); i++) { var c = (rows[i] || []).map(normHead), t = c.findIndex(test); if (t >= 0) return { row: i, col: t, heads: c }; }
+  return null;
+}
+var TYPE_HEAD = function (h) { return /^(type|mark|tag|fixture type|fixture mark|fixture tag|fixture|fixt type|fix type|id)$/.test(h); };
+/* Fixture list: one symbol tool per type; scheduled quantity, category colours, linear types in feet. */
+function parseFixtureRows(rows) {
+  var hd = findHeader(rows, TYPE_HEAD); if (!hd) return null;
+  var head = rows[hd.row], role = {}, tcol = hd.col;
   head.forEach(function (h, j) {
-    var k = norm(h); if (j === cols.type || !k) return;
+    var k = normHead(h); if (j === tcol || !k) return;
     if (/^(description|desc|fixture description)$/.test(k)) role.desc = j;
     else if (/^(shape|symbol|symbol shape)$/.test(k)) role.shape = j;
     else if (/^(color|colour|line color|line colour|stroke)$/.test(k)) role.color = j;
@@ -6094,29 +6233,79 @@ async function importSchedule(file) {
     else if (/^subject$/.test(k)) role.subject = j;
     else if (/^(length|fixture length|length each|len)$/.test(k)) role.len = j;
     else if (/^(qty|quantity|qty each)$/.test(k)) role.qty = j;
+    else if (/^(qty used|quantity used|total qty|qty total|scheduled qty|count|qty scheduled)$/.test(k)) role.sched = j;
   });
-  var styleCols = new Set([cols.type, role.shape, role.color, role.fill, role.text, role.size, role.height, role.subject, role.len, role.qty].filter(function (x) { return x != null; }));
-  var tools = [], seen = {};
-  rows.slice(hi + 1).forEach(function (r) {
-    var type = String(r[cols.type] || '').trim(); if (!type || seen[type]) return; seen[type] = 1;
-    var get = function (j) { return j == null ? '' : String(r[j] == null ? '' : r[j]).trim(); };
-    var shape = SHAPE_WORDS[get(role.shape).toLowerCase().replace(/[^a-z]/g, '')] || 'circle', col = cssColor(get(role.color)) || hexToRgb('#d93025');
-    var fill = cssColor(get(role.fill)), tc = cssColor(get(role.text)), size = clamp(parseFloat(get(role.size)) || 18, 4, 144), ht = clamp(parseFloat(get(role.height)) || Math.round(size * 0.6), 4, 144);
-    var desc = get(role.desc), fields = [];
-    head.forEach(function (h, j) { if (styleCols.has(j) || !String(h || '').trim()) return; fields.push({ name: String(h).trim(), value: get(j) }); });
-    tools.push({ id: newId('t'), layer: '', mode: '', title: 'Type ' + type + (desc ? ' \u2013 ' + desc : ''), subtype: MarkupIO.SYM_SUB[shape] || 'Circle', intent: '', drawTool: 'symbol', supported: true, fs: null,
+  var skip = new Set([tcol, role.shape, role.color, role.fill, role.text, role.size, role.height, role.subject, role.len, role.qty, role.sched].filter(function (x) { return x != null; }));
+  // columns that are totals, costs or spreadsheet bookkeeping are not useful on a markup
+  head.forEach(function (h, j) { var k = normHead(h); if (!k || /total|cost|price|inrush|budget|^arch$|^control$|^notes? internal|^rev/.test(k)) skip.add(j); });
+  var tools = [], seen = {}, cat = '', catIdx = -1, catColor = {};
+  for (var r = hd.row + 1; r < rows.length; r++) {
+    var row = rows[r] || [], get = function (j) { return j == null ? '' : String(row[j] == null ? '' : row[j]).trim(); };
+    var type = get(tcol), joined = row.map(function (v) { return String(v || ''); }).join(' ');
+    if (/range stops here|no entries below/i.test(joined)) break;
+    if (!type) continue;
+    var others = row.some(function (v, j) { return j !== tcol && String(v == null ? '' : v).trim() !== ''; });
+    if (!others || (/\s/.test(type) && type.length > 12 && !get(role.desc))) { cat = type; catIdx++; continue; } // a category heading row
+    if (seen[type]) continue; seen[type] = 1;
+    var desc = get(role.desc), linear = /linear|strip|tape light|tapelight|\btrack\s*$/i.test(desc);
+    var shape = SHAPE_WORDS[get(role.shape).toLowerCase().replace(/[^a-z]/g, '')] || (linear ? 'rect' : 'circle');
+    var catCol = cat ? (catColor[cat] || (catColor[cat] = CAT_COLORS[Math.max(0, catIdx) % CAT_COLORS.length])) : '#d93025';
+    var col = cssColor(get(role.color)) || hexToRgb(catCol);
+    var fill = cssColor(get(role.fill)), tc = cssColor(get(role.text));
+    var size = clamp(parseFloat(get(role.size)) || (type.length > 4 ? 22 : 18), 4, 144), ht = clamp(parseFloat(get(role.height)) || Math.round(size * 0.55), 4, 144);
+    var fields = [];
+    if (cat) fields.push({ name: 'Category', value: cat });
+    head.forEach(function (h, j) { if (skip.has(j) || j === role.desc || !String(h || '').trim()) return; var v = get(j); if (v && v !== '#N/A' && v !== '-') fields.push({ name: String(h).replace(/\s+/g, ' ').trim(), value: v }); });
+    var sched = parseFloat(get(role.sched));
+    tools.push({ id: newId('t'), layer: '', mode: '', title: type + (desc ? ' – ' + desc.toLowerCase().replace(/(^|\s)\S/g, function (m) { return m.toUpperCase(); }) : ''), subtype: MarkupIO.SYM_SUB[shape] || 'Circle', intent: '', drawTool: 'symbol', supported: true, fs: null,
       sym: { angle: 0, shape: shape, size: size, height: MarkupIO.SYM_WIDE[shape] ? ht : null, label: type.slice(0, 8), textColor: tc ? rgbToHex(tc) : null, numbered: false },
       color: col, fillColor: fill, fillOpacity: fill ? 1 : 0.35, opacity: 1, lineWidth: 1.5, highlight: false,
       subject: get(role.subject) || 'Type ' + type, contents: desc, fav: false, icon: null, fields: fields,
-      fixLenText: get(role.len), fixQty: parseFloat(get(role.qty)) > 0 ? parseFloat(get(role.qty)) : null });
-  });
+      fixLenText: get(role.len), fixQty: parseFloat(get(role.qty)) > 0 ? parseFloat(get(role.qty)) : null,
+      schedQty: isFinite(sched) ? sched : null, linear: linear, category: cat, typeCode: type });
+  }
+  return tools;
+}
+/* Channel schedule: every channel (zone) with its sheet, location, area, circuit, fixture type and quantity. */
+function parseChannelRows(rows) {
+  var hd = findHeader(rows, function (h) { return /^(fixt type|fixture type|type)$/.test(h); }, 40); if (!hd) return null;
+  var head = hd.heads, col = function (re) { var j = head.findIndex(function (h) { return re.test(h); }); return j < 0 ? null : j; };
+  var c = { type: hd.col, qty: col(/^(fixt qty|fixture qty|qty|quantity)$/), sheet: col(/^(sheet num|sheet|sheet no|sheet number|dwg|drawing)$/), chan: col(/^(chan num|channel|chan|channel num|channel no|zone|zone num)$/),
+    loc: col(/^(fixture location|location|room)$/), area: col(/^area$/), circuit: col(/^(panel circuit no|panel circuit|circuit|circuit no)$/), desc: col(/^(channel description|description|zone description)$/), label: col(/^(channel label|label)$/) };
+  var out = [], area = '';
+  for (var r = hd.row + 1; r < rows.length; r++) {
+    var row = rows[r] || [], get = function (j) { return j == null ? '' : String(row[j] == null ? '' : row[j]).trim(); };
+    if (c.area != null && get(c.area)) area = get(c.area);
+    var type = get(c.type); if (!type || /^unused/i.test(get(c.sheet))) continue;
+    var q = parseFloat(get(c.qty));
+    out.push({ type: type, qty: isFinite(q) ? q : 0, sheet: get(c.sheet), chan: get(c.chan).replace(/\.0+$/, ''), loc: get(c.loc), area: get(c.area) || area, circuit: get(c.circuit), desc: get(c.desc), label: get(c.label) });
+  }
+  return out;
+}
+async function importSchedule(file) {
+  var tools = null, channels = null, buf;
+  try {
+    buf = await file.arrayBuffer();
+    var isZip = new Uint8Array(buf.slice(0, 2))[0] === 0x50;
+    if (/\.(xlsx|xlsm)$/i.test(file.name) || isZip) {
+      var sheets = readXlsxSheets(buf);
+      var fx = sheets.filter(function (x) { return /fixture\s*(list|schedule)|^schedule$/i.test(x.name); })[0];
+      var ch = sheets.filter(function (x) { return /channel|zone|control\s*schedule/i.test(x.name); })[0];
+      if (fx) tools = parseFixtureRows(fx.rows());
+      if (!tools) for (var k = 0; k < sheets.length && !tools; k++) { if (sheets[k] === ch) continue; tools = parseFixtureRows(sheets[k].rows()); }
+      if (ch) channels = parseChannelRows(ch.rows());
+    } else tools = parseFixtureRows(parseCSV(new TextDecoder('utf-8').decode(buf)));
+  } catch (e) { console.warn(e); toast('Could not read ' + file.name + ': ' + (e && e.message || e), 6000); return; }
+  if (!tools) { toast('No Type (or Mark / Fixt Type) column found. Download the template to see the layout.', 6000); return; }
   if (!tools.length) { toast('No fixture types found under the header row.', 5000); return; }
-  var title = String(file.name).replace(/\.(csv|tsv|txt|xlsx)$/i, '') || 'Fixture schedule';
+  var title = String(file.name).replace(/\.(csv|tsv|txt|xlsx|xlsm)$/i, '') || 'Fixture schedule';
   state.chestSets = state.chestSets.filter(function (x) { return !(x.custom && x.title === title && x.schedule); });
-  state.chestSets.push({ id: newId('set'), title: title, tools: tools, custom: true, schedule: true });
+  state.chestSets.push({ id: newId('set'), title: title, tools: tools, custom: true, schedule: true, channels: channels || null });
   saveChest(); renderChest(); $('#schedModal').hidden = true;
   $('#chestPop').hidden = false; renderChest(); fitPop($('#chestPop'));
-  toast(tools.length + ' fixture type' + (tools.length > 1 ? 's' : '') + ' imported into the palette "' + title + '". Tap one, then tap the drawing to place it.', 6000);
+  var cats = Array.from(new Set(tools.map(function (t) { return t.category; }).filter(Boolean)));
+  toast(tools.length + ' fixture types' + (cats.length ? ' in ' + cats.length + ' categories' : '') + (channels && channels.length ? ' and ' + channels.length + ' channels' : '') + ' imported into "' + title + '". Tap a type, then tap the drawing to place it.', 7000);
+  renderCounts();
 }
 $('#btxFile').addEventListener('change', function (e) { importBtx(Array.from(e.target.files)); e.target.value = ''; });
 $('#chestSets').addEventListener('click', function (e) {

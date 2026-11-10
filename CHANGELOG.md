@@ -2,6 +2,16 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.14.0 (channel schedule workbooks)
+- Fixture schedule import reads a whole channel schedule workbook (.xlsx or .xlsm): the "Fixture List" tab becomes the palette and the "Channel Schedule" tab is kept with it.
+  - Fixture List: "FIXT TYPE" and "QTY USED" columns are recognised; category heading rows (LT's, A's, G's, L's, T's...) colour the types by category and become a Category field; reading stops at "range stops here"; totals, costs and bookkeeping columns are left out; linear strips and track are recognised (rectangle symbols, scheduled in feet).
+  - Channel Schedule: each channel's sheet, channel number, location, area, circuit, description, fixture type and quantity.
+- Schedule check (Counts > Schedule check) now has three views:
+  - Types: placed against QTY USED, grouped by category ("7 of 9"); green when it matches, orange when short, red when over or not placed. Linear types compare total length in feet (give those fixtures a length). Remote power supplies (-X) and types with QTY 0 are shown greyed, not as missing.
+  - By sheet: for each sheet in the channel schedule (LD-101, LD-201...), finds the page showing that sheet number (page label or the number printed on the page) and compares each type's quantity on that sheet.
+  - By channel: each channel's quantity against the fixtures given that channel.
+- Channel on fixtures: a fixture's properties list the channels for its type ("101 - Entry Vestibule Accents - LD-201 - qty 2"); picking one sets Channel, Circuit and Location fields (shown in Revu's Comments). Works on many selected fixtures at once.
+
 ## 3.13.0 (status summary)
 - Status summary in the markups list: once any markup has a status, a strip shows All, Open (no status), Accepted, Rejected, Completed and Cancelled with counts. Tap one to show only those markups (works together with the text filter); tap it again for all. Counts update as statuses change, including statuses set in Revu.
 - The printable summary starts with a By status table.
