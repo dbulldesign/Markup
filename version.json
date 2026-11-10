@@ -1,5 +1,5 @@
 {
-  "version": "3.1.0",
+  "version": "3.1.1",
   "date": "2026-11-10",
-  "notes": "Markups list at the right, bottom or left (button in the list header or Settings), and a roomier list: properties open only when you pick a markup in the list."
+  "notes": "Fix: toolbar blurred by the iPad status bar. Plus 3.1: markups list right/bottom/left and properties only when picked in the list."
 }

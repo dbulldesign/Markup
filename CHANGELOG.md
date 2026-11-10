@@ -2,6 +2,9 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.1.1
+- Fixed: the top toolbar looked fuzzy (most visible with favourites in the toolbar). The app was drawn underneath the iPad status bar, and newer iPadOS versions blur a band under the status bar. The app now starts below the status bar, so iPadOS has nothing of ours to blur. The status bar keeps the toolbar colour (light or dark).
+
 ## 3.1.0 (compact markups list)
 - Markups list position: Settings > Markups list (Automatic, Right side, Bottom, Left side), or the new button in the list header to switch between side and bottom in one tap. Automatic keeps the old behaviour (bottom when upright, side when sideways).
 - Properties stay hidden until you pick a markup in the list, so the list has the room. Tapping a markup on the drawing shows a one-line bar (subject, label, page) with a Properties button; Hide folds them away again. A two-finger tap on a markup still opens its properties. Settings > Properties > "Whenever a markup is selected" brings back the old behaviour.
