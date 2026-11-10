@@ -2,6 +2,12 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.11.0 (round 2, phase 6: compare, links, layers, signature)
+- Revision compare (Pages > Compare with older revision): pick the older PDF; ink added since then shows red and removed ink blue. Pages are matched by sheet number (or pick the older page). "Cloud changes" draws red clouds around each changed area (grouped, subject Revision change); "Cloud all pages" does the whole set in one undo step.
+- Hyperlinks: the Link tool drags a box and links it to a web address or a page (number or sheet label). Links are real PDF links Revu follows; ones made here stay editable (Change, Open in the properties). Tapping an existing link in a drawing with Select follows it (asks before opening a web page).
+- Layers: put markups on a layer from their properties (type a name or pick one). Show markups and layers lists markup layers and the drawing's own PDF layers (for example E-LIGHTING) with on/off switches. Markup layers are saved as PDF layers (optional content), so Revu shows them in its Layers panel.
+- Signature and Initials tools: draw them once with the Pencil (kept on this iPad), then tap to place; saved as ink with an optional date and name underneath, grouped.
+
 ## 2.10.0 (round 2, phase 5: schedules, rooms, photos, summary)
 - Fixture schedule import (Tool Chest > Fixture schedule): a CSV or Excel (.xlsx) schedule becomes a palette with a symbol tool per fixture type. Type is the label; Shape, Color, Fill, Text Color, Size and Height set the look; every other column (Manufacturer, Catalog Number, Watts...) becomes a custom field Revu shows as a column. "Download template" gives the layout; it is also in the repo at templates/fixture-schedule-template.csv.
 - Room tool: tap the corners of a room and name it (101 Office). Its properties list what is inside ("Type A ×2, Type B ×1") and its area when the page has a scale.

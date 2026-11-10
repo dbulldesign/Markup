@@ -1,5 +1,5 @@
 {
-  "version": "2.10.0",
+  "version": "2.11.0",
   "date": "2026-11-10",
-  "notes": "Fixture schedule import (CSV or Excel) with a template, Room tool and counts by room, site-walk photos saved in the PDF, and a printable markup summary."
+  "notes": "Revision compare with clouding, hyperlinks, markup and drawing layers, and signature / initials."
 }
