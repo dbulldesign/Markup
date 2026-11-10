@@ -1,5 +1,5 @@
 {
-  "version": "3.4.0",
+  "version": "3.4.1",
   "date": "2026-11-10",
-  "notes": "Selection bar over the drawing: Group, Combine, Ungroup, Duplicate, Delete and Properties are one tap away whenever markups are selected."
+  "notes": "Clearer Length box (Each, Units, Qty, Total); fixed \"\\u00d7\" labels; automatic updates no longer held back after \"Later\" on the save bar."
 }

@@ -2,6 +2,11 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.4.1
+- Length box redesigned for the narrow properties panel: labelled Each, Units, Qty and a large Total, with a Clear link (shown only when a length is set). Typed values are full-strength text, not the grey of the hints.
+- The broken "\u00d7" labels in the Length box are gone (fixed in 3.4.0; this release makes sure iPads still on older versions update).
+- Fixed: automatic updates waited forever after tapping Later on the "Markups written into the PDF" bar.
+
 ## 3.4.0 (selection bar)
 - Selection bar: whenever markups are selected, a bar floats at the top of the drawing with Properties, Group (or Add to group / Combine), Combine... (one group or markup selected: then tap the other), Ungroup, Remove (from its group), Duplicate, Delete and Deselect. It shows only the buttons that apply, works with the markups list closed, and in narrow windows shows icons only.
 - These buttons moved out of the properties, which are now just the markup's details.
