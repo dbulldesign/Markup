@@ -2,6 +2,27 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.6.0 (round 2, phase 1: fixes)
+**Fixed**
+- The tool ring no longer opens while you hold the Pencil still to place polygon, area, cloud or angle points, or while erasing.
+- Symbol and Numbered tools have separate shape, size, rotation and text colour settings.
+- The Polygon/Area and Numbered bars sit at the bottom of the page area instead of over the top of the drawing.
+- Hovering with the Numbered tool no longer starts a new series.
+- Area labels go in the solid part of the area, not inside a cut-out.
+- Undo and redo include scale changes.
+- Revu markups: arrows keep their style (closed, open, reversed, circle, square, diamond, butt, slash) when moved; Revu clouds keep their size; text boxes and callouts made in Revu or Acrobat can now be edited.
+- Status: changing a status replaces the earlier status reply instead of adding another, and deleting a markup removes its status replies.
+- Legends keep their counts up to date as you add or delete symbols; *Update legend* (select the legend) rebuilds it to add new kinds.
+- Counts in the panel leave out hidden markups; exports can too (*Only markups that are shown*).
+- Search highlights follow the direction of the text.
+- Box selection scrolls when you drag to the edge of the screen.
+- Text size and bold can be changed on existing text boxes and callouts.
+- Switching or closing tabs quickly no longer overlaps.
+- A warning stays on screen when the iPad's storage is full, and Safari users get a one-time tip to use the Home Screen app so iPadOS does not clear their work.
+
+**Added**
+- Settings > *Save symbols as stamps*: Revu then always keeps the number or label inside a symbol (it cannot restyle them).
+
 ## 2.5.0 (phase 6: interface and Apple Pencil)
 **Added**
 - *Settings* page (gear button, or Ctrl/Cmd+,): theme, toolbar, Pencil and touch, drawing, measurement display, your name, toolbar tools, backup/restore, updates and help.

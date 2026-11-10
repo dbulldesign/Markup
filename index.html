@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="2.5.0">
+<meta name="app-version" content="2.6.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -139,6 +139,8 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .marq { position: absolute; z-index: 4; pointer-events: none; border: 1.5px solid #2a5bd7; background: rgba(42,91,215,.10); }
 .marq.cross { border: 1.5px dashed #43a047; background: rgba(67,160,71,.10); }
 .marq[hidden] { display: none; }
+.warnbar { position: fixed; left: 50%; top: calc(70px + var(--safe-top)); transform: translateX(-50%); z-index: 58; display: flex; gap: 10px; align-items: center; background: #fff4e5; color: #663c00; border: 1px solid #ffcc80; border-radius: 12px; padding: 8px 8px 8px 14px; box-shadow: var(--shadow); max-width: min(92vw, 620px); font-size: 14px; }
+.warnbar[hidden] { display: none; }
 /* compact toolbar: one tool button instead of every tool */
 body.compact #tools, body.compact #markTools, body.compact #countTools, body.compact .topbar .toggle { display: none; }
 body.compact #measureTools > [data-tool] { display: none; }
@@ -423,7 +425,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .tb.noscale .scale-lbl { color: var(--danger); }
 
 /* Polygon / measurement drawing bar */
-.polybar { position: absolute; top: 12px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px 8px 8px 14px; box-shadow: var(--shadow); max-width: calc(100% - 24px); flex-wrap: wrap; justify-content: center; }
+.polybar { position: absolute; bottom: calc(14px + var(--safe-bottom)); left: 50%; transform: translateX(-50%); z-index: 8; display: flex; gap: 8px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 8px 8px 8px 14px; box-shadow: var(--shadow); max-width: calc(100% - 24px); flex-wrap: wrap; justify-content: center; }
 .polybar[hidden] { display: none; }
 .polybar .info { font-size: 14px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
 .polybar .info b { color: var(--ink); font-weight: 600; }
@@ -671,6 +673,11 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <div class="measure" id="pMeasure" hidden></div>
       <label class="fld">Status<select class="fld-in" id="pStatus"><option value="">None</option><option value="accepted">Accepted</option><option value="rejected">Rejected</option><option value="cancelled">Cancelled</option><option value="completed">Completed</option></select></label>
       <label class="fld">Comments<textarea class="fld-ta" id="pContents" rows="2" placeholder="Shows in the Comments column"></textarea></label>
+      <div class="rotrow" id="pText" hidden><span>Text</span>
+        <input type="range" min="6" max="48" step="1" id="pTextSize" aria-label="Text size" style="flex:1;min-width:120px"><span class="ang" id="pTextSizeV"></span>
+        <label class="check" style="font-size:14px"><input type="checkbox" id="pBold"> Bold</label>
+        <button class="btn" type="button" id="pLegend" hidden>Update legend</button>
+      </div>
       <div class="rotrow" id="pRotate" hidden><span>Rotate</span>
         <button class="btn" type="button" data-rot="-90" aria-label="Rotate 90 degrees anticlockwise">&#x21BA; 90&#xB0;</button>
         <button class="btn" type="button" data-rot="-15">&#x2212;15&#xB0;</button>
@@ -771,6 +778,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     <h2 id="exTitle">Counts and export</h2>
     <p class="sub" id="exSummary"></p>
     <div class="actions">
+      <label class="check" id="exVisRow" hidden style="flex-basis:100%"><input type="checkbox" id="exVis" checked> Only markups that are shown (some are hidden)</label>
       <button class="btn primary" type="button" data-ex="xlsx">Excel workbook (.xlsx)</button>
       <button class="btn" type="button" data-ex="counts">Counts (CSV)</button>
       <button class="btn" type="button" data-ex="markups">All markups (CSV)</button>
@@ -863,6 +871,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     <div class="actions"><span class="spacer"></span><button class="btn primary" type="button" id="helpClose">Close</button></div>
   </div>
 </div>
+<div class="warnbar" id="warnBar" hidden><span id="warnText"></span><button class="btn" type="button" id="warnClose">Dismiss</button></div>
 <div class="busy" id="busy" hidden><div id="busyText">Working…</div></div>
 <div class="toast" id="toast" hidden></div>
 <script>
@@ -1042,16 +1051,25 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
         else if (lea instanceof L.PDFName) le = [nameOf(lea), 'None'];
         // Text boxes and callouts made by this app carry /PMText (font size, text colour) and stay editable.
         var ftBox = null, ftTip = null, ftFs = null, ftTc = null;
+        var ftBold = false, ftLK = null, ftLS = null;
         if (subtype === 'FreeText') {
           var pmt = ctx.lookup(dict.get(N('PMText')));
-          editable = pmt instanceof L.PDFDict;
+          // Text boxes from Revu or Acrobat are editable too: size and colour come from /DA.
+          var da = textOf(ctx.lookup(dict.get(N('DA')))), dm = /([\d.]+)\s+Tf/.exec(da), dc = /([\d.]+)\s+([\d.]+)\s+([\d.]+)\s+rg/.exec(da);
+          editable = true;
           if (editable) {
             var rr0 = [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])];
             var rd = numsOf(ctx, dict.get(N('RD'))) || [0, 0, 0, 0];
             ftBox = [rr0[0] + (rd[0] || 0), rr0[1] + (rd[1] || 0), rr0[2] - (rd[2] || 0), rr0[3] - (rd[3] || 0)];
             var cl = numsOf(ctx, dict.get(N('CL'))); ftTip = cl && cl.length >= 4 ? [cl[0], cl[1]] : null;
-            ftFs = numOf(ctx.lookup(pmt.get(N('FS'))), 12);
-            var tcv = numsOf(ctx, pmt.get(N('TC'))); ftTc = tcv && tcv.length === 3 ? rgbHex(tcv) : null;
+            if (pmt instanceof L.PDFDict) {
+              ftFs = numOf(ctx.lookup(pmt.get(N('FS'))), 12);
+              var tcv = numsOf(ctx, pmt.get(N('TC'))); ftTc = tcv && tcv.length === 3 ? rgbHex(tcv) : null;
+              var bo = ctx.lookup(pmt.get(N('Bold'))); ftBold = bo instanceof L.PDFBool ? bo.asBoolean() : false;
+              ftLK = textOf(ctx.lookup(pmt.get(N('LK')))) || null; ftLS = textOf(ctx.lookup(pmt.get(N('LS')))) || null;
+            } else {
+              ftFs = dm ? +dm[1] : 12; ftTc = dc ? rgbHex([+dc[1], +dc[2], +dc[3]]) : null; ftBold = /Bold/i.test(da);
+            }
           }
         }
         var measure = readMeasure(ctx, dict.get(N('Measure')));
@@ -1075,6 +1093,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
             series: nn != null ? (textOf(ctx.lookup(pmd.get(N('Series')))) || 'default') : null,
             prefix: nn != null ? textOf(ctx.lookup(pmd.get(N('Prefix')))) : '' };
           vertices = null; editable = true;
+          subtype = SYM_SUB[sym.shape] || subtype; // shapes work the same here whatever they were saved as
         }
         var fillOpacity = opacity, highlight = false;
         var fo = numOf(ctx.lookup(dict.get(N('FillOpacity'))), null);
@@ -1101,7 +1120,8 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
           owned: !!ref && editable, subtype: subtype, intent: intent, pageIndex: pageIndex,
           vertices: vertices, measure: measure, lsize: null, mtext: '', lpos: null, sym: sym,
           le: le, cloud: subtype === 'Polygon' && (cloudy || intent === 'PolygonCloud'), cr: null,
-          box: ftBox, tip: ftTip, fs: ftFs, textColor: ftTc, fields: fields,
+          box: ftBox, tip: ftTip, fs: ftFs, textColor: ftTc, fields: fields, bold: ftBold, legendKey: ftLK, legendScope: ftLS,
+          cloudI: (be instanceof L.PDFDict) ? numOf(ctx.lookup(be.get(N('I'))), 1) : null,
           mkind: mkind === 'area' ? null : mkind, ctr: mctr, rad: mrad, holes: holes,
           rect: [Math.min(rect[0], rect[2]), Math.min(rect[1], rect[3]), Math.max(rect[0], rect[2]), Math.max(rect[1], rect[3])],
           inkList: inkList,
@@ -1201,6 +1221,23 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     var dx = tip[0] - from[0], dy = tip[1] - from[1], l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l, w = size * 0.5;
     var bx = tip[0] - ux * size, by = tip[1] - uy * size;
     return [[bx - uy * w, by + ux * w], tip, [bx + uy * w, by - ux * w]];
+  }
+  // Line endings by PDF name. Returns { pts, closed, filled } around tip, pointing away from 'from'.
+  function endShape(name, tip, from, size) {
+    if (!name || name === 'None') return null;
+    var dx = tip[0] - from[0], dy = tip[1] - from[1], l = Math.hypot(dx, dy) || 1, ux = dx / l, uy = dy / l, nx = -uy, ny = ux, w = size * 0.5;
+    var P = function (a, b) { return [tip[0] + ux * a + nx * b, tip[1] + uy * a + ny * b]; };
+    switch (name) {
+      case 'ClosedArrow': return { pts: [P(-size, w), tip, P(-size, -w)], closed: true, filled: true };
+      case 'ROpenArrow': return { pts: [P(size, w), tip, P(size, -w)], closed: false };
+      case 'RClosedArrow': return { pts: [P(size, w), tip, P(size, -w)], closed: true, filled: true };
+      case 'Butt': return { pts: [P(0, w), P(0, -w)], closed: false };
+      case 'Slash': return { pts: [P(-w * 0.6, -w), P(w * 0.6, w)], closed: false };
+      case 'Square': return { pts: [P(-w * 0.7, -w * 0.7), P(w * 0.7, -w * 0.7), P(w * 0.7, w * 0.7), P(-w * 0.7, w * 0.7)], closed: true };
+      case 'Diamond': return { pts: [P(-w, 0), P(0, -w), P(w, 0), P(0, w)], closed: true };
+      case 'Circle': { var c = []; for (var i = 0; i < 16; i++) { var t = i / 16 * Math.PI * 2; c.push(P(Math.cos(t) * w * 0.75, Math.sin(t) * w * 0.75)); } return { pts: c, closed: true }; }
+      default: return { pts: [P(-size, w), tip, P(-size, -w)], closed: false }; // OpenArrow and anything unknown
+    }
   }
   // Revision cloud: scallops (two cubic curves each) bulging outwards along every edge.
   function cloudCurves(v, r) {
@@ -1367,14 +1404,20 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       var L0 = ftLayout(a), bb = a.box, bpath = f(bb[0]) + ' ' + f(bb[1]) + ' ' + f(bb[2] - bb[0]) + ' ' + f(bb[3] - bb[1]) + ' re';
       if (a.fillColor) { gs.GSf = { Type: 'ExtGState', CA: fix(a.fillOpacity, 3), ca: fix(a.fillOpacity, 3), BM: a.highlight ? 'Multiply' : 'Normal' }; parts.push('q\n/GSf gs\n' + col(a.fillColor) + ' rg\n' + bpath + '\nf\nQ'); }
       var lead = '';
-      if (a.tip) { var at = ftAttach(a), ah = arrowHead(a.tip, at, arrowSize(a)); lead = '\n' + f(at[0]) + ' ' + f(at[1]) + ' m\n' + f(a.tip[0]) + ' ' + f(a.tip[1]) + ' l\n' + vertexPath(ah, false); }
+      var tipFill = '';
+      if (a.tip) {
+        var at = ftAttach(a), es = endShape((a.le && a.le[0]) || 'OpenArrow', a.tip, at, arrowSize(a));
+        lead = '\n' + f(at[0]) + ' ' + f(at[1]) + ' m\n' + f(a.tip[0]) + ' ' + f(a.tip[1]) + ' l';
+        if (es) { if (es.filled) tipFill = vertexPath(es.pts, true); else lead += '\n' + vertexPath(es.pts, es.closed); }
+      }
       if (a.color && (lw > 0 || a.tip)) parts.push('q\n/GSs gs\n' + col(a.color) + ' RG\n' + f(lw || 1) + ' w\n1 J\n1 j\n' + (lw > 0 ? bpath : '') + lead + '\nS\nQ');
-      fonts = { Helv: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica', Encoding: 'WinAnsiEncoding' } };
+      if (tipFill && a.color) parts.push('q\n/GSs gs\n' + col(a.color) + ' rg\n' + col(a.color) + ' RG\n' + tipFill + '\nb\nQ');
+      fonts = { Helv: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica', Encoding: 'WinAnsiEncoding' }, HelvB: { Type: 'Font', Subtype: 'Type1', BaseFont: 'Helvetica-Bold', Encoding: 'WinAnsiEncoding' } };
       var tcol = col(hexRgb(a.textColor) || a.color || [0, 0, 0]);
       L0.lines.forEach(function (ln, i) {
         if (!ln) return;
         var tw = textWidth(ln, L0.size), c0 = ftVisToPdf(a, L0, L0.pad + tw / 2, L0.pad + L0.size * 0.95 + i * L0.size * 1.2);
-        parts.push(textOps(a, 'Helv', L0.size, tcol, c0[0], c0[1], tw, 0, ln));
+        parts.push(textOps(a, a.bold ? 'HelvB' : 'Helv', L0.size, tcol, c0[0], c0[1], tw, 0, ln));
       });
     } else if (a.vertices && a.vertices.length >= 2) {
       var closed = a.subtype === 'Polygon', vp = a.cloud && closed && a.vertices.length >= 3 ? cloudPdfPath(cloudCurves(a.vertices, a.cr || 8)) : vertexPath(a.vertices, closed);
@@ -1387,11 +1430,11 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       }
       var strokeW = lw || (a.color ? 1 : 0);
       if (a.color && strokeW > 0) {
-        var ticks = '';
+        var ticks = '', fills = [];
         if (a.subtype === 'Line' && a.le) {
           [[1, 0], [0, 1]].forEach(function (ij, e) {
-            if (!a.le[e] || a.le[e] === 'None') return;
-            ticks += '\n' + vertexPath(arrowHead(a.vertices[ij[1]], a.vertices[ij[0]], arrowSize(a)), false);
+            var es = endShape(a.le[e], a.vertices[ij[1]], a.vertices[ij[0]], arrowSize(a)); if (!es) return;
+            if (es.filled) fills.push(vertexPath(es.pts, true)); else ticks += '\n' + vertexPath(es.pts, es.closed);
           });
         }
         if (a.subtype === 'Line' && a.intent === 'LineDimension') {
@@ -1400,6 +1443,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
           [p0, p1].forEach(function (q) { ticks += '\n' + f(q[0] - nx) + ' ' + f(q[1] - ny) + ' m\n' + f(q[0] + nx) + ' ' + f(q[1] + ny) + ' l'; });
         }
         parts.push('q\n/GSs gs\n' + col(a.color) + ' RG\n' + f(strokeW) + ' w\n1 J\n1 j\n' + vp + ticks + '\nS\nQ');
+        if (fills.length) parts.push('q\n/GSs gs\n' + col(a.color) + ' rg\n' + col(a.color) + ' RG\n' + f(strokeW) + ' w\n' + fills.join('\n') + '\nb\nQ');
       }
       if (a.mtext && a.lpos) {
         var b = labelBox(a);
@@ -1425,6 +1469,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     return -1;
   }
 
+  function isStatusReply(d) { var sm = d.get(lib().PDFName.of('StateModel')); return textOf(sm) === 'Review' || nameOf(sm) === 'Review'; }
   async function applyMarkups(bytes, annots, opts) {
     opts = opts || {};
     var L = lib(), author = opts.author || '';
@@ -1473,11 +1518,13 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       }
       if (a.subtype === 'FreeText' && a.box) {
         var tc = hexRgb(a.textColor) || a.color || [0, 0, 0], R = a.rect, B = a.box;
-        dict.set(N('DA'), L.PDFString.of('/Helv ' + fmt(a.fs || 12) + ' Tf ' + tc.map(fmt).join(' ') + ' rg'));
+        dict.set(N('DA'), L.PDFString.of('/' + (a.bold ? 'HeBo' : 'Helv') + ' ' + fmt(a.fs || 12) + ' Tf ' + tc.map(fmt).join(' ') + ' rg'));
         dict.set(N('RD'), ctx.obj([B[0] - R[0], B[1] - R[1], R[2] - B[2], R[3] - B[3]].map(function (v) { return fix(Math.max(0, v)); })));
-        if (a.tip) { var at2 = ftAttach(a); dict.set(N('IT'), N('FreeTextCallout')); dict.set(N('CL'), ctx.obj([a.tip[0], a.tip[1], at2[0], at2[1]].map(function (v) { return fix(v); }))); dict.set(N('LE'), N('OpenArrow')); }
+        if (a.tip) { var at2 = ftAttach(a); dict.set(N('IT'), N('FreeTextCallout')); dict.set(N('CL'), ctx.obj([a.tip[0], a.tip[1], at2[0], at2[1]].map(function (v) { return fix(v); }))); dict.set(N('LE'), N((a.le && a.le[0]) || 'OpenArrow')); }
         else { dict.delete(N('CL')); dict.delete(N('IT')); }
         var pt = { FS: fix(a.fs || 12, 2) }; if (hexRgb(a.textColor)) pt.TC = hexRgb(a.textColor).map(function (v) { return fix(v, 4); });
+        if (a.bold) pt.Bold = true;
+        if (a.legendKey) { pt.LK = L.PDFHexString.fromText(a.legendKey); pt.LS = L.PDFString.of(a.legendScope || 'all'); }
         dict.set(N('PMText'), ctx.obj(pt));
         return;
       }
@@ -1512,7 +1559,10 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
           var d; try { d = ctx.lookup(arr.get(i)); } catch (e) { continue; }
           if (!(d instanceof L.PDFDict)) continue;
           var irt = d.get(N('IRT'));
-          if (irt instanceof L.PDFRef && deletedRefs.some(function (r) { return sameRef(r, irt); })) { d.delete(N('IRT')); d.delete(N('RT')); }
+          if (irt instanceof L.PDFRef && deletedRefs.some(function (r) { return sameRef(r, irt); })) {
+            if (isStatusReply(d)) { var rr = arr.get(i); arr.remove(i); if (rr instanceof L.PDFRef) ctx.delete(rr); i--; continue; }
+            d.delete(N('IRT')); d.delete(N('RT'));
+          }
         }
       });
     }
@@ -1524,7 +1574,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       var lw = +a.lineWidth || 0;
       var apRef = buildAppearance(ctx, a);
       var dict = ctx.obj({
-        Type: 'Annot', Subtype: a.subtype, Rect: a.rect.map(function (v) { return fix(v); }), F: 4, P: page.ref,
+        Type: 'Annot', Subtype: a.sym && opts.symAsStamp ? 'Stamp' : a.subtype, Rect: a.rect.map(function (v) { return fix(v); }), F: 4, P: page.ref,
         CA: fix(a.opacity, 3), BS: { Type: 'Border', W: lw, S: 'S' }, AP: { N: apRef }
       });
       dict.set(N('C'), colorArr(a.color));
@@ -1562,6 +1612,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       if (bs instanceof L.PDFDict) bs.set(N('W'), L.PDFNumber.of(+a.lineWidth || 0));
       else dict.set(N('BS'), ctx.obj({ Type: 'Border', W: +a.lineWidth || 0, S: 'S' }));
       if (a.owned && (a.geomDirty || a.styleDirty)) {
+        if (a.sym) dict.set(N('Subtype'), N(opts.symAsStamp ? 'Stamp' : a.subtype));
         dict.set(N('Rect'), ctx.obj(a.rect.map(function (v) { return fix(v); })));
         if (a.subtype === 'Ink') dict.set(N('InkList'), inkArr(a));
         setGeometry(dict, a);
@@ -1587,6 +1638,12 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     annots.forEach(function (a) {
       if (a.deleted || !a.statusDirty) return;
       var ref = refOf.get(a.id), page = pages[a.pageIndex]; if (!ref || !page) return;
+      // one status reply per markup: drop the earlier ones
+      var arr0 = page.node.Annots();
+      if (arr0) for (var k0 = arr0.size() - 1; k0 >= 0; k0--) {
+        var d0; try { d0 = ctx.lookup(arr0.get(k0)); } catch (e) { continue; }
+        if (d0 instanceof L.PDFDict && isStatusReply(d0) && sameRef(d0.get(N('IRT')), ref)) { var r0 = arr0.get(k0); arr0.remove(k0); if (r0 instanceof L.PDFRef) ctx.delete(r0); }
+      }
       var st = a.status ? a.status.charAt(0).toUpperCase() + a.status.slice(1) : 'None', who = a.statusBy || author || '';
       var reply = ctx.obj({ Type: 'Annot', Subtype: 'Text', Rect: [fix(a.rect[0]), fix(a.rect[3] - 20), fix(a.rect[0] + 20), fix(a.rect[3])], F: 30, P: page.ref, IRT: ref, Name: 'Comment' });
       reply.set(N('StateModel'), L.PDFString.of('Review')); reply.set(N('State'), L.PDFString.of(st));
@@ -1612,7 +1669,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
     return await doc.save({ useObjectStreams: false });
   }
 
-  root.MarkupIO = { angleArc: angleArc, symBBox: symBBox, symNative: symNative, symAng: symAng, stampDims: stampDims, arrowSize: arrowSize, arrowHead: arrowHead, cloudCurves: cloudCurves, ftLayout: ftLayout, ftAttach: ftAttach, ftBounds: ftBounds, SYM_SUB: SYM_SUB, SYM_WIDE: SYM_WIDE, symKind: symKind, symDims: symDims, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
+  root.MarkupIO = { endShape: endShape, angleArc: angleArc, symBBox: symBBox, symNative: symNative, symAng: symAng, stampDims: stampDims, arrowSize: arrowSize, arrowHead: arrowHead, cloudCurves: cloudCurves, ftLayout: ftLayout, ftAttach: ftAttach, ftBounds: ftBounds, SYM_SUB: SYM_SUB, SYM_WIDE: SYM_WIDE, symKind: symKind, symDims: symDims, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>
@@ -1824,7 +1881,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '2.5.0';
+var APP_VERSION = '2.6.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -1869,6 +1926,7 @@ var state = {
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,
   chestSets: [], chestTool: null, pendingSave: null,
   scales: [], scaleDirty: new Set(), draft: null, calib: null, lastScale: null, lastPalette: null, docId: null, expanded: new Set(), hideSubj: new Set(), hideAll: false, drawerTab: 'pages', textCache: [],
+  numSym: { shape: 'circle', size: 18, height: 12, angle: 0, textColor: null },
   sym: { shape: 'circle', size: 18, height: 12, angle: 0, label: 'A', textColor: null, stampText: 'APPROVED', stampSize: 20 }, textSize: 12, editing: null, snap: true, mset: null, cutFor: null, series: { defs: {}, cur: null }
 };
 
@@ -1976,6 +2034,21 @@ function defaultLabelSize(pageIndex) {
   var p = state.pages[pageIndex], v = p && p.page ? p.page.view : [0, 0, 612, 792];
   return clamp(Math.round(Math.hypot(v[2] - v[0], v[3] - v[1]) / 140), 7, 28);
 }
+function inPoly(q, v) { var c = false; for (var i = 0, j = v.length - 1; i < v.length; j = i++) { if (((v[i][1] > q[1]) !== (v[j][1] > q[1])) && (q[0] < (v[j][0] - v[i][0]) * (q[1] - v[i][1]) / (v[j][1] - v[i][1]) + v[i][0])) c = !c; } return c; }
+function edgeDist(q, rings) { var d = Infinity; rings.forEach(function (r) { for (var i = 0; i < r.length; i++) d = Math.min(d, segDist(q, r[i], r[(i + 1) % r.length])); }); return d; }
+// A point well inside the polygon (and outside any cut-out) for the label: the centre if that works, else the roomiest spot.
+function insideLabelPoint(v, holes, s) {
+  var rings = [v].concat(holes), ok = function (q) { return inPoly(q, v) && !holes.some(function (h) { return inPoly(q, h); }); };
+  var c = centroid(v); if (ok(c) && edgeDist(c, rings) > s * 1.2) return c;
+  var x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity; v.forEach(function (q) { x0 = Math.min(x0, q[0]); y0 = Math.min(y0, q[1]); x1 = Math.max(x1, q[0]); y1 = Math.max(y1, q[1]); });
+  var best = c, bd = ok(c) ? edgeDist(c, rings) : -1, n = 16;
+  for (var round = 0; round < 2; round++) {
+    var sx = (x1 - x0) / n, sy = (y1 - y0) / n;
+    for (var i = 0; i <= n; i++) for (var j = 0; j <= n; j++) { var q = [x0 + i * sx, y0 + j * sy]; if (!ok(q)) continue; var dd = edgeDist(q, rings); if (dd > bd) { bd = dd; best = q; } }
+    x0 = best[0] - sx; x1 = best[0] + sx; y0 = best[1] - sy; y1 = best[1] + sy;
+  }
+  return best;
+}
 function labelPos(a) {
   var v = a.vertices, s = a.lsize || 10;
   if (a.mkind === 'angle' && v.length === 3) {
@@ -1985,7 +2058,7 @@ function labelPos(a) {
     if (bl < 1e-6) { bx = -u0[1] / l0; by = u0[0] / l0; bl = 1; }
     return [c[0] + bx / bl * s * 2.6, c[1] + by / bl * s * 2.6];
   }
-  if (a.subtype === 'Polygon' && v.length >= 3) return centroid(v);
+  if (a.subtype === 'Polygon' && v.length >= 3) return insideLabelPoint(v, a.holes || [], s);
   var bi = 0, best = -1;
   for (var i = 1; i < v.length; i++) { var d = Math.hypot(v[i][0] - v[i - 1][0], v[i][1] - v[i - 1][1]); if (d > best) { best = d; bi = i - 1; } }
   var p0 = v[bi], p1 = v[bi + 1] || p0, dx = p1[0] - p0[0], dy = p1[1] - p0[1], len = Math.hypot(dx, dy) || 1;
@@ -2063,6 +2136,7 @@ function loadPrefs() {
     if (p.lastScale) state.lastScale = p.lastScale;
     if (p.lastPalette) state.lastPalette = p.lastPalette;
     if (p.sym) state.sym = Object.assign(state.sym, p.sym);
+    if (p.numSym) state.numSym = Object.assign(state.numSym, p.numSym);
     if (p.textSize) state.textSize = p.textSize;
     if (typeof p.snap === 'boolean') state.snap = p.snap;
     if (p.mset) state.mset = Object.assign(mset(), p.mset);
@@ -2070,7 +2144,7 @@ function loadPrefs() {
   } catch (e) { /* storage may be empty or blocked */ }
 }
 function savePrefs() {
-  try { localStorage.setItem('pencil-markup-prefs', JSON.stringify({ author: state.author, style: state.style, fingerDraw: state.fingerDraw, lastScale: state.lastScale, lastPalette: state.lastPalette, sym: state.sym, textSize: state.textSize, snap: state.snap, mset: mset(), favOrder: state.favOrder || [] })); } catch (e) { /* ignore */ }
+  try { localStorage.setItem('pencil-markup-prefs', JSON.stringify({ author: state.author, style: state.style, fingerDraw: state.fingerDraw, lastScale: state.lastScale, lastPalette: state.lastPalette, sym: state.sym, numSym: state.numSym, textSize: state.textSize, snap: state.snap, mset: mset(), favOrder: state.favOrder || [] })); } catch (e) { /* ignore */ }
 }
 function loadChest() {
   try { var s = JSON.parse(localStorage.getItem('pencil-markup-toolsets') || '[]'); if (Array.isArray(s)) state.chestSets = s; } catch (e) { state.chestSets = []; }
@@ -2097,22 +2171,26 @@ function pushHistory(tag) {
   var now = Date.now();
   if (tag && tag === lastTag && now - lastTagTime < 900) { lastTagTime = now; return; }
   lastTag = tag || null; lastTagTime = now;
-  state.history.push(JSON.stringify(state.annots));
+  state.history.push(snapshot());
   if (state.history.length > 60) state.history.shift();
   state.future = [];
   updateUndoButtons();
 }
+// Undo snapshots: markups plus page scales.
+function snapshot() { return JSON.stringify({ a: state.annots, s: state.scales, d: Array.from(state.scaleDirty || []) }); }
 function restore(json) {
   var touched = new Set(live().map(function (a) { return a.pageIndex; }));
-  state.annots = JSON.parse(json);
+  var o = JSON.parse(json);
+  if (Array.isArray(o)) state.annots = o;
+  else { state.annots = o.a; state.scales = o.s || []; state.scaleDirty = new Set(o.d || []); updateScaleButton(); }
   live().forEach(function (a) { touched.add(a.pageIndex); });
   var ids = new Set(live().map(function (a) { return a.id; }));
   state.sel = new Set(Array.from(state.sel).filter(function (id) { return ids.has(id); }));
   touched.forEach(function (i) { if (state.pages[i]) drawOverlay(state.pages[i]); });
   markUnsaved(); renderList(); renderProps(); updateUndoButtons(); updateSeqBar();
 }
-function undo() { if (!state.history.length) return; state.future.push(JSON.stringify(state.annots)); restore(state.history.pop()); lastTag = null; }
-function redo() { if (!state.future.length) return; state.history.push(JSON.stringify(state.annots)); restore(state.future.pop()); lastTag = null; }
+function undo() { if (!state.history.length) return; state.future.push(snapshot()); restore(state.history.pop()); lastTag = null; }
+function redo() { if (!state.future.length) return; state.history.push(snapshot()); restore(state.future.pop()); lastTag = null; }
 function updateUndoButtons() { $('#btnUndo').disabled = !state.history.length; $('#btnRedo').disabled = !state.future.length; scheduleKeep(); }
 function markUnsaved() {
   state.unsaved = state.annots.some(function (a) { return a.isNew ? !a.deleted : (a.dirty || a.deleted); }) || groupsChanged() || state.scaleDirty.size > 0;
@@ -2164,6 +2242,17 @@ function renderTabs() {
     return '<div class="tab' + (t.id === tabs.active ? ' on' : '') + '" data-tab="' + esc(t.id) + '" title="' + esc(t.name) + '"><span class="nm">' + esc(t.name.replace(/\.pdf$/i, '')) + '</span><button type="button" class="x" data-close="' + esc(t.id) + '" aria-label="Close ' + esc(t.name) + '">\u00d7</button></div>';
   }).join('') + '<button type="button" class="tab add" id="tabAdd" title="Open another PDF" aria-label="Open another PDF">+</button>';
 }
+var warnKind = null;
+function showWarn(text, kind) { warnKind = kind; $('#warnText').textContent = text; $('#warnBar').hidden = false; }
+function hideWarn() { warnKind = null; $('#warnBar').hidden = true; }
+$('#warnClose').addEventListener('click', function () { if (warnKind === 'homescreen') { try { localStorage.setItem('pencil-markup-a2hs', String(Date.now())); } catch (e) { /* ignore */ } } hideWarn(); });
+// In Safari (not from the Home Screen) iPadOS may clear the app's storage after about a week unused.
+(function () {
+  var ios = /iPad|iPhone/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  var standalone = navigator.standalone || (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches);
+  var last = 0; try { last = +localStorage.getItem('pencil-markup-a2hs') || 0; } catch (e) { /* ignore */ }
+  if (ios && !standalone && Date.now() - last > 7 * 864e5) setTimeout(function () { showWarn('Tip: add this app to the Home Screen (Share, Add to Home Screen) and open it from there. In Safari, iPadOS can clear your kept files and tools after about a week without use.', 'homescreen'); }, 2500);
+})();
 async function storeDoc(bytes, name, sameId) {
   var id = sameId && state.docId ? state.docId : 'd' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
   try {
@@ -2175,17 +2264,21 @@ async function storeDoc(bytes, name, sameId) {
   } catch (e) {
     console.warn('Could not keep the file on this device', e);
     state.docId = null; keep.ok = false;
-    if (!keep.warned) { keep.warned = true; toast('This PDF could not be kept on the device (storage is full or blocked), so it will not reopen automatically. Save it before updating.', 7000); }
+    showWarn('This PDF could not be kept on the iPad (storage is full or blocked), so it will not reopen automatically. Save it with Save PDF; closing other tabs frees space.', 'storage');
   }
 }
-async function switchTab(id) {
+var tabQueue = Promise.resolve();
+function queueTab(fn) { tabQueue = tabQueue.then(fn, fn); return tabQueue; }
+function switchTab(id) { return queueTab(function () { return switchTabNow(id); }); }
+async function switchTabNow(id) {
   if (id === tabs.active && state.pdf) return;
   if (state.editing) closeTextEditor();
   if (state.draft) finishDraft();
   if (state.pdf && state.docId) await saveSession();
   await loadKept(id);
 }
-async function closeTab(id) {
+function closeTab(id) { return queueTab(function () { return closeTabNow(id); }); }
+async function closeTabNow(id) {
   var t = tabs.list.filter(function (x) { return x.id === id; })[0]; if (!t) return;
   var unsaved = id === tabs.active ? state.unsaved : false;
   if (id !== tabs.active) { try { var ss = await idb.get('session:' + id); unsaved = !!(ss && ss.unsaved); } catch (e) { /* ignore */ } }
@@ -2317,8 +2410,10 @@ $('#searchRes').addEventListener('click', function (e) {
   var b = e.target.closest ? e.target.closest('.sres') : null; if (!b) return;
   if (b.dataset.mk) { var a = byId(b.dataset.mk); if (a) { state.sel = new Set([a.id]); afterSelectionChange(); flashAt(a.pageIndex, a.rect); } return; }
   var h = searchHits[+b.dataset.hit]; if (!h) return;
-  var tr = h.item.transform, fs = Math.hypot(tr[2], tr[3]) || 10, L0 = h.item.str.length || 1, x0 = tr[4] + h.item.width * h.at / L0, w = Math.max(fs * 0.5, h.item.width * h.len / L0);
-  flashAt(h.page, [x0, tr[5] - fs * 0.25, x0 + w, tr[5] + fs * 0.85]);
+  var tr = h.item.transform, fs = Math.hypot(tr[2], tr[3]) || 10, ul = Math.hypot(tr[0], tr[1]) || 1, ux = tr[0] / ul, uy = tr[1] / ul, nx = tr[2] / fs, ny = tr[3] / fs, L0 = h.item.str.length || 1;
+  var a0 = h.item.width * h.at / L0, a1 = a0 + Math.max(fs * 0.5, h.item.width * h.len / L0), qs = [];
+  [a0, a1].forEach(function (along) { [-0.25, 0.85].forEach(function (up) { qs.push([tr[4] + ux * along + nx * up * fs, tr[5] + uy * along + ny * up * fs]); }); });
+  flashAt(h.page, [Math.min.apply(null, qs.map(function (q) { return q[0]; })), Math.min.apply(null, qs.map(function (q) { return q[1]; })), Math.max.apply(null, qs.map(function (q) { return q[0]; })), Math.max.apply(null, qs.map(function (q) { return q[1]; }))]);
   if (window.matchMedia('(max-width: 899px)').matches) closeDrawer();
 });
 
@@ -2355,8 +2450,8 @@ async function saveSession() {
     zoom: state.zoom, sx: v.scrollWidth ? v.scrollLeft / v.scrollWidth : 0, sy: v.scrollHeight ? v.scrollTop / v.scrollHeight : 0,
     pendingExport: !!state.pendingSave, unsaved: !!state.unsaved, hideSubj: Array.from(state.hideSubj || []), hideAll: !!state.hideAll, at: Date.now()
   };
-  try { await idb.set('session:' + state.docId, JSON.parse(JSON.stringify(ses))); keep.ok = true; return true; }
-  catch (e) { console.warn('Could not keep the markups on this device', e); keep.ok = false; return false; }
+  try { await idb.set('session:' + state.docId, JSON.parse(JSON.stringify(ses))); keep.ok = true; if (warnKind === 'storage') hideWarn(); return true; }
+  catch (e) { console.warn('Could not keep the markups on this device', e); keep.ok = false; showWarn('Your markups could not be kept on the iPad (storage is full). Save the PDF now so nothing is lost; closing other tabs frees space.', 'storage'); return false; }
 }
 async function restoreLast() {
   try { var tl = await idb.get('tabs'); if (tl && tl.list) tabs = tl; } catch (e) { return; }
@@ -2448,6 +2543,7 @@ async function loadPdf(bytes, name, opts) {
   // Measurement text and symbol labels are written ahead of any comment in /Contents; split them back off on read.
   state.annots.forEach(function (a) {
     a.rot = pageRot(a.pageIndex);
+    if (a.cloud && !a.cr) a.cr = clamp(defaultLabelSize(a.pageIndex) * 0.9 * Math.max(1, +a.cloudI || 1), 5, 40);
     if (a.fields) {
       // Field lines ("Name: value") follow the label/measurement in Comments; take them back off.
       var fl = (a.contents || '').split('\n'), fset = {};
@@ -2678,20 +2774,26 @@ function labelSVG(a, p, stroke) {
   return '<rect x="' + (c[0] - w / 2) + '" y="' + (c[1] - h / 2) + '" width="' + w + '" height="' + h + '" fill="#fff" fill-opacity=".85"/>' +
     '<text x="' + c[0] + '" y="' + (c[1] + fs * 0.35) + '" font-size="' + fs + '" font-family="Helvetica, Arial, sans-serif" text-anchor="middle" fill="' + stroke + '">' + esc(a.mtext) + '</text>';
 }
+function endSVG(es, p, stroke, so, lw) {
+  if (!es) return '';
+  var d = es.pts.map(function (q, i) { var v = toView(p, q[0], q[1]); return (i ? 'L' : 'M') + v[0].toFixed(1) + ' ' + v[1].toFixed(1); }).join('') + (es.closed ? 'Z' : '');
+  return '<path d="' + d + '" fill="' + (es.filled ? stroke : 'none') + '" fill-opacity="' + so + '" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '" stroke-linecap="round" stroke-linejoin="round"/>';
+}
 function textBoxSVG(a, p, lw, stroke, so) {
   var z = state.zoom, vb = viewRect(p, a.box), out = '', L0 = MarkupIO.ftLayout(a);
   var g = '<rect x="' + vb[0] + '" y="' + vb[1] + '" width="' + Math.max(0.5, vb[2] - vb[0]) + '" height="' + Math.max(0.5, vb[3] - vb[1]) + '"';
   if (a.fillColor) out += g + ' fill="' + rgbToHex(a.fillColor) + '" fill-opacity="' + a.fillOpacity + '"' + (a.highlight ? ' class="hl"' : '') + ' stroke="none"/>';
   if (a.lineWidth > 0) out += g + ' fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '"/>';
   if (a.tip) {
-    var at = MarkupIO.ftAttach(a), ah = MarkupIO.arrowHead(a.tip, at, MarkupIO.arrowSize(a)).map(function (q) { return toView(p, q[0], q[1]); }), v0 = toView(p, at[0], at[1]), v1 = toView(p, a.tip[0], a.tip[1]);
-    out += '<path d="M' + v0[0] + ' ' + v0[1] + 'L' + v1[0] + ' ' + v1[1] + 'M' + ah[0][0] + ' ' + ah[0][1] + 'L' + ah[1][0] + ' ' + ah[1][1] + 'L' + ah[2][0] + ' ' + ah[2][1] + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + Math.max(lw, 0.75 * z) + '" stroke-linecap="round" stroke-linejoin="round"/>';
+    var at = MarkupIO.ftAttach(a), v0 = toView(p, at[0], at[1]), v1 = toView(p, a.tip[0], a.tip[1]);
+    out += '<path d="M' + v0[0] + ' ' + v0[1] + 'L' + v1[0] + ' ' + v1[1] + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + Math.max(lw, 0.75 * z) + '" stroke-linecap="round"/>';
+    out += endSVG(MarkupIO.endShape((a.le && a.le[0]) || 'OpenArrow', a.tip, at, MarkupIO.arrowSize(a)), p, stroke, so, Math.max(lw, 0.75 * z));
   }
   if (state.editing === a) return out; // the text is in the editor on top
   var tc = a.textColor || stroke, fs = L0.size * z;
   L0.lines.forEach(function (ln, i) {
     if (!ln) return;
-    out += '<text x="' + (vb[0] + L0.pad * z) + '" y="' + (vb[1] + (L0.pad + L0.size * 0.95 + i * L0.size * 1.2) * z) + '" font-size="' + fs + '" font-family="Helvetica, Arial, sans-serif" fill="' + tc + '" xml:space="preserve">' + esc(ln) + '</text>';
+    out += '<text x="' + (vb[0] + L0.pad * z) + '" y="' + (vb[1] + (L0.pad + L0.size * 0.95 + i * L0.size * 1.2) * z) + '" font-size="' + fs + '"' + (a.bold ? ' font-weight="700"' : '') + ' font-family="Helvetica, Arial, sans-serif" fill="' + tc + '" xml:space="preserve">' + esc(ln) + '</text>';
   });
   return out;
 }
@@ -2714,11 +2816,7 @@ function vertexShapeSVG(a, p, lw, stroke, so) {
     out += '<path d="M' + l[0] + ' ' + l[1] + ' L' + f[0] + ' ' + f[1] + '" fill="none" stroke="' + stroke + '" stroke-opacity=".5" stroke-width="' + Math.max(1, lw) + '" stroke-dasharray="6 5"/>';
   }
   if (a.subtype === 'Line' && a.le && pts.length === 2) {
-    [[1, 0], [0, 1]].forEach(function (ij, e) {
-      if (!a.le[e] || a.le[e] === 'None') return;
-      var ah = MarkupIO.arrowHead(a.vertices[ij[1]], a.vertices[ij[0]], MarkupIO.arrowSize(a)).map(function (q) { return toView(p, q[0], q[1]); });
-      out += '<path d="M' + ah[0][0] + ' ' + ah[0][1] + 'L' + ah[1][0] + ' ' + ah[1][1] + 'L' + ah[2][0] + ' ' + ah[2][1] + '" fill="none" stroke="' + stroke + '" stroke-opacity="' + so + '" stroke-width="' + lw + '" stroke-linecap="round" stroke-linejoin="round"/>';
-    });
+    [[1, 0], [0, 1]].forEach(function (ij, e) { out += endSVG(MarkupIO.endShape(a.le[e], a.vertices[ij[1]], a.vertices[ij[0]], MarkupIO.arrowSize(a)), p, stroke, so, lw); });
   }
   if (a.subtype === 'Line' && a.intent === 'LineDimension' && pts.length === 2) {
     var dx = pts[1][0] - pts[0][0], dy = pts[1][1] - pts[0][1], len = Math.hypot(dx, dy) || 1;
@@ -2819,6 +2917,14 @@ function isMulti() { return state.multi || state.multiToggle; }
    right to left to pick everything the box touches (dashed green). */
 // A point in the viewer's scrolled content, so a box can run across pages and the gaps between them.
 function contentPt(e) { var v = $('#viewer'), r = v.getBoundingClientRect(); return [e.clientX - r.left + v.scrollLeft, e.clientY - r.top + v.scrollTop]; }
+function marqueeScroll(g) {
+  if (gesture !== g || !g.as || (!g.as[0] && !g.as[1])) { g.asRun = false; return; }
+  viewer.scrollLeft += g.as[0]; viewer.scrollTop += g.as[1];
+  g.cur = contentPt({ clientX: g.client[0], clientY: g.client[1] });
+  var mq = $('#marq'), ms = g.start, mc = g.cur;
+  mq.style.left = Math.min(ms[0], mc[0]) + 'px'; mq.style.top = Math.min(ms[1], mc[1]) + 'px'; mq.style.width = Math.abs(mc[0] - ms[0]) + 'px'; mq.style.height = Math.abs(mc[1] - ms[1]) + 'px';
+  requestAnimationFrame(function () { marqueeScroll(g); });
+}
 function finishMarquee(g) {
   $('#marq').hidden = true;
   if (!g.moved) return;
@@ -3022,6 +3128,10 @@ function onMove(e) {
     var mq = $('#marq'); mq.hidden = false; mq.classList.toggle('cross', mc[0] < ms[0]);
     mq.style.left = Math.min(ms[0], mc[0]) + 'px'; mq.style.top = Math.min(ms[1], mc[1]) + 'px';
     mq.style.width = Math.abs(mc[0] - ms[0]) + 'px'; mq.style.height = Math.abs(mc[1] - ms[1]) + 'px';
+    var vr0 = viewer.getBoundingClientRect(), edge = 40;
+    gesture.client = [e.clientX, e.clientY];
+    gesture.as = [e.clientX < vr0.left + edge ? -12 : e.clientX > vr0.right - edge ? 12 : 0, e.clientY < vr0.top + edge ? -12 : e.clientY > vr0.bottom - edge ? 12 : 0];
+    if ((gesture.as[0] || gesture.as[1]) && !gesture.asRun) { gesture.asRun = true; marqueeScroll(gesture); }
   } else if (gesture.mode === 'erase') {
     var evs2 = e.getCoalescedEvents ? e.getCoalescedEvents() : [e]; if (!evs2.length) evs2 = [e];
     evs2.forEach(function (ev) { eraseAt(gesture, toPdf(p, ev.clientX, ev.clientY)); });
@@ -3099,7 +3209,7 @@ function onUp(e) {
   }
   else if (g2.mode === 'move' || g2.mode === 'resize') { if (g2.mode === 'resize' || g2.moved) { markUnsaved(); renderList(); renderProps(); } }
 }
-function newAnnot(tool, pageIndex, pt) {
+function newAnnot(tool, pageIndex, pt, opts) {
   var st = state.style, T = TOOLS[tool], sub = T.sub;
   var chest = state.chestTool && state.chestTool.drawTool === tool ? state.chestTool : null;
   var a = {
@@ -3127,11 +3237,15 @@ function newAnnot(tool, pageIndex, pt) {
     a.sym = { shape: 'stamp', size: sd[0], height: sd[1], angle: +state.sym.angle || 0, label: stx, textColor: state.sym.textColor || null, n: null, series: null, prefix: '' };
     centerSym(a, pt);
   } else if (T.symbol) {
-    var sy = state.sym, size = clamp(+sy.size || 18, 4, 144);
+    var sy = T.numbered ? state.numSym : state.sym, size = clamp(+sy.size || 18, 4, 144);
     a.subtype = MarkupIO.SYM_SUB[sy.shape] || 'Circle';
     a.sym = { shape: sy.shape || 'circle', size: size, height: MarkupIO.SYM_WIDE[sy.shape] ? clamp(+sy.height || 12, 4, 144) : null, angle: +sy.angle || 0, label: T.numbered ? '' : (sy.label || ''), textColor: sy.textColor || null, n: null, series: null, prefix: '' };
     if (!MarkupIO.FILLABLE.has(a.subtype)) a.fillColor = null;
-    if (T.numbered) { var sid = ensureSeries(); a.sym.series = sid; a.sym.prefix = state.series.defs[sid].prefix || ''; a.sym.n = nextNumber(sid); }
+    if (T.numbered && opts && opts.preview) {
+      // hover preview: show the next number without starting a series
+      var cs = state.series.cur && state.series.defs[state.series.cur] ? state.series.cur : null;
+      a.sym.series = cs; a.sym.prefix = cs ? state.series.defs[cs].prefix || '' : ''; a.sym.n = cs ? nextNumber(cs) : 1;
+    } else if (T.numbered) { var sid = ensureSeries(); a.sym.series = sid; a.sym.prefix = state.series.defs[sid].prefix || ''; a.sym.n = nextNumber(sid); }
     centerSym(a, pt);
   }
   if (chest && chest.fields && chest.fields.length) { a.fields = {}; chest.fields.forEach(function (f) { a.fields[f.name] = f.value || ''; }); }
@@ -3454,6 +3568,8 @@ function applyToSelection(patch, tag) {
         else if (a.subtype === 'FreeText' && a.owned) { a.textColor = v; if (!a.isNew) a.styleDirty = true; }
       }
       else if (k === 'symAngle') { if (a.sym && a.owned) { var cen = symCentre(a); a.sym = Object.assign({}, a.sym, { angle: ((((+a.sym.angle || 0) + v) % 360) + 360) % 360 }); centerSym(a, cen); if (!a.isNew) { a.styleDirty = true; a.geomDirty = true; } } }
+      else if (k === 'fs') { if (a.subtype === 'FreeText' && a.owned) { a.fs = v; fitTextBox(a, false); if (!a.isNew) { a.styleDirty = true; a.geomDirty = true; } } }
+      else if (k === 'bold') { if (a.subtype === 'FreeText' && a.owned) { a.bold = !!v; fitTextBox(a, false); if (!a.isNew) a.styleDirty = true; } }
       else if (k === 'status') { a.status = v || ''; a.statusDirty = true; a.statusBy = state.author || ''; }
       else if (k === 'field') { a.fields = Object.assign({}, a.fields || {}); if (v[1] === null) delete a.fields[v[0]]; else a.fields[v[0]] = v[1]; }
       else if (k === 'fillColor') { if (MarkupIO.FILLABLE.has(a.subtype)) { a.fillColor = v ? hexToRgb(v) : (a.color || hexToRgb(state.style.color)); if (!a.isNew) a.styleDirty = true; } }
@@ -3658,9 +3774,9 @@ function buildStyleControls(root, get, set, open) {
   return { sync: sync };
 }
 var styleNew = buildStyleControls($('#styleNew'), function () {
-  return Object.assign({}, state.style, { textColor: state.sym.textColor || null, hasText: !!(TOOLS[state.tool] && (TOOLS[state.tool].symbol || TOOLS[state.tool].text)) });
+  return Object.assign({}, state.style, { textColor: symState().textColor || null, hasText: !!(TOOLS[state.tool] && (TOOLS[state.tool].symbol || TOOLS[state.tool].text)) });
 }, function (patch) {
-  if ('textColor' in patch) { state.sym.textColor = patch.textColor; delete patch.textColor; }
+  if ('textColor' in patch) { symState().textColor = patch.textColor; delete patch.textColor; }
   Object.assign(state.style, patch); savePrefs(); updateStyleChip();
 }, true);
 var styleSel = buildStyleControls($('#styleSel'), function () {
@@ -3689,7 +3805,8 @@ function bindSymControls(root, get, set) {
 }
 $('#stampList').innerHTML = STAMPS.map(function (t) { return '<option value="' + t + '">'; }).join('');
 $('#textSize').addEventListener('input', function (e) { state.textSize = +e.target.value; e.target.nextElementSibling.value = state.textSize + ' pt'; savePrefs(); });
-var symNew = bindSymControls($('#symNew'), function () { return state.sym; }, function (k, v) { state.sym[k] = v; savePrefs(); });
+function symState() { return state.tool === 'numbered' ? state.numSym : state.sym; }
+var symNew = bindSymControls($('#symNew'), function () { return symState(); }, function (k, v) { symState()[k] = v; savePrefs(); });
 function updateStyleChip() {
   var chip = $('#btnStyle'); chip.style.setProperty('--c', state.style.color); chip.style.setProperty('--f', state.style.fillColor || state.style.color); chip.classList.toggle('nofill', !state.style.fill);
 }
@@ -3708,6 +3825,11 @@ function renderProps() {
   styleSel.sync();
   var stv = s.every(function (x) { return (x.status || '') === (a.status || ''); }) ? (a.status || '') : '';
   if (document.activeElement !== $('#pStatus')) $('#pStatus').value = stv;
+  var txs = s.filter(function (x) { return x.subtype === 'FreeText' && x.owned; }), isLeg = s.some(function (x) { return x.legendKey || (x.sym && x.sym.legend); });
+  $('#pText').hidden = !txs.length && !isLeg;
+  $('#pTextSize').hidden = $('#pBold').parentNode.hidden = !txs.length;
+  if (txs.length) { $('#pTextSize').value = txs[0].fs || 12; paintRange($('#pTextSize')); $('#pTextSizeV').textContent = (txs[0].fs || 12) + ' pt'; $('#pBold').checked = !!txs[0].bold; } else $('#pTextSizeV').textContent = '';
+  $('#pLegend').hidden = !isLeg;
   var rs = s.filter(function (x) { return x.sym && x.owned; });
   $('#pRotate').hidden = !rs.length;
   if (rs.length) $('#pAngle').textContent = (rs.every(function (x) { return (+x.sym.angle || 0) === (+rs[0].sym.angle || 0); }) ? (+rs[0].sym.angle || 0) + '\u00b0' : 'mixed');
@@ -3750,9 +3872,13 @@ $('#pAddField').addEventListener('click', function () {
 });
 $('#pRotate').addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('[data-rot]') : null; if (b) { applyToSelection({ symAngle: +b.dataset.rot }, 'rotate'); renderProps(); } });
 $('#btnDuplicate').addEventListener('click', duplicateSelection);
+$('#pTextSize').addEventListener('input', function (e) { applyToSelection({ fs: +e.target.value }, 'fs'); $('#pTextSizeV').textContent = e.target.value + ' pt'; });
+$('#pBold').addEventListener('change', function (e) { applyToSelection({ bold: e.target.checked }, null); });
+$('#pLegend').addEventListener('click', function () { var s0 = selected().filter(function (x) { return x.legendKey || (x.sym && x.sym.legend); })[0]; if (s0) rebuildLegend(s0); });
 $('#btnExport').addEventListener('click', openExport);
 $('#btnVis').addEventListener('click', openVis);
 $('#exClose').addEventListener('click', closeExport);
+$('#exVis').addEventListener('change', function (e) { state.exVisible = e.target.checked; openExport(); });
 $('#exportModal').addEventListener('click', function (e) {
   if (e.target === $('#exportModal')) { closeExport(); return; }
   var b = e.target.closest ? e.target.closest('[data-ex],[data-legend]') : null; if (!b) return;
@@ -3794,7 +3920,7 @@ function hexOf(c) { return c ? rgbToHex(c).toUpperCase() : ''; }
 function allFieldNames(list) { var n = [], seen = {}; list.forEach(function (a) { Object.keys(a.fields || {}).forEach(function (k) { if (!seen[k]) { seen[k] = 1; n.push(k); } }); }); return n; }
 /* Counts: one row per subject + symbol label (+ series for numbered markups), with the pages they are on. */
 function countRows(pageIndex) {
-  var list = live().filter(function (a) { return countable(a) && (pageIndex == null || a.pageIndex === pageIndex); });
+  var list = live().filter(function (a) { return countable(a) && (pageIndex == null || a.pageIndex === pageIndex) && (!state.exVisible || isVisible(a)); });
   var names = allFieldNames(list), groups = {}, order = [];
   list.forEach(function (a) {
     var key = (a.subject || '') + '|' + (a.sym.n != null ? 'series:' + a.sym.series : 'label:' + (a.sym.label || ''));
@@ -3812,11 +3938,11 @@ function countRows(pageIndex) {
     }));
   });
   rows.sort(function (x, y) { return String(x[0]).localeCompare(String(y[0])) || String(x[1]).localeCompare(String(y[1]), undefined, { numeric: true }); });
-  return { head: head, rows: rows, groups: order.map(function (k) { return groups[k]; }) };
+  return { head: head, rows: rows, groups: order.map(function (k) { groups[k].key = k; return groups[k]; }) };
 }
 /* Every markup, one row each. */
 function markupRows() {
-  var list = live().filter(function (a) { return !(a.sym && a.sym.legend); });
+  var list = live().filter(function (a) { return !(a.sym && a.sym.legend) && (!state.exVisible || isVisible(a)); });
   list.sort(function (a, b) { return a.pageIndex - b.pageIndex || String(a.subject).localeCompare(String(b.subject)); });
   var names = allFieldNames(list);
   var head = ['Page', 'Subject', 'Type', 'Label / number', 'Measurement', 'Status', 'Comments', 'Author', 'Date', 'Line colour', 'Fill colour', 'Group'].concat(names);
@@ -3883,12 +4009,33 @@ function doExport(kind) {
 }
 /* Legend: a symbol and "Subject - count" for each kind of symbol, as a group of normal markups placed
    at the top left of what is on screen. */
-function insertLegend(scope) {
+function legendText(r, n) { return (r.subject || typeLabel(r.subtype)) + (r.sym.n == null && r.sym.label ? ' (' + r.sym.label + ')' : '') + '  \u00d7' + n; }
+// Legend counts follow the markups: each row text remembers which count it shows.
+function refreshLegends() {
+  var rows = live().filter(function (a) { return a.legendKey && a.legendKey !== '#title' && a.subtype === 'FreeText'; }); if (!rows.length) return;
+  var cache = {};
+  rows.forEach(function (a) {
+    var sc = a.legendScope || 'all', pg = sc.indexOf('page:') === 0 ? +sc.slice(5) : null;
+    var c = cache[sc] || (cache[sc] = countRows(pg)), g = c.groups.filter(function (x) { return x.key === a.legendKey; })[0];
+    var txt = g ? legendText(g.first, g.items.length) : a.contents.replace(/\u00d7\d+$/, '\u00d70');
+    if (txt !== a.contents) { a.contents = txt; fitTextBox(a, false); if (!a.isNew) { a.dirty = true; a.styleDirty = true; a.geomDirty = true; } var pp = state.pages[a.pageIndex]; if (pp) drawOverlay(pp); }
+  });
+}
+// Rebuild a legend in place (to add new kinds of symbols).
+function rebuildLegend(a) {
+  var head = headOf(a), grp = membersOf(head), t = grp.filter(function (x) { return x.legendKey === '#title'; })[0] || head, p = state.pages[t.pageIndex];
+  var tl = t.box ? toView(p, t.box[0], t.box[3]) : toView(p, t.rect[0], t.rect[3]), sc = t.legendScope || 'all';
+  pushHistory();
+  grp.forEach(function (x) { if (x.isNew) state.annots.splice(state.annots.indexOf(x), 1); else x.deleted = true; });
+  insertLegend(sc.indexOf('page:') === 0 ? 'page' : 'all', { page: t.pageIndex, vx: tl[0], vy: tl[1] });
+}
+function insertLegend(scope, at) {
   if (!state.pdf) return;
   var pi = currentPageIndex(), p = state.pages[pi], c = countRows(scope === 'page' ? pi : null);
-  if (!c.groups.length) { toast(scope === 'page' ? 'No symbols on this page to put in a legend.' : 'No symbols to put in a legend.'); return; }
   var v = $('#viewer'), z = state.zoom;
-  var vx = clamp(v.scrollLeft - p.el.offsetLeft + 24, 12, p.vp.width - 200 * z), vy = clamp(v.scrollTop - p.el.offsetTop + 24, 12, p.vp.height - 60);
+  if (at && at.page != null) { pi = at.page; p = state.pages[pi]; c = countRows(scope === 'page' ? pi : null); }
+  if (!c.groups.length) { toast(scope === 'page' ? 'No symbols on this page to put in a legend.' : 'No symbols to put in a legend.'); return; }
+  var vx = at ? at.vx : clamp(v.scrollLeft - p.el.offsetLeft + 24, 12, p.vp.width - 200 * z), vy = at ? at.vy : clamp(v.scrollTop - p.el.offsetTop + 24, 12, p.vp.height - 60);
   var fs = clamp(defaultLabelSize(pi) * 1.2, 9, 24), rowH = fs * 2.2, symMax = fs * 1.6, made = [];
   var pt = function (ux, uy) { return p.vp.convertToPdfPoint(vx + ux * z, vy + uy * z); };
   var base = { isNew: true, deleted: false, dirty: true, geomDirty: false, styleDirty: false, owned: true, pageIndex: pi, rot: pageRot(pi), opacity: 1, fillOpacity: 0.35, highlight: false,
@@ -3899,15 +4046,17 @@ function insertLegend(scope) {
     a.box = [Math.min(a0[0], a1[0]), Math.min(a0[1], a1[1]), Math.max(a0[0], a1[0]), Math.max(a0[1], a1[1])];
     fitTextBox(a, false); made.push(a); return a;
   };
-  addText('LEGEND' + (scope === 'page' ? ' (p. ' + pageLabel(pi) + ')' : ''), 0, 0, fs * 14, fs * 1.15);
+  var title = addText('LEGEND' + (scope === 'page' ? ' (p. ' + pageLabel(pi) + ')' : ''), 0, 0, fs * 14, fs * 1.15);
+  title.legendKey = '#title'; title.legendScope = scope === 'page' ? 'page:' + pi : 'all';
   c.groups.forEach(function (g, i) {
     var r = g.first, uy = (i + 1) * rowH + fs * 0.6, d = MarkupIO.symDims(r.sym), k = Math.min(1, symMax / Math.max(d[0], d[1]));
     var sy = Object.assign({}, r.sym, { size: d[0] * k, height: d[1] * k, angle: 0, legend: true, n: null, series: null, label: r.sym.n != null ? (r.sym.prefix || '') + '#' : r.sym.label });
     var s0 = Object.assign({}, base, { id: 'n' + (state.nextId++), nm: MarkupIO.makeNM(), subtype: r.subtype, subject: 'Legend', color: r.color, fillColor: r.fillColor, fillOpacity: r.fillOpacity, highlight: r.highlight, lineWidth: r.lineWidth, sym: sy });
     centerSym(s0, pt(symMax / 2, uy + symMax / 2)); made.push(s0);
-    addText((r.subject || typeLabel(r.subtype)) + (r.sym.n == null && r.sym.label ? ' (' + r.sym.label + ')' : '') + '  \u00d7' + g.items.length, symMax + fs * 0.6, uy + symMax / 2 - (fs * 1.2 + 8) / 2, fs * 16, fs);
+    var rowT = addText(legendText(r, g.items.length), symMax + fs * 0.6, uy + symMax / 2 - (fs * 1.2 + 8) / 2, fs * 16, fs);
+    rowT.legendKey = g.key; rowT.legendScope = scope === 'page' ? 'page:' + pi : 'all';
   });
-  pushHistory();
+  if (!at) pushHistory();
   made.forEach(function (a, i) { if (i) a.parentId = made[0].id; state.annots.push(a); });
   state.sel = new Set(made.map(function (a) { return a.id; }));
   drawOverlay(p); markUnsaved(); renderList(); afterSelectionChange();
@@ -3915,14 +4064,17 @@ function insertLegend(scope) {
   toast('Legend placed. It is a group: drag it where you want it.', 4000);
 }
 function openExport() {
+  var anyHidden = live().some(function (a) { return !isVisible(a); });
+  $('#exVisRow').hidden = !anyHidden; state.exVisible = anyHidden && $('#exVis').checked;
   var c = countRows(null), total = c.groups.reduce(function (s, g) { return s + g.items.length; }, 0);
   $('#exSummary').textContent = state.pdf ? live().length + ' markups; ' + total + ' counted symbols in ' + c.groups.length + (c.groups.length === 1 ? ' kind.' : ' kinds.') : 'Open a PDF first.';
   $('#exportModal').hidden = false;
 }
 function closeExport() { $('#exportModal').hidden = true; }
 function renderCounts() {
+  refreshLegends();
   var by = {}, order = [];
-  live().forEach(function (a) { if (!countable(a)) return; var k = a.subject || typeLabel(a.subtype); if (!by[k]) { by[k] = 0; order.push(k); } by[k]++; });
+  live().forEach(function (a) { if (!countable(a) || !isVisible(a)) return; var k = a.subject || typeLabel(a.subtype); if (!by[k]) { by[k] = 0; order.push(k); } by[k]++; });
   var el = $('#counts');
   el.hidden = !order.length;
   el.innerHTML = order.length ? '<span>Counts</span>' + order.sort().map(function (k) { return '<button type="button" data-count="' + esc(k) + '" title="Show only these">' + esc(k) + ' <b>\u00d7' + by[k] + '</b></button>'; }).join('') : '';
@@ -4022,7 +4174,7 @@ async function savePdf() {
     var scales = {};
     state.scaleDirty.forEach(function (i) { scales[i] = state.scales[i] || null; });
     state.annots.forEach(function (a) { if (a.vertices && !a.deleted && (a.isNew || a.geomDirty || a.styleDirty)) updateGeom(a); });
-    out = await MarkupIO.applyMarkups(state.bytes, state.annots, { author: state.author || '', scales: scales });
+    out = await MarkupIO.applyMarkups(state.bytes, state.annots, { author: state.author || '', scales: scales, symAsStamp: !!ui().symStamp });
     var keepId = state.docId; state.docId = null;
     await loadPdf(out, state.fileName, { keepScroll: true });
     state.docId = keepId; await storeDoc(out, state.fileName, true);
@@ -4207,6 +4359,7 @@ function applyChestTool(set, t) {
   // A numbered tool has no label of its own, so keep the plain Symbol tool's label.
   if (t.fs) state.textSize = t.fs;
   if (t.sym && t.sym.shape === 'stamp') { state.sym.stampText = t.sym.label || state.sym.stampText; state.sym.stampSize = t.sym.height || state.sym.stampSize; state.sym.textColor = t.sym.textColor || null; state.sym.angle = +t.sym.angle || 0; }
+  else if (t.sym && t.sym.numbered) state.numSym = { shape: t.sym.shape || 'circle', size: t.sym.size || 18, height: t.sym.height || 12, angle: +t.sym.angle || 0, textColor: t.sym.textColor || null };
   else if (t.sym) state.sym = { angle: +t.sym.angle || 0, stampText: state.sym.stampText, stampSize: state.sym.stampSize, shape: t.sym.shape || 'circle', size: t.sym.size || 18, height: t.sym.height || state.sym.height || 12, label: t.sym.numbered ? state.sym.label : (t.sym.label || ''), textColor: t.sym.textColor || null };
   savePrefs(); updateStyleChip(); styleNew.sync(); renderChest(); updateSeqBar();
   if (t.sym) { toast(t.title + ': tap to place' + (t.sym.numbered ? ' 1, 2, 3...' : '') + '.'); return; }
@@ -4329,7 +4482,7 @@ function openToolEditor(set, tool) {
     fillSetOptions(set.id);
   } else {
     var ct = state.chestTool && state.chestTool.drawTool === cur ? state.chestTool : null;
-    editor = { set: null, tool: null, style: Object.assign({}, state.style), sym: Object.assign({}, state.sym) };
+    editor = { set: null, tool: null, style: Object.assign({}, state.style), sym: Object.assign({}, state.sym, cur === 'numbered' ? state.numSym : {}) };
     $('#toolTitle').textContent = 'Save as a tool';
     var subj = ct ? (ct.subject || TOOLS[cur].subj) : TOOLS[cur].subj;
     $('#tName').value = ct ? ct.title : subj;
@@ -4759,6 +4912,7 @@ var holdTimer = null, holdAt = null;
 function armHold(e) {
   clearTimeout(holdTimer); holdAt = null;
   if (!ui().hold || (e.pointerType === 'touch' && !state.fingerDraw)) return;
+  if (state.draft || (TOOLS[state.tool] && (TOOLS[state.tool].poly || TOOLS[state.tool].eraser))) return; // not while placing points or erasing
   holdAt = { x: e.clientX, y: e.clientY, id: e.pointerId };
   holdTimer = setTimeout(function () { if (holdAt) showRing(holdAt.x, holdAt.y, holdAt.id); }, +ui().holdMs || 500);
 }
@@ -4815,7 +4969,7 @@ function hoverAt(e) {
   p.ghost = null; p.hoverA = null;
   if (state.tool === 'select') { p.hoverA = hitTest(p, pt); p.snapMark = null; }
   else if (T && T.symbol) {
-    var keep = state.nextId, g = newAnnot(state.tool, p.index, pt); state.nextId = keep; g.id = 'ghost'; p.ghost = g; p.snapMark = null;
+    var keep = state.nextId, g = newAnnot(state.tool, p.index, pt, { preview: true }); state.nextId = keep; g.id = 'ghost'; p.ghost = g; p.snapMark = null;
   } else if (T && !T.eraser && !T.highlighter && T.sub !== 'Ink') snapPt(p, pt);
   drawOverlay(p);
 }
@@ -4840,6 +4994,7 @@ function openSettings() {
     '<div class="setsec"><h3>Drawing</h3>' +
       row('Snap', chk('snap', state.snap), 'To corners, ends and centres, and level or plumb lines') +
       row('Multi-select', chk('multi', state.multiToggle), 'Tapping markups adds them to the selection') +
+      row('Save symbols as stamps', chk('symStamp', u.symStamp), 'Revu keeps the label or number inside, but cannot restyle them') +
       row('Your name', '<input type="text" class="fld-in" data-set="author" value="' + esc(state.author || '') + '" placeholder="Shows as Author in Revu">') + '</div>' +
     '<div class="setsec"><h3>Measurements</h3>' +
       row('Feet-inch rounding', sel('ftin', m.ftin, [[2, '1/2"'], [4, '1/4"'], [8, '1/8"'], [16, '1/16"']])) +
@@ -4870,6 +5025,7 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'palette') { u.palette = v; renderPalette(); }
   else if (k === 'hover') { u.hover = v; if (!v) clearHover(); }
   else if (k === 'hold') u.hold = v;
+  else if (k === 'symStamp') u.symStamp = v;
   else if (k === 'holdMs') u.holdMs = +v;
   else if (k === 'fingerDraw') { state.fingerDraw = v; $('#fingerDraw').checked = v; savePrefs(); }
   else if (k === 'snap') { state.snap = v; $('#snapToggle').checked = v; savePrefs(); }
