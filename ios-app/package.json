@@ -1,0 +1,23 @@
+{
+  "name": "pencil-markup-ios",
+  "version": "3.0.0",
+  "private": true,
+  "description": "Native iPad app shell for Pencil Markup (Capacitor). The app itself is ../index.html.",
+  "scripts": {
+    "web": "node scripts/copy-web.mjs",
+    "setup": "npm run web && npx cap add ios && node scripts/patch-ios.mjs && npx cap sync ios",
+    "sync": "npm run web && npx cap sync ios && node scripts/patch-ios.mjs",
+    "open": "npx cap open ios"
+  },
+  "dependencies": {
+    "@capacitor/app": "^6.0.1",
+    "@capacitor/core": "^6.1.2",
+    "@capacitor/filesystem": "^6.0.1",
+    "@capacitor/ios": "^6.1.2",
+    "@capacitor/share": "^6.0.2",
+    "capacitor-pencil-interaction": "file:plugins/pencil-interaction"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^6.1.2"
+  }
+}

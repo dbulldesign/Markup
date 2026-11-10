@@ -74,3 +74,15 @@ On iPad, add it to the Home Screen and open it from there once while online; the
 The icon source is `icons/icon.svg`. The PNGs next to it are rendered from it: `apple-touch-icon.png` (180 px, iPad/iPhone Home Screen), `icon-192.png` and `icon-512.png` (Android and install prompts), `icon-maskable-512.png` (artwork inset for launchers that crop to a circle) and `favicon-32.png` (browser tab).
 
 See [CHANGELOG.md](CHANGELOG.md) for what changed in each version.
+
+## Native iPad app
+
+`ios-app/` wraps this same app in a native iPad app (Capacitor). The native app
+adds Apple Pencil double-tap and squeeze, saving and exporting through the share
+sheet, "Open in Pencil Markup" for PDFs, and storage that iPadOS does not clear.
+Building it needs a Mac with Xcode. See [ios-app/README.md](ios-app/README.md).
+
+## Fixture schedule template
+
+`templates/fixture-schedule-template.csv` shows the columns that
+Tool Chest > Fixture schedule reads. The app can also download this template.

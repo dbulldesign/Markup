@@ -1,0 +1,8 @@
+{
+  "name": "capacitor-pencil-interaction",
+  "version": "1.0.0",
+  "description": "Apple Pencil double-tap and squeeze (UIPencilInteraction) for Pencil Markup",
+  "main": "index.js",
+  "license": "MIT",
+  "capacitor": { "ios": { "src": "ios" } }
+}

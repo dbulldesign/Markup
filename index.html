@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="2.11.0">
+<meta name="app-version" content="3.0.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -2192,7 +2192,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '2.11.0';
+var APP_VERSION = '3.0.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -4979,6 +4979,10 @@ async function saveDirect() {
   }
   var p = { bytes: bytes, name: nm + '.pdf' };
   var blob = new Blob([p.bytes], { type: 'application/pdf' });
+  if (Native && Native.canShare) {
+    if (await Native.shareBlob(blob, p.name)) { $('#saveBar').hidden = true; state.pendingSave = null; saveSession(); toast('Shared. Open it in Revu to see the same markups.'); }
+    return;
+  }
   try {
     if (navigator.canShare && typeof File === 'function') {
       var file = new File([blob], p.name, { type: 'application/pdf' });
@@ -5077,6 +5081,7 @@ function newPalette(title) {
 }
 function downloadFile(blob, name) {
   var done = function () { toast('Saved ' + name + '.'); };
+  if (Native && Native.canShare) { Native.shareBlob(blob, name).then(function (ok) { if (ok) done(); }); return; }
   try {
     if (navigator.canShare && typeof File === 'function') {
       var file = new File([blob], name, { type: blob.type });
@@ -6245,6 +6250,7 @@ $('#file').addEventListener('change', function (e) { openFile(e.target.files[0])
 $('#btnSave').addEventListener('click', savePdf);
 function setTool(tool) {
   if (state.draft && state.draft.tool !== tool) finishDraft();
+  if (state.tool && state.tool !== tool) state.prevTool = state.tool;
   state.tool = tool;
   $$('.topbar [data-tool]').forEach(function (x) { x.classList.toggle('on', x.dataset.tool === tool); });
   updateSeqBar(); updateToolPick(); renderPalette(); clearHover();
@@ -6355,6 +6361,49 @@ $('#author').value = state.author;
 $('#fingerDraw').checked = state.fingerDraw;
 $('#snapToggle').checked = state.snap;
 updateStyleChip(); styleNew.sync();
+/* ---------- native iPad app (Capacitor wrapper in ios-app/) ----------
+   In the App Store / TestFlight build the same page runs inside a native shell that adds Apple Pencil
+   double-tap and squeeze, sharing files through the iPad share sheet, and opening PDFs from Files. */
+var Native = (function () {
+  var C = window.Capacitor; if (!C || !C.isNativePlatform || !C.isNativePlatform()) return null;
+  var get = function (n) { try { return C.registerPlugin ? C.registerPlugin(n) : (C.Plugins || {})[n]; } catch (e) { return (C.Plugins || {})[n] || null; } };
+  var FS = get('Filesystem'), Share = get('Share'), App = get('App'), Pencil = get('PencilInteraction');
+  var b64 = function (blob) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1] || ''); }; r.onerror = rej; r.readAsDataURL(blob); }); };
+  return {
+    canShare: !!(FS && Share), FS: FS, App: App, Pencil: Pencil,
+    shareBlob: async function (blob, name) {
+      try {
+        var w = await FS.writeFile({ path: String(name).replace(/[\\/:*?"<>|]+/g, '-'), data: await b64(blob), directory: 'CACHE' });
+        await Share.share({ title: name, url: w.uri, dialogTitle: name });
+        return true;
+      } catch (e) { if (!/cancel/i.test(String(e && (e.message || e)))) toast('Could not share ' + name + '.', 5000); return false; }
+    }
+  };
+})();
+if (Native) {
+  document.documentElement.classList.add('native-app');
+  // Apple Pencil double-tap (and squeeze on Pencil Pro) follow the user's choice in iPad Settings > Apple Pencil.
+  var pencilAct = function (act, x, y) {
+    if (act === 'ignore' || act === 'runSystemShortcut') return;
+    if (act === 'showColorPalette' || act === 'showInkAttributes') { $('#btnStyle').click(); return; }
+    if (act === 'showContextualPalette') { showRing(x != null ? x : window.innerWidth / 2, y != null ? y : window.innerHeight / 2, null); gesture = null; return; }
+    if (act === 'switchPrevious') { if (state.prevTool) setTool(state.prevTool); return; }
+    if (state.tool === 'eraser') setTool(state.prevTool && state.prevTool !== 'eraser' ? state.prevTool : 'select'); else setTool('eraser');
+  };
+  if (Native.Pencil && Native.Pencil.addListener) {
+    Native.Pencil.addListener('tap', function (d) { pencilAct(d && d.action, d && d.x, d && d.y); });
+    Native.Pencil.addListener('squeeze', function (d) { if (d && d.phase === 'ended') pencilAct(d.action === 'switchEraser' || d.action === 'switchPrevious' ? d.action : 'showContextualPalette', d.x, d.y); });
+  }
+  // A PDF opened from Files, Mail or Revu's share sheet ("Open in Pencil Markup").
+  if (Native.App && Native.FS) Native.App.addListener('appUrlOpen', async function (ev) {
+    var url = ev && ev.url; if (!url || !/\.pdf($|\?)/i.test(url)) return;
+    try {
+      var r = await Native.FS.readFile({ path: url }), bin = atob(r.data), u8 = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) u8[i] = bin.charCodeAt(i);
+      openFile(new File([u8], decodeURIComponent(url.split('/').pop().split('?')[0]), { type: 'application/pdf' }));
+    } catch (e) { toast('Could not open that PDF.', 5000); }
+  });
+}
 /* Offline support: the service worker keeps the app and its libraries on the device. */
 var offlineReady = false;
 if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {

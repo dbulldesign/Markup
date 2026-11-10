@@ -1,0 +1,11 @@
+{
+  "appId": "com.example.pencilmarkup",
+  "appName": "Pencil Markup",
+  "webDir": "www",
+  "ios": {
+    "contentInset": "never",
+    "scrollEnabled": false,
+    "allowsLinkPreview": false,
+    "limitsNavigationsToAppBoundDomains": false
+  }
+}

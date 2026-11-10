@@ -1,5 +1,5 @@
 {
-  "version": "2.11.0",
+  "version": "3.0.0",
   "date": "2026-11-10",
-  "notes": "Revision compare with clouding, hyperlinks, markup and drawing layers, and signature / initials."
+  "notes": "Native iPad app project (ios-app/) with Apple Pencil double-tap and squeeze; the website keeps working the same."
 }

@@ -2,6 +2,13 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.0.0 (round 2, phase 7: native iPad app)
+- New `ios-app/` folder: a Capacitor 6 project that wraps the app as a native iPad app, with build and release steps in ios-app/README.md. Building it needs a Mac with Xcode; it was not built in this environment.
+- Apple Pencil plugin (Swift, UIPencilInteraction): double-tap and, on Apple Pencil Pro, squeeze follow the iPad's Apple Pencil setting: eraser and back, previous tool, the style menu, or the tool ring where the Pencil hovers.
+- In the native app, saving and exports use the iPad share sheet, and PDFs from Files, Mail or Revu open with "Open in Pencil Markup". The Info.plist settings for Split View, Stage Manager, all orientations and camera/photo access are added by a script.
+- 1024 px App Store icon (icons/icon-1024.png).
+- The website is unchanged: the native code only runs inside the app.
+
 ## 2.11.0 (round 2, phase 6: compare, links, layers, signature)
 - Revision compare (Pages > Compare with older revision): pick the older PDF; ink added since then shows red and removed ink blue. Pages are matched by sheet number (or pick the older page). "Cloud changes" draws red clouds around each changed area (grouped, subject Revision change); "Cloud all pages" does the whole set in one undo step.
 - Hyperlinks: the Link tool drags a box and links it to a web address or a page (number or sheet label). Links are real PDF links Revu follows; ones made here stay editable (Change, Open in the properties). Tapping an existing link in a drawing with Select follows it (asks before opening a web page).
