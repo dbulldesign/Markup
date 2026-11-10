@@ -1,5 +1,5 @@
 {
-  "version": "3.7.2",
+  "version": "3.8.0",
   "date": "2026-11-10",
-  "notes": "Fix: the top of the app going blurry after typing in a dialog (for example naming a new tool)."
+  "notes": "Favourite tools in one drop-down in the toolbar instead of a button each."
 }

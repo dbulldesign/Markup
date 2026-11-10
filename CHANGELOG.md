@@ -2,6 +2,11 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.8.0 (favourites drop-down)
+- Favourite tools sit in one drop-down in the toolbar instead of a button each: the button shows the favourite you are using (or a star) and how many you have; tap it for a grid of all your favourites with their names, and "Tool Chest..." to manage them. Adding tools no longer makes the toolbar longer.
+- Settings > Appearance > Favourite tools in the toolbar: "One drop-down" (default) or "A row of buttons" (the old layout).
+- The floating quick palette still shows up to 8 favourites as buttons.
+
 ## 3.7.2
 - Fixed: the top of the app going blurry after adding a new tool (or typing in any dialog). The iPad keyboard scrolls the app up to keep the text field visible and sometimes leaves it there, with the toolbar under the status bar. The app now puts itself back whenever the keyboard closes, a dialog or menu closes, the iPad's visible area changes, the app comes back to the front, or (as a last resort) on the next tap anywhere, as long as you are not typing.
 

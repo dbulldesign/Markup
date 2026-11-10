@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.7.2">
+<meta name="app-version" content="3.8.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -153,6 +153,17 @@ body.compact #measureTools > [data-tool] { display: none; }
 .tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
 .tgrid .tb { flex-direction: column; justify-content: center; min-height: 64px; padding: 6px 4px; gap: 4px; font-size: 12px; background: var(--surface-2); }
 .tgrid .tb .lbl { display: inline !important; }
+.fp-head { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; font-size: 14px; }
+.favgrid .tb svg, .favgrid .tb img { width: 46px; height: 30px; }
+.favgrid .tb .lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tb.fav-dd { gap: 6px; max-width: 220px; }
+body:not(.narrow) .topbar > .seg.favs.menu { flex: none; min-width: 0; overflow: visible; }
+@media (max-width: 1400px) { .tb.fav-dd .nm { display: none; } }
+.tb.fav-dd svg, .tb.fav-dd img { width: 34px; height: 22px; flex: none; }
+.tb.fav-dd .star { width: 20px; height: 20px; }
+.tb.fav-dd .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px; }
+.tb.fav-dd .n { font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; }
+.tb.fav-dd .caret { width: 12px; height: 12px; opacity: .7; }
 .tgrid .tb.on { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
 /* tool ring around the Pencil tip */
 .ring { position: fixed; z-index: 80; width: 0; height: 0; }
@@ -618,6 +629,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
 
   <button class="tb toolpick" id="btnToolPick" type="button" title="Choose a tool" aria-haspopup="true" hidden><span class="ti"></span><span class="lbl keep tn">Tool</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
   <div class="pop toolpop" id="toolPop" hidden><div class="tgrid" id="toolGrid"></div></div>
+  <div class="pop toolpop" id="favPop" hidden><div class="fp-head"><b>Favourite tools</b><button class="linkbtn" type="button" id="favEdit">Tool Chest&#8230;</button></div><div class="tgrid favgrid" id="favGrid"></div></div>
   <div class="seg" id="tools">
     <button class="tb" type="button" data-tool="select" title="Select and move markups" aria-label="Select">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3l14 8-6 2-3 6z"/></svg><span class="lbl">Select</span>
@@ -2287,7 +2299,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.7.2';
+var APP_VERSION = '3.8.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -5510,6 +5522,17 @@ function renderFavBar() {
   if ($('#qpal') && !$('#qpal').hidden) renderPalette();
   var bar = $('#favBar'), favs = favTools();
   bar.hidden = !favs.length;
+  bar.classList.toggle('menu', (ui().favMode || 'menu') === 'menu');
+  if ((ui().favMode || 'menu') === 'menu') {
+    // One drop-down button: shows the favourite in use (or a star) and opens the list of favourites.
+    var act = favs.filter(function (f) { return isActiveTool(f.set, f.tool); })[0];
+    bar.innerHTML = '<button type="button" class="tb fav-dd' + (act ? ' on' : '') + '" id="favDD" aria-haspopup="true" title="Favourite tools">' +
+      (act ? toolPreview(act.tool) + '<span class="nm">' + esc(act.tool.title) + '</span>' : '<svg class="star" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/></svg><span class="nm">Favourites</span>') +
+      '<span class="n">' + favs.length + '</span><svg class="caret" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M2.5 4.5L6 8l3.5-3.5"/></svg></button>';
+    if (!$('#favPop').hidden) fillFavPop();
+    if (typeof fitToolbar === 'function') fitToolbar();
+    return;
+  }
   bar.innerHTML = favs.map(function (f) {
     return '<button type="button" class="tb fav' + (isActiveTool(f.set, f.tool) ? ' on' : '') + '" data-set="' + esc(f.set.id) + '" data-fav="' + esc(f.tool.id) + '" title="' + esc(f.tool.title) + '" aria-label="' + esc(f.tool.title) + '">' + toolPreview(f.tool) + '</button>';
   }).join('');
@@ -5779,7 +5802,27 @@ $('#chestSets').addEventListener('click', function (e) {
   if (!found.tool.supported) { toast(found.tool.subtype + ' tools cannot be drawn here. Tap ... on the tool to change what it draws.'); return; }
   applyChestTool(found.set, found.tool);
 });
+function fillFavPop() {
+  $('#favGrid').innerHTML = favTools().map(function (f) {
+    return '<button type="button" class="tb' + (isActiveTool(f.set, f.tool) ? ' on' : '') + '" data-set="' + esc(f.set.id) + '" data-fav="' + esc(f.tool.id) + '" title="' + esc(f.tool.title) + '">' + toolPreview(f.tool) + '<span class="lbl">' + esc(f.tool.title) + '</span></button>';
+  }).join('');
+}
+function openFavPop() {
+  var pop = $('#favPop'), btn = $('#favDD'); fillFavPop();
+  $('#toolPop').hidden = true; $('#stylePop').hidden = true; $('#chestPop').hidden = true;
+  pop.hidden = false;
+  var tb = document.querySelector('.topbar').getBoundingClientRect(), br = btn.getBoundingClientRect();
+  pop.style.left = Math.max(12, Math.min(br.left - tb.left, tb.width - pop.offsetWidth - 12)) + 'px';
+  fitPop(pop);
+}
+$('#favGrid').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-fav]') : null; if (!b) return;
+  var f = findTool(b.dataset.set, b.dataset.fav); if (f.tool) applyChestTool(f.set, f.tool);
+  $('#favPop').hidden = true; renderFavBar();
+});
+$('#favEdit').addEventListener('click', function () { $('#favPop').hidden = true; $('#chestPop').hidden = false; renderChest(); fitPop($('#chestPop')); });
 $('#favBar').addEventListener('click', function (e) {
+  if (e.target.closest && e.target.closest('#favDD')) { e.stopPropagation(); if ($('#favPop').hidden) openFavPop(); else $('#favPop').hidden = true; return; }
   var b = e.target.closest ? e.target.closest('[data-fav]') : null; if (!b) return;
   var f = findTool(b.dataset.set, b.dataset.fav); if (f.tool) applyChestTool(f.set, f.tool);
 });
@@ -6624,6 +6667,7 @@ function openSettings() {
       row('Theme', sel('theme', u.theme, [['system', 'Match the iPad'], ['light', 'Light'], ['dark', 'Dark']])) +
       row('Compact toolbar', chk('compact', u.compact), 'One tool button with a picker instead of every tool') +
       row('Floating quick palette', chk('palette', u.palette), 'A small bar of tools and favourites you can drag anywhere') +
+      row('Favourite tools in the toolbar', sel('favMode', u.favMode || 'menu', [['menu', 'One drop-down'], ['row', 'A row of buttons']]), 'The drop-down keeps the toolbar short however many favourites you have') +
       row('Toolbar at the bottom in portrait', chk('bottomBar', u.bottomBar !== false), 'Within reach of your thumb when holding the iPad upright') +
       row('Markups list', sel('panelPos', u.panelPos || 'auto', [['auto', 'Automatic'], ['right', 'Right side'], ['bottom', 'Bottom'], ['left', 'Left side']]), 'Automatic: at the bottom when the iPad is upright, at the side when it is sideways') +
       row('Properties', sel('propsMode', propsPopup() ? 'popup' : ui().propsMode === 'always' ? 'always' : 'panel', [['popup', 'Pop-up window'], ['panel', 'In the list, when picked there'], ['always', 'In the list, always open']]), 'Pop-up: select a markup or group, tap Properties in the bar over the drawing; tap outside to close') +
@@ -6709,6 +6753,7 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'symStamp') u.symStamp = v;
   else if (k === 'panelPos') { u.panelPos = v; saveUI(); layoutClasses(); renderVisible(); if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } }
   else if (k === 'autoUpdate') { u.autoUpdate = v; }
+  else if (k === 'favMode') { u.favMode = v; saveUI(); $('#favPop').hidden = true; renderFavBar(); }
   else if (k === 'propsMode') { u.propsMode = v; state.propsOpen = false; saveUI(); renderProps(); }
   else if (k === 'bottomBar' || k === 'lefty' || k === 'big') { u[k] = v; saveUI(); layoutClasses(); renderPalette(); renderVisible(); }
   else if (k === 'palm' || k === 'fingerTaps') u[k] = v;
@@ -6768,6 +6813,7 @@ document.addEventListener('pointerdown', function (e) {
   var cp = $('#chestPop'); if (!cp.hidden && !cp.contains(e.target) && !$('#btnChest').contains(e.target)) cp.hidden = true;
   var vp = $('#verPop'); if (!vp.hidden && !vp.contains(e.target) && !$('#btnVersion').contains(e.target)) vp.hidden = true;
   var tpp = $('#toolPop'); if (!tpp.hidden && !tpp.contains(e.target) && !$('#btnToolPick').contains(e.target)) tpp.hidden = true;
+  var fpp = $('#favPop'); if (!fpp.hidden && !fpp.contains(e.target) && !$('#favBar').contains(e.target)) fpp.hidden = true;
 });
 $('#fingerDraw').addEventListener('change', function (e) { state.fingerDraw = e.target.checked; savePrefs(); });
 $('#snapToggle').addEventListener('change', function (e) { state.snap = e.target.checked; savePrefs(); });
