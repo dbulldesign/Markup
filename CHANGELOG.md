@@ -2,6 +2,9 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.14.1
+- The app opens with the Select tool (it used to start on Circle), so the first tap selects instead of drawing.
+
 ## 3.14.0 (channel schedule workbooks)
 - Fixture schedule import reads a whole channel schedule workbook (.xlsx or .xlsm): the "Fixture List" tab becomes the palette and the "Channel Schedule" tab is kept with it.
   - Fixture List: "FIXT TYPE" and "QTY USED" columns are recognised; category heading rows (LT's, A's, G's, L's, T's...) colour the types by category and become a Category field; reading stops at "range stops here"; totals, costs and bookkeeping columns are left out; linear strips and track are recognised (rectangle symbols, scheduled in feet).

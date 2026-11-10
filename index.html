@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.14.0">
+<meta name="app-version" content="3.14.1">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -694,13 +694,13 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
   <div class="pop toolpop" id="toolPop" hidden><div class="tgrid" id="toolGrid"></div></div>
   <div class="pop toolpop" id="favPop" hidden><div class="fp-head"><b>Tools</b><button class="linkbtn" type="button" id="favEdit">Manage in Tool Chest&#8230;</button></div><div id="favGrid"></div></div>
   <div class="seg" id="tools">
-    <button class="tb" type="button" data-tool="select" title="Select and move markups" aria-label="Select">
+    <button class="tb on" type="button" data-tool="select" title="Select and move markups" aria-label="Select">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3l14 8-6 2-3 6z"/></svg><span class="lbl">Select</span>
     </button>
     <button class="tb" type="button" data-tool="lasso" title="Lasso: draw a loop around markups to select them" aria-label="Lasso">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 2.5"><path d="M12 4c5 0 9 2.5 9 6s-4 6-9 6c-1.5 0-3-.2-4.2-.7"/><path d="M7.8 15.3C5 14.3 3 12.3 3 10c0-3.5 4-6 9-6" /></svg><span class="lbl">Lasso</span>
     </button>
-    <button class="tb on" type="button" data-tool="circle" title="Draw a highlighted circle" aria-label="Circle">
+    <button class="tb" type="button" data-tool="circle" title="Draw a highlighted circle" aria-label="Circle">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="9" ry="7"/></svg><span class="lbl">Circle</span>
     </button>
     <button class="tb" type="button" data-tool="rect" title="Draw a rectangle" aria-label="Rectangle">
@@ -2382,7 +2382,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.14.0';
+var APP_VERSION = '3.14.1';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2429,7 +2429,7 @@ var SCALE_PRESETS = [
 var state = {
   fileName: 'document.pdf', bytes: null, pdf: null, labels: null, pages: [], zoom: 1,
   dpr: Math.min(window.devicePixelRatio || 1, 2),
-  tool: 'circle',
+  tool: 'select',
   style: { color: '#E53935', fill: true, fillOpacity: 0.35, opacity: 1, lineWidth: 2, highlight: true },
   annots: [], sel: new Set(), history: [], future: [], fingerDraw: false, author: '',
   sort: { key: 'page', dir: 1 }, filter: '', nextId: 1, unsaved: false, multi: false, multiToggle: false,

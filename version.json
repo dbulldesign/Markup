@@ -1,5 +1,5 @@
 {
-  "version": "3.14.0",
+  "version": "3.14.1",
   "date": "2026-11-10",
-  "notes": "Reads your channel schedule workbook (Fixture List + Channel Schedule tabs); schedule check by type, by sheet and by channel; Channel picker on fixtures."
+  "notes": "The app opens with the Select tool."
 }
