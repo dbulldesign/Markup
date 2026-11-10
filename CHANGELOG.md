@@ -2,6 +2,12 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.8.0 (round 2, phase 3: languages, large sets, storage, save options)
+- Text in any language: Chinese, Japanese, Korean, Cyrillic, Greek, Arabic, Hebrew, symbols such as ✓ now appear in saved PDFs (drawn with the iPad's own fonts into the markup's appearance; the text itself stays real Unicode so Revu can search and edit it).
+- Large drawing sets: pages open in parallel with a progress message (300 sheets in well under a second in testing); pages and thumbnails far from view give their memory back; the markups list shows 250 rows at a time with "Show more"; undo history is capped by size so big sets don't run the iPad out of memory.
+- Settings > Storage on this iPad: space used, whether Safari will keep it, size of each kept file, clear undo history, close files and remove leftovers.
+- Save options: choose the file name and whether markups stay editable or are flattened into the drawing (for issuing or printing). The open document stays editable either way.
+
 ## 2.7.0 (round 2, phase 2: iPad input and layout)
 - Palm rejection: while the Pencil is on or near the page, finger touches are ignored (Settings toggle).
 - Two-finger tap undoes, three-finger tap redoes. Two-finger tap on a markup selects it and opens its properties.

@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="2.7.0">
+<meta name="app-version" content="2.8.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -195,6 +195,12 @@ body.compact #measureTools > [data-tool] { display: none; }
 .page svg .ghost { opacity: .5; }
 .tabs { flex: none; display: flex; gap: 4px; padding: 4px 8px; background: var(--surface-2); border-bottom: 1px solid var(--line); overflow-x: auto; }
 .tabs[hidden] { display: none; }
+#saveName { flex: 1 1 160px; width: 160px; min-width: 0; }
+#saveMode { width: auto; }
+body.narrow #saveName { width: 120px; }
+.meter { flex: none; width: 90px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; }
+.meter i { display: block; height: 100%; width: var(--p); background: var(--accent); }
+.more-rows { display: block; width: calc(100% - 24px); margin: 10px 12px; padding: 10px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--accent, #2a5bd7); font: inherit; font-weight: 600; cursor: pointer; }
 .tab { flex: none; display: inline-flex; align-items: center; gap: 4px; max-width: 240px; min-height: 34px; padding: 0 4px 0 12px; border-radius: 9px; font-size: 13px; color: var(--ink-2); cursor: pointer; border: 0; background: transparent; }
 .tab .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tab.on { background: var(--surface); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
@@ -362,7 +368,8 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .chip .hl { mix-blend-mode: multiply; }
 
 /* Save bar (fallback outside claude.ai) */
-.savebar { position: fixed; left: 50%; bottom: calc(16px + var(--safe-bottom)); transform: translateX(-50%); z-index: 55; display: flex; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px 10px 16px; box-shadow: var(--shadow); max-width: min(92vw, 560px); }
+.savebar { position: fixed; left: 50%; bottom: calc(16px + var(--safe-bottom)); transform: translateX(-50%); z-index: 55; display: flex; gap: 10px; align-items: center; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px 10px 16px; box-shadow: var(--shadow); max-width: min(94vw, 760px); flex-wrap: wrap; justify-content: flex-end; }
+.savebar #saveBarText { flex: 1 0 100%; font-weight: 600; }
 .savebar[hidden] { display: none; }
 .savebar .btn:first-of-type { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 
@@ -761,7 +768,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
   </aside>
 </div>
 
-<div class="savebar" id="saveBar" hidden><span id="saveBarText">Markups written into the PDF.</span><button class="btn" id="btnSaveFile" type="button">Save file</button><button class="btn" id="btnSaveBarClose" type="button">Later</button></div>
+<div class="savebar" id="saveBar" hidden><span id="saveBarText">Markups written into the PDF.</span><input class="fld-in" id="saveName" type="text" aria-label="File name" spellcheck="false"><select class="fld-in" id="saveMode" aria-label="Markups in the saved file"><option value="edit">Editable</option><option value="flat">Flattened (issue/print)</option></select><button class="btn" id="btnSaveFile" type="button">Save file</button><button class="btn" id="btnSaveBarClose" type="button">Later</button></div>
 <div class="modal" id="scaleModal" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="scaleTitle">
     <h2 id="scaleTitle">Scale</h2>
@@ -1206,6 +1213,9 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
 
   // Approximate Helvetica advance widths (per 1pt of font size) for centering labels.
   function charW(ch) {
+    var cc = ch.charCodeAt(0);
+    if (cc >= 0x2E80 && cc <= 0xFFEF) return 1.0; // CJK, kana, hangul, full-width forms
+    if (cc > 0x24F) return 0.62;                   // other scripts (Cyrillic, Greek, Arabic, Hebrew, Thai...)
     if (/[0-9]/.test(ch)) return 0.556;
     if (ch === ' ' || ch === '.' || ch === ',') return 0.278;
     if (ch === "'") return 0.191;
@@ -1234,8 +1244,32 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
   function sideways(a) { var r = rotOf(a); return r === 90 || r === 270; }
   // Content-stream text centred on (cx, cy), turned with the page rotation.
   function degRot(deg, dx, dy) { var t = deg * Math.PI / 180, c = Math.round(Math.cos(t) * 1e6) / 1e6, sn = Math.round(Math.sin(t) * 1e6) / 1e6; return [dx * c - dy * sn, dx * sn + dy * c]; }
+  /* Text Helvetica (WinAnsi) cannot show - Chinese, Japanese, Korean, Arabic, Cyrillic, Greek...
+     is drawn by the device's own fonts into a sharp image placed in the appearance. The markup's
+     text itself stays Unicode, so Revu shows, searches and edits the real characters. */
+  var apImgs = null, apCtx = null;
+  function needsUnicode(s) { return /[^\x00-\xff]/.test(String(s || '')); }
+  function textImage(text, size, colr, bold) {
+    var S = Math.max(1, Math.min(8, 64 / size, 8000 / Math.max(1, String(text).length * size))), px = size * S, font = (bold ? '700 ' : '400 ') + px + 'px -apple-system, "Helvetica Neue", "PingFang SC", "Hiragino Sans", "Apple SD Gothic Neo", "Noto Sans", "Noto Sans CJK SC", Arial, sans-serif';
+    var cv = document.createElement('canvas'), g = cv.getContext('2d'); g.font = font;
+    var w = Math.max(1, Math.ceil(g.measureText(text).width + px * 0.1)), h = Math.ceil(px * 1.3);
+    cv.width = w; cv.height = h; g.font = font; g.textBaseline = 'alphabetic'; g.fillStyle = '#000'; g.fillText(text, px * 0.05, px * 1.0);
+    var d = g.getImageData(0, 0, w, h).data, n = w * h, rgb = new Uint8Array(n * 3), al = new Uint8Array(n);
+    var cc = String(colr).split(/\s+/).map(function (v) { return Math.round(Math.max(0, Math.min(1, +v || 0)) * 255); });
+    for (var i = 0; i < n; i++) { rgb[i * 3] = cc[0]; rgb[i * 3 + 1] = cc[1]; rgb[i * 3 + 2] = cc[2]; al[i] = d[i * 4 + 3]; }
+    var mask = apCtx.register(apCtx.flateStream(al, { Type: 'XObject', Subtype: 'Image', Width: w, Height: h, ColorSpace: 'DeviceGray', BitsPerComponent: 8 }));
+    var img = apCtx.register(apCtx.flateStream(rgb, { Type: 'XObject', Subtype: 'Image', Width: w, Height: h, ColorSpace: 'DeviceRGB', BitsPerComponent: 8, SMask: mask }));
+    var name = 'TxI' + (Object.keys(apImgs).length + 1); apImgs[name] = img;
+    return { name: name, w: w / S, h: h / S, base: px * 1.0 / S, lead: px * 0.05 / S };
+  }
   function textOps(a, font, size, colr, cx, cy, tw, baseOff, text, deg) {
     var g = deg != null ? deg : rotOf(a), t = g * Math.PI / 180, c = Math.round(Math.cos(t) * 1e6) / 1e6, sn = Math.round(Math.sin(t) * 1e6) / 1e6;
+    if (needsUnicode(text) && apImgs && typeof document !== 'undefined') {
+      var im = textImage(text, size, colr, /B$/.test(font));
+      // image bottom-left in the text's own frame: centred, baseline at -baseOff
+      var x0 = -tw / 2 - im.lead + (tw - (im.w - 2 * im.lead)) / 2, y0 = -baseOff - (im.h - im.base);
+      return 'q\n' + [c, sn, -sn, c, cx, cy].map(fmt).join(' ') + ' cm\n' + [im.w, 0, 0, im.h, x0, y0].map(fmt).join(' ') + ' cm\n/' + im.name + ' Do\nQ';
+    }
     var o = degRot(g, -tw / 2, -baseOff);
     return 'q\nBT\n/' + font + ' ' + fmt(size) + ' Tf\n' + colr + ' rg\n' + [c, sn, -sn, c, cx + o[0], cy + o[1]].map(fmt).join(' ') + ' Tm\n' + pdfText(text) + ' Tj\nET\nQ';
   }
@@ -1406,6 +1440,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     var col = function (c) { return c.map(f).join(' '); };
     var gs = { GSs: { Type: 'ExtGState', CA: fix(a.opacity, 3), ca: fix(a.opacity, 3) } };
     var parts = [], fonts = null;
+    apImgs = {}; apCtx = ctx;
     if (a.sym) {
       var hs = lw / 2, spath;
       if (!symNative(a)) spath = vertexPath(symPoints(a, hs), true);
@@ -1503,6 +1538,8 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     }
     var resources = { ExtGState: gs };
     if (fonts) resources.Font = fonts;
+    if (Object.keys(apImgs).length) resources.XObject = apImgs;
+    apImgs = null;
     var stream = ctx.stream(parts.join('\n'), {
       Type: 'XObject', Subtype: 'Form', FormType: 1,
       BBox: [fix(x0), fix(y0), fix(x1), fix(y1)], Matrix: [1, 0, 0, 1, 0, 0],
@@ -1717,7 +1754,43 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     return await doc.save({ useObjectStreams: false });
   }
 
-  root.MarkupIO = { endShape: endShape, angleArc: angleArc, symBBox: symBBox, symNative: symNative, symAng: symAng, stampDims: stampDims, arrowSize: arrowSize, arrowHead: arrowHead, cloudCurves: cloudCurves, ftLayout: ftLayout, ftAttach: ftAttach, ftBounds: ftBounds, SYM_SUB: SYM_SUB, SYM_WIDE: SYM_WIDE, symKind: symKind, symDims: symDims, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
+  /* Flatten: draw every visible markup's appearance into its page and remove the markups,
+     for issuing or printing. Links and form fields stay. The open document is not changed. */
+  async function flatten(bytes) {
+    var L = lib(), N = L.PDFName.of, doc = await L.PDFDocument.load(bytes, { updateMetadata: false }), ctx = doc.context;
+    doc.getPages().forEach(function (page) {
+      var annots = page.node.Annots(); if (!annots) return;
+      var keep = [], ops = [];
+      for (var i = 0; i < annots.size(); i++) {
+        var ref = annots.get(i), d = ctx.lookup(ref); if (!(d instanceof L.PDFDict)) continue;
+        var sub = nameOf(d.get(N('Subtype')));
+        if (sub === 'Link' || sub === 'Widget') { keep.push(ref); continue; }
+        if (sub === 'Popup' || d.get(N('IRT'))) continue;
+        var fl = +(d.get(N('F')) ? d.get(N('F')).asNumber() : 0);
+        if (fl & 2 || fl & 32) continue;
+        var ap = ctx.lookup(d.get(N('AP'))); if (!(ap instanceof L.PDFDict)) continue;
+        var nref = ap.get(N('N')), nobj = ctx.lookup(nref);
+        if (nobj instanceof L.PDFDict && !(nobj instanceof L.PDFStream)) { var as = d.get(N('AS')); nref = as ? nobj.get(as) : null; nobj = nref && ctx.lookup(nref); }
+        if (!(nobj instanceof L.PDFStream)) continue;
+        var rect = ctx.lookup(d.get(N('Rect'))), bb = ctx.lookup(nobj.dict.get(N('BBox'))); if (!rect || !bb) continue;
+        var r = rect.asArray().map(function (x) { return x.asNumber(); }), b = bb.asArray().map(function (x) { return x.asNumber(); });
+        var mx = nobj.dict.get(N('Matrix')), m = mx ? ctx.lookup(mx).asArray().map(function (x) { return x.asNumber(); }) : [1, 0, 0, 1, 0, 0];
+        var pts = [[b[0], b[1]], [b[2], b[1]], [b[2], b[3]], [b[0], b[3]]].map(function (q) { return [m[0] * q[0] + m[2] * q[1] + m[4], m[1] * q[0] + m[3] * q[1] + m[5]]; });
+        var bx0 = Math.min.apply(null, pts.map(function (q) { return q[0]; })), by0 = Math.min.apply(null, pts.map(function (q) { return q[1]; }));
+        var bx1 = Math.max.apply(null, pts.map(function (q) { return q[0]; })), by1 = Math.max.apply(null, pts.map(function (q) { return q[1]; }));
+        var rx0 = Math.min(r[0], r[2]), ry0 = Math.min(r[1], r[3]), rx1 = Math.max(r[0], r[2]), ry1 = Math.max(r[1], r[3]);
+        var sx = bx1 - bx0 ? (rx1 - rx0) / (bx1 - bx0) : 1, sy = by1 - by0 ? (ry1 - ry0) / (by1 - by0) : 1;
+        if (!(nref instanceof L.PDFRef)) nref = ctx.register(nobj);
+        var name = page.node.newXObject('Flat', nref);
+        ops.push(L.pushGraphicsState(), L.concatTransformationMatrix(sx, 0, 0, sy, rx0 - bx0 * sx, ry0 - by0 * sy), L.drawObject(name), L.popGraphicsState());
+      }
+      if (ops.length) page.pushOperators.apply(page, ops);
+      if (keep.length) page.node.set(N('Annots'), ctx.obj(keep)); else page.node.delete(N('Annots'));
+    });
+    return doc.save({ useObjectStreams: false });
+  }
+
+  root.MarkupIO = { flatten: flatten, endShape: endShape, angleArc: angleArc, symBBox: symBBox, symNative: symNative, symAng: symAng, stampDims: stampDims, arrowSize: arrowSize, arrowHead: arrowHead, cloudCurves: cloudCurves, ftLayout: ftLayout, ftAttach: ftAttach, ftBounds: ftBounds, SYM_SUB: SYM_SUB, SYM_WIDE: SYM_WIDE, symKind: symKind, symDims: symDims, symPoints: symPoints, symLabel: symLabel, symText: symText, symTextColor: symTextColor, readMarkups: readMarkups, readDocument: readDocument, applyMarkups: applyMarkups, makeNM: makeNM, OWNED: OWNED, FILLABLE: FILLABLE, textWidth: textWidth, labelBox: labelBox };
 })(typeof window !== 'undefined' ? window : globalThis);
 </script>
 <script>
@@ -1929,7 +2002,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '2.7.0';
+var APP_VERSION = '2.8.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2221,10 +2294,15 @@ function pushHistory(tag) {
   lastTag = tag || null; lastTagTime = now;
   state.history.push(snapshot());
   if (state.history.length > 60) state.history.shift();
+  trimHistory(state.history);
   state.future = [];
   updateUndoButtons();
 }
 // Undo snapshots: markups plus page scales.
+// Large sets: undo steps are whole copies of the markups, so keep them under ~40 MB in all.
+function histBytes(h) { var n = 0; for (var i = 0; i < h.length; i++) n += h[i].length; return n; }
+function trimHistory(h) { while (h.length > 3 && histBytes(h) > 40e6) h.shift(); }
+function lastFit(h, max) { var out = [], n = 0; for (var i = h.length - 1; i >= 0 && out.length < 25; i--) { n += h[i].length; if (n > max) break; out.unshift(h[i]); } return out; }
 function snapshot() { return JSON.stringify({ a: state.annots, s: state.scales, d: Array.from(state.scaleDirty || []) }); }
 function restore(json) {
   var touched = new Set(live().map(function (a) { return a.pageIndex; }));
@@ -2276,7 +2354,8 @@ var idb = (function () {
   return {
     get: function (k) { return tx('readonly', function (st) { return st.get(k); }); },
     set: function (k, v) { return tx('readwrite', function (st) { return st.put(v, k); }); },
-    del: function (k) { return tx('readwrite', function (st) { return st.delete(k); }); }
+    del: function (k) { return tx('readwrite', function (st) { return st.delete(k); }); },
+    keys: function () { return tx('readonly', function (st) { return st.getAllKeys(); }); }
   };
 })();
 var keep = { ok: true, timer: null, warned: false, restoring: false };
@@ -2375,9 +2454,14 @@ function buildThumbs() {
     var v = p.page.view, ar = (v[3] - v[1]) / (v[2] - v[0]); if (p.page.rotate % 180) ar = 1 / ar;
     return '<button type="button" class="thumb" data-pg="' + p.index + '"><span class="tc" style="aspect-ratio:' + (1 / ar).toFixed(4) + '"><canvas></canvas></span><span class="tl">' + esc(pageLabel(p.index)) + '</span></button>';
   }).join('');
+  // Thumbnails draw as they scroll into view and give their memory back once far away.
   thumbObserver = new IntersectionObserver(function (ents) {
-    ents.forEach(function (en) { if (en.isIntersecting) { thumbObserver.unobserve(en.target); renderThumb(en.target); } });
-  }, { root: $('#thumbs'), rootMargin: '200px' });
+    ents.forEach(function (en) {
+      var el = en.target;
+      if (en.isIntersecting) { if (!el.dataset.done) { el.dataset.done = '1'; renderThumb(el); } }
+      else if (el.dataset.done && state.pages.length > 60) { var c = el.querySelector('canvas'); c.width = 0; c.height = 0; delete el.dataset.done; }
+    });
+  }, { root: $('#thumbs'), rootMargin: '600px' });
   $$('#thumbs .thumb').forEach(function (el) { thumbObserver.observe(el); });
   markThumb();
 }
@@ -2385,7 +2469,7 @@ function renderThumb(el) {
   var p = state.pages[+el.dataset.pg]; if (!p) return;
   var c = el.querySelector('canvas'), w = 160 * Math.min(window.devicePixelRatio || 1, 2), vp1 = p.page.getViewport({ scale: 1 }), sc0 = w / vp1.width, vp = p.page.getViewport({ scale: sc0 });
   c.width = Math.round(vp.width); c.height = Math.round(vp.height);
-  p.page.render({ canvasContext: c.getContext('2d'), viewport: vp, annotationMode: pdfjsLib.AnnotationMode.ENABLE_STORAGE }).promise.catch(function () { /* ignore */ });
+  try { p.page.render({ canvasContext: c.getContext('2d'), viewport: vp, annotationMode: pdfjsLib.AnnotationMode.ENABLE_STORAGE }).promise.catch(function () { /* ignore */ }); } catch (e) { /* the document was replaced */ }
 }
 function markThumb() {
   var cur = currentPageIndex(), el = null;
@@ -2494,7 +2578,7 @@ async function saveSession() {
   var ses = {
     v: 1, docId: state.docId, name: state.fileName, annots: state.annots, scales: state.scales,
     scaleDirty: Array.from(state.scaleDirty), series: state.series, nextId: state.nextId,
-    history: state.history.slice(-25), future: state.future.slice(-25),
+    history: lastFit(state.history, 6e6), future: lastFit(state.future, 2e6),
     zoom: state.zoom, sx: v.scrollWidth ? v.scrollLeft / v.scrollWidth : 0, sy: v.scrollHeight ? v.scrollTop / v.scrollHeight : 0,
     pendingExport: !!state.pendingSave, unsaved: !!state.unsaved, hideSubj: Array.from(state.hideSubj || []), hideAll: !!state.hideAll, at: Date.now()
   };
@@ -2621,8 +2705,14 @@ async function buildPages(keepScroll) {
   cont.innerHTML = ''; state.pages = [];
   var first = await state.pdf.getPage(1);
   if (!keepScroll) { state.zoom = fitZoomFor(first); state.fitMode = true; }
-  for (var i = 1; i <= state.pdf.numPages; i++) {
-    var page = i === 1 ? first : await state.pdf.getPage(i);
+  var n = state.pdf.numPages, got = [first], B = 24;
+  for (var j = 2; j <= n; j += B) {
+    if (n > 40) setBusy('Opening pages ' + Math.min(n, j + B - 1) + ' of ' + n + '\u2026');
+    var batch = []; for (var q = j; q < Math.min(n + 1, j + B); q++) batch.push(state.pdf.getPage(q));
+    got = got.concat(await Promise.all(batch));
+  }
+  for (var i = 1; i <= n; i++) {
+    var page = got[i - 1];
     var el = document.createElement('div'); el.className = 'page'; el.dataset.index = String(i - 1);
     var canvas = document.createElement('canvas'); canvas.className = 'base';
     var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -2683,7 +2773,7 @@ function renderVisible() {
       var near = pb > top - h * 1.2 && pt < bottom + h * 1.2;
       var far = pb < top - h * 3 || pt > bottom + h * 3;
       if (near) renderPage(p);
-      else if (far && (p.rendered || p.renderTask)) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; } p.rendered = false; p.canvas.width = 1; p.canvas.height = 1; dropDetail(p); }
+      else if (far && (p.rendered || p.renderTask)) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; } p.rendered = false; p.canvas.width = 1; p.canvas.height = 1; dropDetail(p); setTimeout(function () { if (!p.rendered && !p.renderTask && state.pages[p.index] === p) { try { p.page.cleanup(); } catch (e) { /* ignore */ } } }, 50); }
     });
     scheduleDetail();
     updateScaleButton(); updatePageInd();
@@ -4204,13 +4294,15 @@ function renderList() {
   var all = live(), rowsEl = $('#rows');
   $('#count').textContent = all.length; $('#count2').textContent = all.length;
   if (!all.length) { rowsEl.innerHTML = '<div class="none">' + (state.pdf ? 'No markups yet. Draw one with the Pencil.' : 'Open a PDF to see its markups.') + '</div>'; return; }
-  var heads = all.filter(function (a) { return !a.parentId || !byId(a.parentId) || byId(a.parentId).deleted; });
-  var groups = heads.map(function (h) { return { head: h, members: all.filter(function (x) { return x.parentId === h.id; }) }; });
+  var liveIds = {}, kids = {}; all.forEach(function (a) { liveIds[a.id] = 1; });
+  all.forEach(function (a) { if (a.parentId && liveIds[a.parentId]) (kids[a.parentId] = kids[a.parentId] || []).push(a); });
+  var heads = all.filter(function (a) { return !a.parentId || !liveIds[a.parentId]; });
+  var groups = heads.map(function (h) { return { head: h, members: kids[h.id] || [] }; });
   groups = groups.filter(function (g) { return [g.head].concat(g.members).some(matchesFilter); });
   var k = state.sort.key, dir = state.sort.dir;
   var cmp = function (a, b) { var va = sortVal(a, k), vb = sortVal(b, k); return (va < vb ? -1 : va > vb ? 1 : 0) * dir || a.pageIndex - b.pageIndex; };
   groups.sort(function (x, y) { return cmp(x.head, y.head); });
-  var html = '';
+  var html = '', limit = state.listLimit || 250, shown = 0, more = 0;
   var row = function (a, cls) {
     var meta = [a.author || '', fmtDay(a.date)].filter(Boolean).join(', ');
     return '<div class="row ' + cls + (state.sel.has(a.id) ? ' sel' : '') + '" data-id="' + esc(a.id) + '">' +
@@ -4221,6 +4313,9 @@ function renderList() {
       '<span class="meta">' + esc(meta) + '</span></div>';
   };
   groups.forEach(function (g) {
+    // Large sets: only the first rows are built; "Show more" adds the next batch.
+    if (shown >= limit) { more++; return; }
+    shown++;
     if (g.members.length) {
       // A group is one row (collapsed); the arrow lists its markups underneath.
       var all = [g.head].concat(g.members), ms = g.members.slice().sort(cmp);
@@ -4240,10 +4335,12 @@ function renderList() {
       if (open) { html += row(g.head, 'member'); ms.forEach(function (m) { html += row(m, 'member'); }); }
     } else html += row(g.head, '');
   });
+  if (more) html += '<button type="button" class="more-rows" id="moreRows">Show ' + Math.min(more, 250) + ' more of ' + more + '</button>';
   rowsEl.innerHTML = html || '<div class="none">Nothing matches that filter.</div>';
   $$('.list-head button').forEach(function (b) { b.classList.toggle('on', b.dataset.key === k); b.textContent = b.textContent.replace(/[▲▼]\s*$/, '').trim() + (b.dataset.key === k ? (dir > 0 ? ' ▲' : ' ▼') : ''); });
 }
 $('#rows').addEventListener('click', function (e) {
+  if (e.target.id === 'moreRows') { state.listLimit = (state.listLimit || 250) + 250; renderList(); return; }
   var tw = e.target.closest ? e.target.closest('[data-twist]') : null;
   if (tw) { var id = tw.dataset.twist; if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id); renderList(); return; }
   var g = e.target.closest ? e.target.closest('.row[data-group]') : null;
@@ -4277,7 +4374,7 @@ $$('.list-head button').forEach(function (b) {
     renderList();
   });
 });
-$('#filter').addEventListener('input', function (e) { state.filter = e.target.value; renderList(); });
+$('#filter').addEventListener('input', function (e) { state.filter = e.target.value; state.listLimit = 250; renderList(); });
 
 /* ---------- save ---------- */
 async function savePdf() {
@@ -4303,6 +4400,7 @@ async function savePdf() {
     // Hosted outside claude.ai (for example GitHub Pages): share or download directly, from a tap.
     state.pendingSave = { bytes: out, name: outName };
     $('#saveBarText').textContent = 'Markups written into the PDF.';
+    $('#saveName').value = outName.replace(/\.pdf$/i, ''); $('#saveMode').value = 'edit';
     $('#saveBar').hidden = false;
     saveSession();
     return;
@@ -4323,7 +4421,15 @@ async function savePdf() {
 
 /* ---------- direct save (outside claude.ai) ---------- */
 async function saveDirect() {
-  var p = state.pendingSave; if (!p) return;
+  var p0 = state.pendingSave; if (!p0) return;
+  var nm = ($('#saveName').value || '').replace(/[\\\/:*?"<>|]+/g, '-').trim() || p0.name.replace(/\.pdf$/i, ''), bytes = p0.bytes;
+  if ($('#saveMode').value === 'flat') {
+    setBusy('Flattening markups\u2026'); await nextFrame();
+    try { bytes = await MarkupIO.flatten(p0.bytes); } catch (e) { setBusy(null); console.error(e); toast('Could not flatten: ' + (e && e.message || e), 6000); return; }
+    setBusy(null);
+    if (!/flat/i.test(nm)) nm += ' (flattened)';
+  }
+  var p = { bytes: bytes, name: nm + '.pdf' };
   var blob = new Blob([p.bytes], { type: 'application/pdf' });
   try {
     if (navigator.canShare && typeof File === 'function') {
@@ -5123,11 +5229,46 @@ function openSettings() {
       row('Area units', sel('area', m.area, [['auto', 'sf / m\u00b2'], ['sy', 'Square yards'], ['acre', 'Acres'], ['ha', 'Hectares']])) +
       row('Angle decimals', sel('adec', m.adec, [[0, '0'], [1, '1'], [2, '2']])) + '</div>' +
     '<div class="setsec"><h3>Toolbar tools</h3><p class="hint">Tick the tools to show; use the arrows to change their order (also the order in the tool picker).</p><div class="tlist" id="tlist"></div></div>' +
+    '<div class="setsec"><h3>Storage on this iPad</h3><div id="storeInfo" class="hint">Checking\u2026</div></div>' +
     '<div class="setsec"><h3>Your data</h3><div class="actions"><button class="btn" type="button" data-sa="backup">Back up tools and settings</button><button class="btn" type="button" data-sa="restore">Restore\u2026</button><button class="btn" type="button" data-sa="resettb">Reset toolbar</button></div></div>' +
     '<div class="setsec"><h3>About</h3><div class="setrow"><span>Pencil Markup v' + APP_VERSION + '</span><span class="actions"><button class="btn" type="button" data-sa="update">Check for updates</button><button class="btn" type="button" data-sa="help">Help</button></span></div></div>';
   renderToolList();
   $('#setModal').hidden = false;
+  renderStorage();
 }
+function fmtBytes(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB'; }
+async function renderStorage() {
+  var el = $('#storeInfo'); if (!el) return;
+  var est = null, persisted = null, keys = [];
+  try { if (navigator.storage && navigator.storage.estimate) est = await navigator.storage.estimate(); } catch (e) { est = null; }
+  try { if (navigator.storage && navigator.storage.persisted) persisted = await navigator.storage.persisted(); } catch (e) { persisted = null; }
+  try { keys = (await idb.keys()) || []; } catch (e) { keys = []; }
+  var open = {}; tabs.list.forEach(function (t) { open[t.id] = t; });
+  var rows = [], left = [];
+  for (var i = 0; i < keys.length; i++) {
+    var k = String(keys[i]), m = /^doc:(.+)$/.exec(k); if (!m) { var ms = /^session:(.+)$/.exec(k); if (ms && !open[ms[1]] && keys.indexOf('doc:' + ms[1]) < 0) left.push(ms[1]); continue; }
+    var d = null, ss = null; try { d = await idb.get(k); ss = await idb.get('session:' + m[1]); } catch (e) { /* ignore */ }
+    var sz = (d && d.bytes ? d.bytes.byteLength || d.bytes.length || 0 : 0) + (ss ? JSON.stringify(ss).length : 0);
+    if (open[m[1]]) rows.push({ id: m[1], name: (d && d.name) || open[m[1]].name, size: sz, hist: ss && ss.history ? ss.history.length : 0 });
+    else left.push(m[1]);
+  }
+  var pct = est && est.quota ? Math.round(est.usage / est.quota * 100) : null;
+  el.className = '';
+  el.innerHTML = (est ? '<div class="setrow"><span>Used ' + fmtBytes(est.usage || 0) + (est.quota ? ' of about ' + fmtBytes(est.quota) : '') + '<br><span class="sub2">' + (persisted ? 'Kept permanently: Safari will not clear it.' : 'Add Pencil Markup to the Home Screen so Safari keeps it, and save PDFs you need.') + '</span></span><span class="meter" style="--p:' + (pct || 0) + '%"><i></i></span></div>' : '') +
+    rows.map(function (r) { return '<div class="setrow"><span>' + esc(r.name) + '<br><span class="sub2">' + fmtBytes(r.size) + (r.hist ? ', ' + r.hist + ' undo steps' : '') + (r.id === tabs.active ? ', open now' : '') + '</span></span><span class="actions">' + (r.hist ? '<button class="btn" type="button" data-st="hist|' + esc(r.id) + '">Clear undo</button>' : '') + '<button class="btn" type="button" data-st="close|' + esc(r.id) + '">Close file</button></span></div>'; }).join('') +
+    (left.length ? '<div class="setrow"><span>' + left.length + ' leftover item' + (left.length > 1 ? 's' : '') + ' from closed files</span><button class="btn" type="button" data-st="left|' + left.join(',') + '">Remove</button></div>' : '') +
+    (!rows.length && !left.length ? '<p class="hint">No files kept on this iPad.</p>' : '');
+}
+$('#setBody').addEventListener('click', async function (e) {
+  var b = e.target.closest ? e.target.closest('[data-st]') : null; if (!b) return;
+  var q = b.dataset.st.split('|'), act = q[0], id = q[1];
+  if (act === 'close') { await closeTab(id); }
+  else if (act === 'hist') {
+    if (id === tabs.active) { state.history = []; state.future = []; updateUndoButtons(); await saveSession(); }
+    else { try { var ss = await idb.get('session:' + id); if (ss) { ss.history = []; ss.future = []; await idb.set('session:' + id, ss); } } catch (err) { /* ignore */ } }
+  } else if (act === 'left') { for (var x of id.split(',')) { try { await idb.del('doc:' + x); await idb.del('session:' + x); } catch (err) { /* ignore */ } } }
+  renderStorage();
+});
 function renderToolList() {
   var hid = ui().toolHidden || [], ord = toolOrder();
   $('#tlist').innerHTML = ord.map(function (t, i) {

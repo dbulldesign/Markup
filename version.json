@@ -1,5 +1,5 @@
 {
-  "version": "2.7.0",
+  "version": "2.8.0",
   "date": "2026-11-10",
-  "notes": "Palm rejection, two/three-finger tap undo/redo, portrait layout with bottom toolbar and markups sheet, Split View support, left-handed mode and larger touch targets."
+  "notes": "Text in any language (Chinese, Japanese, Cyrillic, Arabic...), faster large drawing sets, storage use in Settings, and save options: file name and flattened PDFs."
 }
