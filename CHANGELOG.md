@@ -2,6 +2,11 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.2.1
+- Updates install by themselves: when the app opens, or you come back to it after half a minute away, a newer version is loaded straight away if nothing is being edited (your file and markups reopen). Turn it off in Settings > Drawing > Install updates automatically. Updates also skip the browser's 10-minute page cache, so a new version arrives right away.
+- Toolbar on one row with many favourites (full-width iPad): the favourites strip shrinks and scrolls sideways instead of pushing the toolbar onto a second row. On smaller or upright screens it uses a second row only when nothing else fits. The version chip shows only when an update is waiting (always in Settings > About), and in portrait Help moves to Settings > About.
+- The 3.1.1 status-bar fix (no blur over the toolbar) reaches iPads that were still on 3.1.0.
+
 ## 3.2.0 (fixture lengths)
 - Length on fixtures: select a symbol (pick it in the list, or tap Properties) and type its length (4', 4'-0", 1.2 with m) and an optional quantity. The total (4'-0" x 3 = 12'-0") shows in the properties, the markups list, the Counts chips (total per subject), legends, the counts and markups CSV/Excel (Length qty, Total length) and the printable summary. Several symbols can be set at once.
 - Revu: the length is written into the markup's Comments as "Length: 4'-0" x 3 = 12'-0"", which Revu shows in its Comments column. It is also stored with the symbol, so it comes back as a length (not plain text) when reopened here.

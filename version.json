@@ -1,5 +1,5 @@
 {
-  "version": "3.2.0",
+  "version": "3.2.1",
   "date": "2026-11-10",
-  "notes": "Fixture lengths: give a symbol a length (and quantity) and see total lengths in the list, counts, legend and exports; written into the Comments Revu shows."
+  "notes": "Updates install by themselves; toolbar stays on one row with many favourites; toolbar no longer blurred by the status bar."
 }

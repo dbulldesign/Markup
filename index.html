@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.2.0">
+<meta name="app-version" content="3.2.1">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -213,6 +213,17 @@ body.narrow #saveName { width: 120px; }
 .sigpad { display: block; width: 100%; height: 200px; border: 1px solid var(--line); border-radius: 10px; background: #fff; touch-action: none; margin: 8px 0; }
 #counts .cl { color: var(--accent); font-weight: 600; }
 .row .comm .len { color: var(--accent); font-weight: 600; }
+/* One toolbar row on a full-size iPad: the favourites strip gives way and scrolls sideways. */
+body:not(.narrow) .topbar:not(.wrap) { flex-wrap: nowrap; }
+body:not(.narrow) .topbar > * { flex-shrink: 0; }
+body:not(.narrow) .topbar > .seg.favs { flex: 0 1 auto; min-width: 96px; }
+.seg.favs { overflow-x: auto; flex-wrap: nowrap; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.seg.favs .tb { padding: 0 6px; }
+.seg.favs::-webkit-scrollbar { display: none; }
+.seg.favs > * { flex: none; }
+@media (max-width: 1400px) { body:not(.narrow) #btnVersion:not(.has-update) { display: none; } }
+/* Upright iPad: Help lives in Settings > About to save toolbar room. */
+body.portrait #btnHelp { display: none; }
 #btnToolPick .tn { max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .lenrow { display: flex; align-items: center; gap: 6px; }
 .lenrow #pLenV { flex: 2 1 0; min-width: 0; } .lenrow #pLenQ { flex: 1 1 0; min-width: 0; max-width: 70px; } .lenrow select { flex: none; width: auto; }
@@ -2216,7 +2227,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.2.0';
+var APP_VERSION = '3.2.1';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3442,6 +3453,13 @@ function layoutClasses() {
   var pb = $('#btnPanelPos'); if (pb) { pb.title = bottom ? 'Move the list to the side' : 'Move the list to the bottom'; pb.classList.toggle('is-bottom', bottom); }
   b.classList.toggle('big', !!u.big);
   if ($('#btnToolPick')) $('#btnToolPick').hidden = !(u.compact || narrow);
+  fitToolbar();
+}
+// One row when it fits (favourites scroll); a second row only when even that cannot fit.
+function fitToolbar() {
+  var tb = document.querySelector('.topbar'); if (!tb) return;
+  tb.classList.remove('wrap');
+  if (tb.scrollWidth > tb.clientWidth + 1) tb.classList.add('wrap');
 }
 var resizeT = null;
 window.addEventListener('resize', function () {
@@ -5163,6 +5181,7 @@ function renderFavBar() {
   bar.innerHTML = favs.map(function (f) {
     return '<button type="button" class="tb fav' + (isActiveTool(f.set, f.tool) ? ' on' : '') + '" data-set="' + esc(f.set.id) + '" data-fav="' + esc(f.tool.id) + '" title="' + esc(f.tool.title) + '" aria-label="' + esc(f.tool.title) + '">' + toolPreview(f.tool) + '</button>';
   }).join('');
+  if (typeof fitToolbar === 'function') fitToolbar();
 }
 function renderChest() {
   var box = $('#chestSets');
@@ -6088,8 +6107,13 @@ async function checkForUpdate(manual) {
   }
   update.checking = false; renderVersion();
   if (manual && !update.error && !hasUpdate()) toast('You have the latest version (v' + APP_VERSION + ').');
-  if (!manual && hasUpdate()) toast('Version ' + update.latest + ' is available. Tap Update in the toolbar.', 5000);
+  if (!manual && hasUpdate()) {
+    // Install on its own when nothing is being edited: the open file and markups are kept and reopened.
+    if (ui().autoUpdate !== false && appIdle()) { toast('Updating to v' + update.latest + '\u2026', 2500); setTimeout(function () { if (appIdle()) applyUpdate(); }, 1200); return; }
+    toast('Version ' + update.latest + ' is available. Tap Update in the toolbar.', 5000);
+  }
 }
+function appIdle() { return !state.draft && !gesture && $('#textEdit').hidden && !state.pendingSave && !$$('.modal').some(function (m) { return !m.hidden; }) && $('#busy').hidden; }
 async function applyUpdate() {
   // Keep the open file and every markup first; the new version reopens them.
   var kept = !state.pdf || (state.docId && await saveSession());
@@ -6107,7 +6131,13 @@ $('#btnVersion').addEventListener('click', function (e) {
 });
 $('#btnUpdate').addEventListener('click', applyUpdate);
 $('#btnCheck').addEventListener('click', function () { lastUpdateCheck = Date.now(); checkForUpdate(true); });
-document.addEventListener('visibilitychange', function () { if (document.visibilityState === 'visible') maybeCheck(); });
+// Coming back to the app (Home Screen apps stay open for days) checks again after half a minute away.
+var hiddenAt = 0;
+document.addEventListener('visibilitychange', function () {
+  if (document.visibilityState === 'hidden') { hiddenAt = Date.now(); return; }
+  if (hiddenAt && Date.now() - hiddenAt > 30000) lastUpdateCheck = 0;
+  maybeCheck();
+});
 setInterval(maybeCheck, 30 * 60 * 1000);
 
 /* ---------- interface settings ---------- */
@@ -6272,6 +6302,7 @@ function openSettings() {
       row('Snap', chk('snap', state.snap), 'To corners, ends and centres, and level or plumb lines') +
       row('Multi-select', chk('multi', state.multiToggle), 'Tapping markups adds them to the selection') +
       row('Save symbols as stamps', chk('symStamp', u.symStamp), 'Revu keeps the label or number inside, but cannot restyle them') +
+      row('Install updates automatically', chk('autoUpdate', u.autoUpdate !== false), 'When the app opens or you come back to it; your file and markups reopen') +
       row('Your name', '<input type="text" class="fld-in" data-set="author" value="' + esc(state.author || '') + '" placeholder="Shows as Author in Revu">') + '</div>' +
     '<div class="setsec"><h3>Measurements</h3>' +
       row('Feet-inch rounding', sel('ftin', m.ftin, [[2, '1/2"'], [4, '1/4"'], [8, '1/8"'], [16, '1/16"']])) +
@@ -6339,6 +6370,7 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'hold') u.hold = v;
   else if (k === 'symStamp') u.symStamp = v;
   else if (k === 'panelPos') { u.panelPos = v; saveUI(); layoutClasses(); renderVisible(); if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } }
+  else if (k === 'autoUpdate') { u.autoUpdate = v; }
   else if (k === 'propsMode') { u.propsMode = v; saveUI(); renderProps(); }
   else if (k === 'bottomBar' || k === 'lefty' || k === 'big') { u[k] = v; saveUI(); layoutClasses(); renderPalette(); renderVisible(); }
   else if (k === 'palm' || k === 'fingerTaps') u[k] = v;
@@ -6542,10 +6574,11 @@ if ('serviceWorker' in navigator && /^https?:$/.test(location.protocol)) {
 }
 window.addEventListener('online', function () { lastUpdateCheck = 0; maybeCheck(); });
 window.addEventListener('offline', function () { toast('You are offline. Opening, marking up and saving PDFs still works.', 4000); });
-renderVersion(); setTimeout(maybeCheck, 1500);
+renderVersion(); setTimeout(maybeCheck, 4000);
 renderFavBar(); arrangeToolbar(); renderPalette();
 if (ui().sheetH) document.body.style.setProperty('--sheet-h', ui().sheetH);
 window.addEventListener('resize', function () { if (ui().palette) renderPalette(); });
+setTimeout(fitToolbar, 0);
 if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) $('#panel').hidden = false;
 renderList();
 // Ask the browser not to clear the kept file when space runs low.

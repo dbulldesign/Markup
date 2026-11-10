@@ -1,7 +1,7 @@
 /* Pencil Markup service worker: keeps the app and its libraries on the device so it opens offline.
    Bump CACHE whenever any file below changes (keep it in step with APP_VERSION in index.html). */
 'use strict';
-var CACHE = 'pencil-markup-3.2.0';
+var CACHE = 'pencil-markup-3.2.1';
 var APP_SHELL = [
   './',
   'index.html',
@@ -41,7 +41,8 @@ function pageRequest(request) {
     var fromCache = function () {
       return cache.match(request, { ignoreSearch: true }).then(function (r) { return r || cache.match('index.html'); });
     };
-    var network = fetch(request).then(function (res) {
+    // no-cache: ask the server every time (GitHub Pages lets browsers keep pages for 10 minutes otherwise).
+    var network = fetch(request, { cache: 'no-cache' }).then(function (res) {
       if (res && res.ok) cache.put('index.html', res.clone());
       return res;
     });
