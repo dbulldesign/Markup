@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.15.0">
+<meta name="app-version" content="3.16.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -160,6 +160,10 @@ body.compact #measureTools > [data-tool] { display: none; }
 .fp-sh .t { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .fp-sh .n { color: var(--ink-2); font-weight: 500; font-size: 12px; }
 .favgrid .tb.off { opacity: .45; }
+.tsearch { position: sticky; top: -2px; z-index: 2; background: var(--surface); padding: 2px 0 8px; }
+.tsearch input { width: 100%; box-sizing: border-box; }
+.chest .tsearch { padding: 0 0 8px; }
+.tool-none { padding: 12px 4px; color: var(--ink-2); font-size: 14px; }
 .fp-head { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; font-size: 14px; }
 .favgrid .tb svg, .favgrid .tb img { width: 46px; height: 30px; }
 .favgrid .tb .lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -692,7 +696,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
 
   <button class="tb toolpick" id="btnToolPick" type="button" title="Choose a tool" aria-haspopup="true" hidden><span class="ti"></span><span class="lbl keep tn">Tool</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
   <div class="pop toolpop" id="toolPop" hidden><div class="tgrid" id="toolGrid"></div></div>
-  <div class="pop toolpop" id="favPop" hidden><div class="fp-head"><b>Tools</b><button class="linkbtn" type="button" id="favEdit">Manage in Tool Chest&#8230;</button></div><div id="favGrid"></div></div>
+  <div class="pop toolpop" id="favPop" hidden><div class="fp-head"><b>Tools</b><button class="linkbtn" type="button" id="favEdit">Manage in Tool Chest&#8230;</button></div><div class="tsearch"><input type="search" class="fld-in" id="favSearch" placeholder="Search tools" autocomplete="off" spellcheck="false" aria-label="Search tools"></div><div id="favGrid"></div></div>
   <div class="seg" id="tools">
     <button class="tb on" type="button" data-tool="select" title="Select and move markups" aria-label="Select">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3l14 8-6 2-3 6z"/></svg><span class="lbl">Select</span>
@@ -804,6 +808,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <button class="btn" id="btnBackup" type="button" title="Save all palettes, favourites and settings to a file">Back up</button>
       <input id="btxFile" type="file" multiple hidden>
     </div>
+    <div class="tsearch"><input type="search" class="fld-in" id="chestSearch" placeholder="Search tools (name, type, description, manufacturer...)" autocomplete="off" spellcheck="false" aria-label="Search the Tool Chest"></div>
     <div id="chestSets" class="chest-sets"></div>
   </div>
   <div class="seg favs" id="favBar" hidden></div>
@@ -2382,7 +2387,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.15.0';
+var APP_VERSION = '3.16.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -6028,23 +6033,34 @@ function renderFavBar() {
   }).join('');
   if (typeof fitToolbar === 'function') fitToolbar();
 }
+/* Search: every word typed must appear in the tool's name, type, subject, comments or custom fields. */
+function toolMatches(t, q) {
+  if (!q) return true;
+  var hay = [t.title, t.subject, t.contents, t.typeCode, t.category, t.sym && t.sym.label].concat((t.fields || []).map(function (f) { return f.name + ' ' + f.value; })).join(' ').toLowerCase();
+  return q.toLowerCase().split(/\s+/).filter(Boolean).every(function (w) { return hay.indexOf(w) >= 0; });
+}
 function renderChest() {
-  var box = $('#chestSets');
+  var box = $('#chestSets'), q = (state.chestQ || '').trim();
   renderFavBar();
   $('#btnChest').classList.toggle('on', !!state.chestTool);
   if (!state.chestSets.length) {
     box.innerHTML = '<p class="chest-empty">Make your own tools: pick a tool and style, then tap <b>+ Tool</b> (or <b>Save as a tool</b> in the style menu). Star a tool to put it in the toolbar.<br><br>You can also import a tool set exported from Revu (Tool Chest, tool set settings, Export). Circle, rectangle, polygon, pen, length, area and perimeter tools become drawable with their subject, color, fill, opacity and line width.</p>';
     return;
   }
-  var favs = favTools(), html = '';
+  var favs = favTools().filter(function (f) { return toolMatches(f.tool, q); }), html = '';
   if (favs.length) html += '<section class="chest-set"><div class="fav-head"><span>\u2605</span>Favourites</div><div class="chips">' + favs.map(function (f) { return chipHTML(f.set, f.tool, 'fav'); }).join('') + '</div></section>';
+  var found = favs.length;
   html += state.chestSets.map(function (s) {
+    var tools = s.tools.filter(function (t) { return toolMatches(t, q); });
+    if (q && !tools.length) return '';
+    found += tools.length;
     var n = s.tools.filter(function (t) { return t.supported; }).length;
     return '<section class="chest-set" data-set="' + esc(s.id) + '"><div class="set-title"><span>' + esc(s.title) + '</span>' + (s.custom ? '<span class="tag">Mine</span>' : '') +
       '<span class="n">' + (s.custom ? s.tools.length + (s.tools.length === 1 ? ' tool' : ' tools') : n + ' of ' + s.tools.length + ' drawable') + '</span>' +
       '<span class="acts">' + (state.arrange ? '<button type="button" class="pm" data-pmv="-1" data-sid="' + esc(s.id) + '" aria-label="Move palette up">\u2191</button><button type="button" class="pm" data-pmv="1" data-sid="' + esc(s.id) + '" aria-label="Move palette down">\u2193</button>' : '') + '<button type="button" data-rename="' + esc(s.id) + '">Rename</button><button type="button" data-export="' + esc(s.id) + '">Export</button><button type="button" data-remove="' + esc(s.id) + '">Remove</button></span></div>' +
-      (s.tools.length ? '<div class="chips">' + s.tools.map(function (t) { return chipHTML(s, t); }).join('') + '</div>' : '<p class="chest-empty">No tools yet. Pick a tool and style, then tap + Tool.</p>') + '</section>';
+      (tools.length ? '<div class="chips">' + tools.map(function (t) { return chipHTML(s, t); }).join('') + '</div>' : '<p class="chest-empty">No tools yet. Pick a tool and style, then tap + Tool.</p>') + '</section>';
   }).join('');
+  if (q && !found) html = '<p class="tool-none">No tools match \u201c' + esc(q) + '\u201d.</p>';
   box.innerHTML = html;
 }
 function findTool(setId, toolId) {
@@ -6358,20 +6374,23 @@ function fillFavPop() {
   var chip = function (set, t) {
     return '<button type="button" class="tb' + (isActiveTool(set, t) ? ' on' : '') + (t.supported ? '' : ' off') + '" data-set="' + esc(set.id) + '" data-fav="' + esc(t.id) + '" title="' + esc(t.title + (t.supported ? '' : ' (cannot be drawn here)')) + '"' + (t.supported ? '' : ' disabled') + '>' + toolPreview(t) + '<span class="lbl">' + esc(t.title) + '</span></button>';
   };
-  var shut = ui().favShut || {}, favs = favTools(), html = '';
+  var q = (state.favQ || '').trim(), shut = q ? {} : (ui().favShut || {}), favs = favTools().filter(function (f) { return toolMatches(f.tool, q); }), html = '';
   var section = function (key, title, n, body) {
     var closed = !!shut[key];
     return '<section class="fp-sec' + (closed ? ' shut' : '') + '"><button type="button" class="fp-sh" data-fpsec="' + esc(key) + '" aria-expanded="' + !closed + '"><span class="tw">\u25B8</span><span class="t">' + esc(title) + '</span><span class="n">' + n + '</span></button>' + (closed ? '' : '<div class="tgrid favgrid">' + body + '</div>') + '</section>';
   };
   if (favs.length) html += section('__fav', '\u2605 Favourites', favs.length, favs.map(function (f) { return chip(f.set, f.tool); }).join(''));
   state.chestSets.forEach(function (set) {
-    if (!set.tools.length) return;
-    html += section(set.id, set.title, set.tools.length, set.tools.map(function (t) { return chip(set, t); }).join(''));
+    var tools = set.tools.filter(function (t) { return toolMatches(t, q); });
+    if (!tools.length) return;
+    html += section(set.id, set.title, tools.length, tools.map(function (t) { return chip(set, t); }).join(''));
   });
+  if (q && !html) html = '<p class="tool-none">No tools match \u201c' + esc(q) + '\u201d.</p>';
   $('#favGrid').innerHTML = html || '<p class="hint">No tools yet. Make one in the Tool Chest (+ Tool), import a Revu tool set, or a fixture schedule.</p>';
 }
 function openFavPop() {
   var pop = $('#favPop'), btn = $('#favDD'); fillFavPop();
+  $('#favSearch').value = state.favQ || '';
   $('#toolPop').hidden = true; $('#stylePop').hidden = true; $('#chestPop').hidden = true;
   pop.hidden = false;
   var tb = document.querySelector('.topbar').getBoundingClientRect(), br = btn.getBoundingClientRect();
@@ -6385,6 +6404,11 @@ $('#favGrid').addEventListener('click', function (e) {
   var f = findTool(b.dataset.set, b.dataset.fav); if (f.tool) applyChestTool(f.set, f.tool);
   $('#favPop').hidden = true; renderFavBar();
 });
+$('#favSearch').addEventListener('input', function (e) { state.favQ = e.target.value; fillFavPop(); });
+$('#chestSearch').addEventListener('input', function (e) { state.chestQ = e.target.value; renderChest(); });
+// Return in the search box picks the first match.
+$('#favSearch').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var b = $('#favGrid [data-fav]:not([disabled])'); if (b) b.click(); } });
+$('#chestSearch').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); var b = $('#chestSets button.chip:not(.off)'); if (b) b.click(); } });
 $('#favEdit').addEventListener('click', function () { $('#favPop').hidden = true; $('#chestPop').hidden = false; renderChest(); fitPop($('#chestPop')); });
 $('#favBar').addEventListener('click', function (e) {
   if (e.target.closest && e.target.closest('#favDD')) { e.stopPropagation(); if ($('#favPop').hidden) openFavPop(); else $('#favPop').hidden = true; return; }

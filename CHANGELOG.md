@@ -2,6 +2,9 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.16.0
+- Search in the Tool Chest and in the toolbar's tool drop-down: type a type code (LT1, E-R1), a word from the description (sconce, track), a manufacturer, a voltage or any other field; every word must match. Palettes with no matches are hidden, folded sections open while searching, and Return picks the first match.
+
 ## 3.15.0
 - Saved file names end with the date and time: "QB 360 Plans 2026-11-10 1432.pdf", and the same for exports ("... - counts 2026-11-10 1432.csv", "... - markups ... .xlsx", "... - counts by room ... .csv", "... - markup summary ... .pdf"). Saving a file that already has a stamp replaces it rather than adding another. The name can still be edited in the save bar before saving. Settings > Date and time in saved file names turns it off.
 

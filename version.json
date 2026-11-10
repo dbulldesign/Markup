@@ -1,5 +1,5 @@
 {
-  "version": "3.15.0",
+  "version": "3.16.0",
   "date": "2026-11-10",
-  "notes": "Saved PDFs and exports get the date and time at the end of their file name."
+  "notes": "Search tools in the Tool Chest and the toolbar tool drop-down."
 }
