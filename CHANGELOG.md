@@ -2,6 +2,13 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.12.0 (iPad feel)
+- Lasso tool (after Select): draw a loop with the Pencil around fixtures in any shape; everything whose middle is inside is selected (whole groups), ready for the selection bar. With Multi-select on, the lasso adds to the selection.
+- Pencil-only toggle on the floating palette (hand icon): crossed out = Pencil only, fingers scroll, zoom and select; on = fingers draw too. Same as Settings > Finger draws.
+- Tool in use: a small label at the top left of the drawing shows the current tool (or Tool Chest tool) and its colour, and briefly pulses when it changes; tap it to change tools. Settings can hide it.
+- Haptics: a light tap when you pick a tool, place a markup or select (in the native iPad app; iPadOS does not let websites vibrate). Settings can turn it off. Adds @capacitor/haptics to ios-app (run npm install, npm run sync).
+- Zooming no longer blanks the pages: the current image stays on screen, stretched, until the sharper one is ready, then swaps in.
+
 ## 3.11.0 (copy, paste, edit many)
 - Copy and paste markups: select markups or groups and tap Copy in the selection bar (Cmd+C). A paste bar appears at the bottom left of the drawing on any page and in any open file: "Paste here" puts them in the middle of what you are looking at (Cmd+V); "Paste in place" puts them at the same position, for repeated floor plans (Shift+Cmd+V). Groups stay groups, numbered fixtures continue their series, measurements take the scale of where they land, photos and custom fields come along. The copy is kept when the app closes; x clears it.
 - Editing many at once: with several markups selected, the properties pop-up says "Editing N markups" and every change (subject, comments, status, layer, length and quantity, custom fields, colours, rotation) applies to all of them; values that differ show "Mixed".

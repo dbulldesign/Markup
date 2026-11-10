@@ -15,7 +15,8 @@
     "@capacitor/filesystem": "^6.0.1",
     "@capacitor/ios": "^6.1.2",
     "@capacitor/share": "^6.0.2",
-    "capacitor-pencil-interaction": "file:plugins/pencil-interaction"
+    "capacitor-pencil-interaction": "file:plugins/pencil-interaction",
+    "@capacitor/haptics": "^6.0.1"
   },
   "devDependencies": {
     "@capacitor/cli": "^6.1.2"

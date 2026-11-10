@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.11.0">
+<meta name="app-version" content="3.12.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -346,10 +346,19 @@ body.portrait #btnHelp { display: none; }
 .propspop.moved { transform: none; }
 body.big .propspop { width: min(460px, calc(100% - 20px)); }
 #qgrip { touch-action: none; }
+.toolchip { position: absolute; top: calc(var(--vtop, 0px) + 10px); left: calc(var(--vcx, 50%) - var(--vw, 100%) / 2 + 12px); z-index: 7; display: inline-flex; align-items: center; gap: 6px; max-width: 220px; padding: 5px 10px 5px 8px; border-radius: 999px; border: 1px solid var(--line); background: color-mix(in srgb, var(--surface) 88%, transparent); box-shadow: var(--shadow); color: var(--ink); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.toolchip[hidden] { display: none; }
+.toolchip svg, .toolchip img { width: 18px; height: 18px; flex: none; }
+.toolchip .nm { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toolchip .dot { width: 12px; height: 12px; border-radius: 50%; flex: none; box-shadow: inset 0 0 0 1px rgba(0,0,0,.2); }
+.toolchip.pulse { animation: chippulse .5s ease-out; }
+@keyframes chippulse { 0% { transform: scale(1.12); box-shadow: 0 0 0 4px var(--accent-soft); } 100% { transform: scale(1); } }
+body.narrow .toolchip .nm { display: none; }
 .pastebar { position: absolute; left: calc(var(--vcx, 50%) - var(--vw, 100%) / 2 + 12px); bottom: 16px; z-index: 8; display: flex; align-items: center; gap: 6px; padding: 6px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: calc(var(--vw, 100%) - 24px); flex-wrap: wrap; }
 .pastebar[hidden] { display: none; }
 .pastebar .pb-n { padding: 0 6px 0 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 body.tb-bottom .pastebar { bottom: 16px; }
+#lassoSvg { position: fixed; inset: 0; width: 100vw; height: 100vh; pointer-events: none; z-index: 20; display: none; }
 .selbar { position: absolute; top: calc(var(--vtop, 0px) + 10px); left: var(--vcx, 50%); transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: calc(var(--vw, 100%) - 20px); overflow-x: auto; scrollbar-width: none; }
 .selbar::-webkit-scrollbar { display: none; }
 .selbar[hidden] { display: none; }
@@ -674,6 +683,9 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <button class="tb" type="button" data-tool="select" title="Select and move markups" aria-label="Select">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M5 3l14 8-6 2-3 6z"/></svg><span class="lbl">Select</span>
     </button>
+    <button class="tb" type="button" data-tool="lasso" title="Lasso: draw a loop around markups to select them" aria-label="Lasso">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-dasharray="3 2.5"><path d="M12 4c5 0 9 2.5 9 6s-4 6-9 6c-1.5 0-3-.2-4.2-.7"/><path d="M7.8 15.3C5 14.3 3 12.3 3 10c0-3.5 4-6 9-6" /></svg><span class="lbl">Lasso</span>
+    </button>
     <button class="tb on" type="button" data-tool="circle" title="Draw a highlighted circle" aria-label="Circle">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><ellipse cx="12" cy="12" rx="9" ry="7"/></svg><span class="lbl">Circle</span>
     </button>
@@ -866,6 +878,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <button class="sbb danger" id="btnDelete" type="button" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span>Delete</span></button>
     <button class="sbb" id="btnSelClear" type="button" title="Deselect" aria-label="Deselect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
   </div>
+  <button type="button" class="toolchip" id="toolChip" hidden title="The tool in use (tap to change)"></button>
   <div class="pastebar" id="pasteBar" hidden>
     <span class="pb-n" id="pasteN"></span>
     <button class="btn" type="button" id="btnPasteHere" title="Paste in the middle of what you are looking at (Cmd+V)">Paste here</button>
@@ -2350,7 +2363,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.11.0';
+var APP_VERSION = '3.12.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2380,6 +2393,7 @@ var TOOLS = {
   run: { sub: 'PolyLine', subj: 'Linear Run', name: 'Run', intent: 'PolyLineDimension', measure: true, poly: true, mkind: 'run' },
   scalebox: { sub: 'Square', subj: '', name: 'Scale area', scalebox: true },
   link: { sub: 'Link', subj: 'Link', name: 'Link' },
+  lasso: { name: 'Lasso', lasso: true },
   signature: { name: 'Signature', signature: true, sigKind: 'sig' },
   initials: { name: 'Initials', signature: true, sigKind: 'ini' },
   room: { sub: 'Polygon', subj: 'Room', name: 'Room', intent: 'PolygonDimension', measure: true, poly: true, closed: true, mkind: 'room' }
@@ -3216,7 +3230,7 @@ async function buildPages(keepScroll) {
     state.pages.push(p);
     sizePage(p);
   }
-  updateZoomLabel(); renderPasteBar();
+  updateZoomLabel(); renderPasteBar(); renderToolChip();
   if (keepScroll) { viewer.scrollTop = frac * viewer.scrollHeight; viewer.scrollLeft = left; }
   else viewer.scrollTop = 0;
   renderVisible();
@@ -3233,7 +3247,8 @@ function sizePage(p) {
   p.svg.setAttribute('viewBox', '0 0 ' + p.vp.width + ' ' + p.vp.height);
   p.rendered = false;
   if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; }
-  p.canvas.width = 1; p.canvas.height = 1;
+  // Zooming keeps the current image (stretched) on screen until the sharper one is ready; no blank flash.
+  if (!p.hasImage) { p.canvas.width = 1; p.canvas.height = 1; }
   dropDetail(p);
 }
 function dropDetail(p) {
@@ -3295,7 +3310,7 @@ function renderVisible() {
       var near = pb > top - h * 1.2 && pt < bottom + h * 1.2;
       var far = pb < top - h * 3 || pt > bottom + h * 3;
       if (near) renderPage(p);
-      else if (far && (p.rendered || p.renderTask)) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; } p.rendered = false; p.canvas.width = 1; p.canvas.height = 1; dropDetail(p); setTimeout(function () { if (!p.rendered && !p.renderTask && state.pages[p.index] === p) { try { p.page.cleanup(); } catch (e) { /* ignore */ } } }, 50); }
+      else if (far && (p.rendered || p.renderTask)) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; } p.rendered = false; p.hasImage = false; p.canvas.width = 1; p.canvas.height = 1; dropDetail(p); setTimeout(function () { if (!p.rendered && !p.renderTask && state.pages[p.index] === p) { try { p.page.cleanup(); } catch (e) { /* ignore */ } } }, 50); }
     });
     scheduleDetail();
     updateScaleButton(); updatePageInd();
@@ -3356,14 +3371,20 @@ function renderPage(p) {
   if (p.rendered || p.renderTask) return;
   var vp = p.vp, s = Math.min(state.dpr, Math.sqrt(MAX_BASE_PIXELS / (vp.width * vp.height)));
   p.baseScale = s;
-  p.canvas.width = Math.max(1, Math.floor(vp.width * s)); p.canvas.height = Math.max(1, Math.floor(vp.height * s));
-  var c2d = p.canvas.getContext('2d');
+  // Draw into a fresh canvas and swap it in when done, so the old image stays visible meanwhile.
+  var nc = document.createElement('canvas'); nc.className = 'base';
+  nc.width = Math.max(1, Math.floor(vp.width * s)); nc.height = Math.max(1, Math.floor(vp.height * s));
+  var c2d = nc.getContext('2d');
   var params = ocParams({ canvasContext: c2d, viewport: vp, annotationMode: pdfjsLib.AnnotationMode.ENABLE_STORAGE });
   if (Math.abs(s - 1) > 1e-4) params.transform = [s, 0, 0, s, 0, 0];
   var task = p.page.render(params);
   p.renderTask = task;
-  task.promise.then(function () { if (p.renderTask === task) { p.rendered = true; p.renderTask = null; scheduleDetail(); if (!p.links) pdfLinksOf(p); } },
-    function (err) { if (p.renderTask === task) p.renderTask = null; if (!err || err.name !== 'RenderingCancelledException') console.warn(err); });
+  task.promise.then(function () {
+    if (p.renderTask !== task) { nc.width = 1; nc.height = 1; return; }
+    if (p.canvas.parentNode === p.el) { p.el.replaceChild(nc, p.canvas); p.canvas.width = 1; p.canvas.height = 1; }
+    p.canvas = nc; p.hasImage = true;
+    p.rendered = true; p.renderTask = null; scheduleDetail(); if (!p.links) pdfLinksOf(p);
+  }, function (err) { nc.width = 1; nc.height = 1; if (p.renderTask === task) p.renderTask = null; if (!err || err.name !== 'RenderingCancelledException') console.warn(err); });
 }
 
 /* ---------- coordinates ---------- */
@@ -3623,6 +3644,7 @@ function finishMarquee(g) {
   if (hits.length) toast(state.sel.size + (state.sel.size === 1 ? ' markup selected.' : ' markups selected.'), 1800);
 }
 function selectAnnot(a, add) {
+  haptic('select');
   var members = membersOf(a), allIn = members.every(function (m) { return state.sel.has(m.id); });
   if (!add) state.sel = new Set();
   if (add && allIn) members.forEach(function (m) { state.sel.delete(m.id); });
@@ -3823,6 +3845,26 @@ function tapUp(e) {
 }
 /* One finger (when fingers do not draw): tap a markup to select it (or to finish Add to group / Combine),
    tap a link to follow it, tap empty paper to deselect. */
+/* Lasso: a loop drawn with the Pencil selects every markup whose middle is inside it. */
+function T0lasso() { return state.tool === 'lasso'; }
+function drawLasso(pts) {
+  var sv = document.getElementById('lassoSvg');
+  if (!sv) { sv = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); sv.id = 'lassoSvg'; document.body.appendChild(sv); }
+  sv.style.display = pts ? 'block' : 'none';
+  if (pts) sv.innerHTML = '<path d="M' + pts.map(function (q) { return q[0] + ' ' + q[1]; }).join('L') + 'Z" fill="rgba(42,91,215,.08)" stroke="#2a5bd7" stroke-width="1.5" stroke-dasharray="6 4"/>';
+}
+function finishLasso(g) {
+  drawLasso(null);
+  if (g.pts.length < 4) { if (!g.add) clearSel(); return; }
+  var sel = g.add ? new Set(state.sel) : new Set(), n = 0;
+  live().forEach(function (a) {
+    var p = state.pages[a.pageIndex]; if (!p || !isVisible(a)) return;
+    var r = p.el.getBoundingClientRect(); if (r.bottom < 0 || r.top > window.innerHeight) return;
+    var vr = viewRect(p, a.rect), k = r.width / p.vp.width || 1, c = [r.left + (vr[0] + vr[2]) / 2 * k, r.top + (vr[1] + vr[3]) / 2 * k];
+    if (inPoly(c, g.pts)) { membersOf(a).forEach(function (m) { sel.add(m.id); }); n++; }
+  });
+  state.sel = sel; afterSelectionChange(); if (n) haptic('select');
+}
 function fingerTap(cx, cy) {
   var el = document.elementFromPoint(cx, cy), pe = el && el.closest ? el.closest('.page') : null;
   if (!pe) { if (state.combine) endCombine(); return; }
@@ -3878,6 +3920,7 @@ function onDown(e) {
   if (gesture && gesture.mode !== 'pan') return;
   e.preventDefault();
   armHold(e);
+  if (T0lasso()) { gesture = { mode: 'lasso', id: e.pointerId, pts: [[e.clientX, e.clientY]], add: isMulti() }; drawLasso(gesture.pts); return; }
   var pageEl = e.target.closest ? e.target.closest('.page') : null;
   if (!pageEl) {
     if (state.tool === 'select') { if (!isMulti()) clearSel(); gesture = { mode: 'marquee', id: e.pointerId, start: contentPt(e), cur: contentPt(e), moved: false, add: isMulti() }; return; }
@@ -3963,6 +4006,11 @@ function onMove(e) {
   if (gesture.id !== e.pointerId) return;
   e.preventDefault();
   var p = gesture.p;
+  if (gesture.mode === 'lasso') {
+    if (gesture.id !== e.pointerId) return;
+    (e.getCoalescedEvents ? e.getCoalescedEvents() : [e]).forEach(function (ev) { var l = gesture.pts[gesture.pts.length - 1]; if (Math.hypot(ev.clientX - l[0], ev.clientY - l[1]) > 3) gesture.pts.push([ev.clientX, ev.clientY]); });
+    drawLasso(gesture.pts); return;
+  }
   if (gesture.mode === 'draw') {
     var an = gesture.a;
     if (an.subtype === 'Ink') {
@@ -4069,6 +4117,7 @@ function onUp(e) {
   }
   if (gesture.id !== e.pointerId) return;
   var g2 = gesture; gesture = null;
+  if (g2.mode === 'lasso') { finishLasso(g2); return; }
   if (g2.mode === 'poly') { var dd0 = state.draft; polyPointUp(g2, snapPt(g2.p, toPdf(g2.p, e.clientX, e.clientY), dd0 ? { from: dd0.committed[dd0.committed.length - 1] } : null)); clearSnapMark(g2.p); return; }
   if (g2.mode === 'place') { placeSymbol(g2); return; }
   if (g2.mode === 'erase') { g2.p.eraser = null; drawOverlay(g2.p); if (g2.n) { markUnsaved(); renderList(); renderProps(); } return; }
@@ -4152,7 +4201,7 @@ function placeSymbol(g) {
     a.sym.prefix = d ? d.prefix || '' : a.sym.prefix;
     if (d && d.override != null) d.override = a.sym.n + 1;
   }
-  pushHistory();
+  pushHistory(); haptic('place');
   state.annots.push(a);
   markUnsaved(); drawOverlay(p); renderList(); updateSeqBar();
 }
@@ -4358,6 +4407,7 @@ function relabelMeasurements() {
 }
 
 function commitNew(a) {
+  haptic('place');
   pushHistory();
   state.annots.push(a);
   state.sel = new Set([a.id]);
@@ -4604,6 +4654,7 @@ function pasteClip(inPlace) {
   toast('Pasted ' + made.length + (made.length === 1 ? ' markup' : ' markups') + ' on page ' + pageLabel(pi) + (inPlace ? ' (same position)' : '') + '.');
 }
 $('#btnCopy').addEventListener('click', copySelection);
+$('#toolChip').addEventListener('click', function (e) { e.stopPropagation(); if (!$('#btnToolPick').hidden) $('#btnToolPick').click(); else if ($('#favDD')) $('#favDD').click(); else $('#btnStyle').click(); });
 $('#btnPasteHere').addEventListener('click', function () { pasteClip(false); });
 $('#btnPasteInPlace').addEventListener('click', function () { pasteClip(true); });
 $('#btnPasteClear').addEventListener('click', function () { clipSet(null); });
@@ -4819,6 +4870,7 @@ $('#textSize').addEventListener('input', function (e) { state.textSize = +e.targ
 function symState() { return state.tool === 'numbered' ? state.numSym : state.sym; }
 var symNew = bindSymControls($('#symNew'), function () { return symState(); }, function (k, v) { symState()[k] = v; savePrefs(); });
 function updateStyleChip() {
+  setTimeout(renderToolChip, 0);
   var chip = $('#btnStyle'); chip.style.setProperty('--c', state.style.color); chip.style.setProperty('--f', state.style.fillColor || state.style.color); chip.classList.toggle('nofill', !state.style.fill);
 }
 
@@ -6848,7 +6900,7 @@ function renderPalette() {
   var favs = favTools().slice(0, 8);
   $('#qbtns').innerHTML = ui().palTools.filter(function (t) { return TBTN[t]; }).map(function (t) { return '<button type="button" class="tb' + (state.tool === t && !state.chestTool ? ' on' : '') + '" data-qt="' + t + '" title="' + esc(toolName(t)) + '" aria-label="' + esc(toolName(t)) + '">' + toolIcon(t) + '</button>'; }).join('') +
     (favs.length ? '<span class="sep"></span>' + favs.map(function (f) { return '<button type="button" class="tb fav' + (isActiveTool(f.set, f.tool) ? ' on' : '') + '" data-qf="' + esc(f.set.id) + '|' + esc(f.tool.id) + '" title="' + esc(f.tool.title) + '">' + toolPreview(f.tool) + '</button>'; }).join('') : '') +
-    '<span class="sep"></span><button type="button" class="tb" data-qa="undo" title="Undo" aria-label="Undo">' + $('#btnUndo').innerHTML + '</button><button type="button" class="tb" data-qa="redo" title="Redo" aria-label="Redo">' + $('#btnRedo').innerHTML + '</button>';
+    '<span class="sep"></span><button type="button" class="tb' + (state.fingerDraw ? ' on' : '') + '" data-qa="finger" title="' + (state.fingerDraw ? 'Fingers draw (tap: Pencil only)' : 'Pencil only (tap: fingers draw too)') + '" aria-label="Finger draws"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11V5a1.5 1.5 0 0 1 3 0v5M12 10V4a1.5 1.5 0 0 1 3 0v6M15 9.5V6a1.5 1.5 0 0 1 3 0v8a6 6 0 0 1-6 6h-1a6 6 0 0 1-5-2.7L3.5 14a1.5 1.5 0 0 1 2.5-1.7L9 15"/>' + (state.fingerDraw ? '' : '<path d="M3 3l18 18" stroke-width="2.4"/>') + '</svg></button><button type="button" class="tb" data-qa="undo" title="Undo" aria-label="Undo">' + $('#btnUndo').innerHTML + '</button><button type="button" class="tb" data-qa="redo" title="Redo" aria-label="Redo">' + $('#btnRedo').innerHTML + '</button>';
   var pos = ui().palPos || { x: ui().lefty ? 12 : Math.max(12, window.innerWidth - 470), y: window.innerHeight - (document.body.classList.contains('tb-bottom') ? 170 : 90) };
   // Saved with the window size: after rotating or resizing it keeps the same relative spot.
   var x = pos.x, y = pos.y;
@@ -6861,6 +6913,7 @@ $('#qbtns').addEventListener('click', function (e) {
   var b = e.target.closest ? e.target.closest('button') : null; if (!b) return;
   if (b.dataset.qt) pickTool(b.dataset.qt);
   else if (b.dataset.qf) { var k = b.dataset.qf.split('|'), f = findTool(k[0], k[1]); if (f.tool) applyChestTool(f.set, f.tool); }
+  else if (b.dataset.qa === 'finger') { state.fingerDraw = !state.fingerDraw; $('#fingerDraw').checked = state.fingerDraw; savePrefs(); toast(state.fingerDraw ? 'Fingers draw too (two fingers scroll and zoom).' : 'Pencil only: fingers scroll, zoom and select.', 2500); haptic('tool'); }
   else if (b.dataset.qa === 'undo') undo(); else if (b.dataset.qa === 'redo') redo();
   renderPalette();
 });
@@ -6953,6 +7006,8 @@ function openSettings() {
       row('Theme', sel('theme', u.theme, [['system', 'Match the iPad'], ['light', 'Light'], ['dark', 'Dark']])) +
       row('Compact toolbar', chk('compact', u.compact), 'One tool button with a picker instead of every tool') +
       row('Floating quick palette', chk('palette', u.palette), 'A small bar of tools and favourites you can drag anywhere') +
+      row('Show the tool in use on the drawing', chk('toolChip', u.toolChip !== false), 'A small label at the top left of the drawing; tap it to change tools') +
+      row('Haptics', chk('haptics', u.haptics !== false), 'A light tap when you pick a tool, place or select (in the iPad app)') +
       row('Tools in the toolbar', sel('favMode', u.favMode || 'menu', [['menu', 'One drop-down (favourites and palettes)'], ['row', 'Favourites as a row of buttons']]), 'The drop-down keeps the toolbar short however many tools you have') +
       row('Toolbar at the bottom in portrait', chk('bottomBar', u.bottomBar !== false), 'Within reach of your thumb when holding the iPad upright') +
       row('Markups list', sel('panelPos', u.panelPos || 'auto', [['auto', 'Automatic'], ['right', 'Right side'], ['bottom', 'Bottom'], ['left', 'Left side']]), 'Automatic: at the bottom when the iPad is upright, at the side when it is sideways') +
@@ -7061,6 +7116,8 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'symStamp') u.symStamp = v;
   else if (k === 'panelPos') { u.panelPos = v; saveUI(); layoutClasses(); renderVisible(); if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } }
   else if (k === 'autoUpdate') { u.autoUpdate = v; }
+  else if (k === 'toolChip') { u.toolChip = v; saveUI(); renderToolChip(); }
+  else if (k === 'haptics') { u.haptics = v; }
   else if (k === 'rpMins' || k === 'saveRemind') { u[k] = +v; }
   else if (k === 'nativeAutosave') { u.nativeAutosave = v; }
   else if (k === 'favMode') { u.favMode = v; saveUI(); $('#favPop').hidden = true; renderFavBar(); }
@@ -7098,10 +7155,28 @@ $('#btnOpen').addEventListener('click', function () { $('#file').click(); });
 $('#btnOpen2').addEventListener('click', function () { $('#file').click(); });
 $('#file').addEventListener('change', function (e) { openFile(e.target.files[0]); e.target.value = ''; });
 $('#btnSave').addEventListener('click', savePdf);
+/* Haptics: a light tap when you pick a tool, place a markup or select (native app; Android browsers vibrate). */
+function haptic(kind) {
+  if (ui().haptics === false) return;
+  try {
+    if (typeof Native !== 'undefined' && Native && Native.Haptics) { Native.Haptics.impact({ style: kind === 'place' ? 'MEDIUM' : 'LIGHT' }); return; }
+    if (navigator.vibrate) navigator.vibrate(kind === 'place' ? 12 : 6);
+  } catch (e) { /* no haptics */ }
+}
+/* The tool in use, shown at the top left of the drawing (tap it to change tools). */
+function renderToolChip() {
+  var ch = $('#toolChip'); if (!ch) return;
+  ch.hidden = ui().toolChip === false || !state.pdf;
+  if (ch.hidden) return;
+  var t = state.tool, ct = state.chestTool && state.chestTool.drawTool === t ? state.chestTool : null;
+  var col = TOOLS[t] && !TOOLS[t].eraser && !TOOLS[t].lasso && t !== 'select' ? state.style.color : null;
+  ch.innerHTML = (ct ? toolPreview(ct) : toolIcon(t)) + '<span class="nm">' + esc(ct ? ct.title : toolName(t)) + '</span>' + (col ? '<span class="dot" style="background:' + esc(col) + '"></span>' : '');
+  ch.classList.remove('pulse'); void ch.offsetWidth; ch.classList.add('pulse');
+}
 function setTool(tool) {
   if (state.draft && state.draft.tool !== tool) finishDraft();
-  if (state.tool && state.tool !== tool) state.prevTool = state.tool;
-  state.tool = tool;
+  if (state.tool && state.tool !== tool) { state.prevTool = state.tool; haptic('tool'); }
+  state.tool = tool; setTimeout(renderToolChip, 0);
   $$('.topbar [data-tool]').forEach(function (x) { x.classList.toggle('on', x.dataset.tool === tool); });
   updateSeqBar(); updateToolPick(); renderPalette(); clearHover();
   if (TOOLS[tool] && TOOLS[tool].measure && TOOLS[tool].mkind !== 'room' && state.pdf && !scaleFor(currentPageIndex())) toast('No scale on this page yet. Tap Scale to set one (measurements update when you do).', 4500);
@@ -7231,10 +7306,10 @@ updateStyleChip(); styleNew.sync();
 var Native = (function () {
   var C = window.Capacitor; if (!C || !C.isNativePlatform || !C.isNativePlatform()) return null;
   var get = function (n) { try { return C.registerPlugin ? C.registerPlugin(n) : (C.Plugins || {})[n]; } catch (e) { return (C.Plugins || {})[n] || null; } };
-  var FS = get('Filesystem'), Share = get('Share'), App = get('App'), Pencil = get('PencilInteraction');
+  var FS = get('Filesystem'), Share = get('Share'), App = get('App'), Pencil = get('PencilInteraction'), Haptics = get('Haptics');
   var b64 = function (blob) { return new Promise(function (res, rej) { var r = new FileReader(); r.onload = function () { res(String(r.result).split(',')[1] || ''); }; r.onerror = rej; r.readAsDataURL(blob); }); };
   return {
-    canShare: !!(FS && Share), FS: FS, App: App, Pencil: Pencil,
+    canShare: !!(FS && Share), FS: FS, App: App, Pencil: Pencil, Haptics: Haptics,
     shareBlob: async function (blob, name) {
       try {
         var w = await FS.writeFile({ path: String(name).replace(/[\\/:*?"<>|]+/g, '-'), data: await b64(blob), directory: 'CACHE' });
