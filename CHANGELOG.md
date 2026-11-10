@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.10.0 (counts and schedule check)
+- Counts table: tap "Counts" at the top of the markups list to open totals By type, By page (each page and the types on it) and By room (each room and the types in it, plus "Not in a room"), with total lengths. Every line has previous/next buttons that step through those fixtures on the drawings in reading order (page, top to bottom, left to right), selecting each and jumping to it ("3 of 12 - p. 4").
+- Schedule check: compares every fixture type in your imported fixture schedules with what is placed: how many of each (green), types on the schedule that are not placed anywhere (red), and fixtures placed that are not on any schedule (red). Matching is by Subject and symbol label.
+
 ## 3.9.0 (safety net)
 - Recovery points: while you have markups not yet saved into a PDF, the app keeps a copy of them on the iPad every 5 minutes (2, 5, 10 or off in Settings) and when you leave the app, the newest 10 per file. Settings > Safety net lists them with time and markup count; Restore brings one back (your current markups are kept as a recovery point first, and Undo also works). "Make one now" makes one by hand.
 - Save reminder: after 30 minutes (15, 30, 60 or off) with markups not saved into a PDF, a bar reminds you to tap Save PDF; it goes away when you save.

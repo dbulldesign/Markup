@@ -1,5 +1,5 @@
 {
-  "version": "3.9.0",
+  "version": "3.10.0",
   "date": "2026-11-10",
-  "notes": "Safety net: recovery points every few minutes (restore from Settings), a save reminder, and in the native app an autosaved copy in Files."
+  "notes": "Counts table (by type, page, room) with find next/previous, and a schedule check against your imported fixture schedules."
 }

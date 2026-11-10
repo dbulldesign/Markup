@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.9.0">
+<meta name="app-version" content="3.10.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -418,6 +418,23 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .seqbar label { display: inline-flex; align-items: center; gap: 6px; }
 .counts { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 14px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--ink-2); align-items: center; }
 .counts[hidden] { display: none; }
+.counts .cx { border: 0; background: none; padding: 4px 6px 4px 0; font-weight: 600; color: var(--accent); cursor: pointer; }
+.ctable { border-bottom: 1px solid var(--line); padding: 4px 10px 10px; max-height: 46%; overflow: auto; font-size: 13px; flex: none; }
+.ctable[hidden] { display: none; }
+.ctabs { display: flex; gap: 4px; padding: 4px 4px 8px; flex-wrap: wrap; position: sticky; top: -4px; background: var(--surface); z-index: 1; }
+.ctabs button { border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 4px 10px; font: inherit; font-size: 12px; color: var(--ink); cursor: pointer; }
+.ctabs button.on { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.crow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 6px; align-items: center; padding: 6px 4px; border-top: 1px solid var(--line); }
+.crow .cn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.crow .cn small { color: var(--ink-2); }
+.crow .cv { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
+.crow .cv .cl { display: block; font-weight: 600; color: var(--accent); font-size: 12px; }
+.crow .fnd { display: inline-flex; gap: 2px; }
+.crow .fnd button { width: 34px; height: 30px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; cursor: pointer; color: var(--ink); font-size: 13px; }
+.crow.sub { padding-left: 16px; }
+.crow.warn .cn { color: var(--danger, #c62828); }
+.crow.ok .cv { color: #2e7d32; }
+.chead { font-weight: 600; padding: 10px 4px 4px; color: var(--ink-2); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; }
 .counts button { border: 1px solid var(--line); background: var(--surface-2); border-radius: 999px; padding: 4px 10px; font-size: 13px; cursor: pointer; color: var(--ink); }
 .counts button b { font-variant-numeric: tabular-nums; }
 .pop h3 { margin: 0 0 10px; font-size: 14px; font-weight: 600; }
@@ -924,6 +941,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <div class="style" id="styleSel"></div>
     </section>
     <div class="counts" id="counts" hidden></div>
+    <div class="ctable" id="ctable" hidden></div>
     <div class="filter"><input id="filter" placeholder="Filter by subject, comment, page or author" type="search"></div>
     <div class="list-head">
       <span class="lbl">Sort by</span>
@@ -2318,7 +2336,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.9.0';
+var APP_VERSION = '3.10.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -5355,17 +5373,106 @@ function openExport() {
 function closeExport() { $('#exportModal').hidden = true; }
 function renderCounts() {
   refreshLegends();
+  setTimeout(renderCountTable, 0);
   var by = {}, order = [];
   var lists = {};
   live().forEach(function (a) { if (!countable(a) || !isVisible(a)) return; var k = a.subject || typeLabel(a.subtype); if (!by[k]) { by[k] = 0; order.push(k); lists[k] = []; } by[k]++; lists[k].push(a); });
   var el = $('#counts');
   el.hidden = !order.length;
-  el.innerHTML = order.length ? '<span>Counts</span>' + order.sort().map(function (k) { return '<button type="button" data-count="' + esc(k) + '" title="Show only these">' + esc(k) + ' <b>\u00d7' + by[k] + '</b>' + (sumLen(lists[k]) ? ' <span class="cl">' + esc(sumLen(lists[k])) + '</span>' : '') + '</button>'; }).join('') : '';
+  el.innerHTML = order.length ? '<button type="button" class="cx" id="ctToggle" aria-expanded="' + !!state.ctOpen + '" title="Totals by type, page and room, find each fixture, and check against the schedule">Counts ' + (state.ctOpen ? '\u25BE' : '\u25B8') + '</button>' + order.sort().map(function (k) { return '<button type="button" data-count="' + esc(k) + '" title="Show only these">' + esc(k) + ' <b>\u00d7' + by[k] + '</b>' + (sumLen(lists[k]) ? ' <span class="cl">' + esc(sumLen(lists[k])) + '</span>' : '') + '</button>'; }).join('') : '';
 }
 $('#counts').addEventListener('click', function (e) {
+  if (e.target.closest && e.target.closest('#ctToggle')) { state.ctOpen = !state.ctOpen; renderCounts(); return; }
   var b = e.target.closest ? e.target.closest('[data-count]') : null; if (!b) return;
   var v = state.filter === b.dataset.count ? '' : b.dataset.count;
   state.filter = v; $('#filter').value = v; renderList();
+});
+/* ---------- counts table: by type, page, room; find each fixture; schedule check ---------- */
+function countGroups(list) {
+  var g = {}, order = [];
+  list.forEach(function (a) {
+    var key = (a.subject || typeLabel(a.subtype)) + '|' + (a.sym.n != null ? '#' + a.sym.series : (a.sym.label || ''));
+    if (!g[key]) { g[key] = { key: key, subject: a.subject || typeLabel(a.subtype), label: a.sym.n != null ? '' : (a.sym.label || ''), items: [] }; order.push(key); }
+    g[key].items.push(a);
+  });
+  return order.map(function (k) { return g[k]; }).sort(function (x, y) { return x.subject.localeCompare(y.subject, undefined, { numeric: true }) || x.label.localeCompare(y.label, undefined, { numeric: true }); });
+}
+// Reading order for "find next": page, then top to bottom, left to right.
+function readingOrder(items) { return items.slice().sort(function (a, b) { return a.pageIndex - b.pageIndex || (b.rect[3] - a.rect[3]) || (a.rect[0] - b.rect[0]); }); }
+var findLists = {};
+function cRow(key, name, sub, items, extraCls) {
+  findLists[key] = readingOrder(items);
+  var len = sumLen(items);
+  return '<div class="crow ' + (extraCls || '') + '"><span class="cn" title="' + esc(name) + '">' + esc(name) + (sub ? ' <small>' + esc(sub) + '</small>' : '') + '</span>' +
+    '<span class="cv">\u00d7' + items.length + (len ? '<span class="cl">' + esc(len) + '</span>' : '') + '</span>' +
+    '<span class="fnd">' + (items.length ? '<button type="button" data-find="' + esc(key) + '|-1" aria-label="Previous">\u25C0</button><button type="button" data-find="' + esc(key) + '|1" aria-label="Next">\u25B6</button>' : '') + '</span></div>';
+}
+function renderCountTable() {
+  var el = $('#ctable'); if (!el) return;
+  var list = live().filter(function (a) { return countable(a) && isVisible(a); });
+  el.hidden = !state.ctOpen || !list.length; if (el.hidden) return;
+  var tab = state.ctTab || 'type', html = '<div class="ctabs">' + [['type', 'By type'], ['page', 'By page'], ['room', 'By room'], ['sched', 'Schedule check']].map(function (t) { return '<button type="button" data-ctab="' + t[0] + '" class="' + (tab === t[0] ? 'on' : '') + '">' + t[1] + '</button>'; }).join('') + '</div>';
+  findLists = {};
+  if (tab === 'type') {
+    countGroups(list).forEach(function (g, i) { html += cRow('t' + i, g.subject, g.label, g.items); });
+    html += '<div class="crow"><span class="cn"><b>Total</b></span><span class="cv">\u00d7' + list.length + (sumLen(list) ? '<span class="cl">' + esc(sumLen(list)) + '</span>' : '') + '</span><span></span></div>';
+  } else if (tab === 'page') {
+    var pages = {}; list.forEach(function (a) { (pages[a.pageIndex] = pages[a.pageIndex] || []).push(a); });
+    Object.keys(pages).map(Number).sort(function (a, b) { return a - b; }).forEach(function (pi) {
+      html += cRow('p' + pi, 'Page ' + pageLabel(pi), '', pages[pi]);
+      countGroups(pages[pi]).forEach(function (g, i) { html += cRow('p' + pi + '-' + i, g.subject, g.label, g.items, 'sub'); });
+    });
+  } else if (tab === 'room') {
+    var rs = rooms();
+    if (!rs.length) html += '<p class="hint">Draw rooms with the Room tool (tap the corners of a room, then name it) to count by room.</p>';
+    else {
+      var byRoom = {}, orderR = [];
+      list.forEach(function (a) { var r = roomOf(a, rs), k = r ? r.id : '__none'; if (!byRoom[k]) { byRoom[k] = { room: r, items: [] }; orderR.push(k); } byRoom[k].items.push(a); });
+      orderR.sort(function (x, y) { var a = byRoom[x].room, b = byRoom[y].room; if (!a) return 1; if (!b) return -1; return a.pageIndex - b.pageIndex || String(a.roomName).localeCompare(String(b.roomName), undefined, { numeric: true }); });
+      orderR.forEach(function (k, ri) {
+        var R0 = byRoom[k];
+        html += cRow('r' + ri, R0.room ? (R0.room.roomName || 'Room') : 'Not in a room', R0.room ? 'p. ' + pageLabel(R0.room.pageIndex) : '', R0.items);
+        countGroups(R0.items).forEach(function (g, i) { html += cRow('r' + ri + '-' + i, g.subject, g.label, g.items, 'sub'); });
+      });
+    }
+  } else {
+    html += scheduleCheckHTML(list);
+  }
+  el.innerHTML = html;
+}
+/* Schedule check: every fixture type in your imported schedules against what is placed. */
+function scheduleCheckHTML(list) {
+  var scheds = state.chestSets.filter(function (x) { return x.schedule; });
+  if (!scheds.length) return '<p class="hint">Import a fixture schedule (Tool Chest > Fixture schedule) to check the drawings against it.</p>';
+  var html = '', known = {};
+  var keyOf = function (subject, label) { return String(subject || '').trim().toLowerCase() + '|' + String(label || '').trim().toLowerCase(); };
+  scheds.forEach(function (set, si) {
+    var placedN = 0, missing = 0, rows = '';
+    set.tools.forEach(function (t, ti) {
+      var subj = t.subject || t.title, lab = t.sym ? t.sym.label : '';
+      known[keyOf(subj, lab)] = 1;
+      var items = list.filter(function (a) { return keyOf(a.subject, a.sym.label) === keyOf(subj, lab); });
+      if (items.length) placedN++; else missing++;
+      rows += cRow('s' + si + '-' + ti, subj, t.contents || '', items, items.length ? 'ok' : 'warn');
+    });
+    html += '<div class="chead">' + esc(set.title) + ' \u00b7 ' + placedN + ' of ' + set.tools.length + ' types placed' + (missing ? ' \u00b7 ' + missing + ' not placed' : '') + '</div>' + rows;
+  });
+  var extra = countGroups(list.filter(function (a) { return !known[keyOf(a.subject, a.sym.label)]; }));
+  if (extra.length) {
+    html += '<div class="chead">Placed but not on a schedule</div>';
+    extra.forEach(function (g, i) { html += cRow('x' + i, g.subject, g.label, g.items, 'warn'); });
+  } else html += '<div class="chead">Everything placed is on a schedule</div>';
+  return html;
+}
+$('#ctable').addEventListener('click', function (e) {
+  var t = e.target.closest ? e.target.closest('[data-ctab]') : null;
+  if (t) { state.ctTab = t.dataset.ctab; renderCountTable(); return; }
+  var f = e.target.closest ? e.target.closest('[data-find]') : null; if (!f) return;
+  var q = f.dataset.find.split('|'), key = q[0], dir = +q[1], items = findLists[key] || []; if (!items.length) return;
+  var cur = state.findAt && state.findAt.key === key ? state.findAt.i : (dir > 0 ? -1 : items.length);
+  var i = (cur + dir + items.length) % items.length; state.findAt = { key: key, i: i };
+  var a = items[i]; state.sel = new Set([a.id]); state.fromList = true; afterSelectionChange(); jumpTo(a);
+  toast((i + 1) + ' of ' + items.length + ' \u00b7 p. ' + pageLabel(a.pageIndex), 1500);
 });
 // A group's second line reads like a single markup's: its label(s) in bold, total length, then the comments.
 function groupComm(all, labels) {
@@ -6919,7 +7026,7 @@ function setTool(tool) {
   state.tool = tool;
   $$('.topbar [data-tool]').forEach(function (x) { x.classList.toggle('on', x.dataset.tool === tool); });
   updateSeqBar(); updateToolPick(); renderPalette(); clearHover();
-  if (TOOLS[tool] && TOOLS[tool].measure && state.pdf && !scaleFor(currentPageIndex())) toast('No scale on this page yet. Tap Scale to set one (measurements update when you do).', 4500);
+  if (TOOLS[tool] && TOOLS[tool].measure && TOOLS[tool].mkind !== 'room' && state.pdf && !scaleFor(currentPageIndex())) toast('No scale on this page yet. Tap Scale to set one (measurements update when you do).', 4500);
 }
 $$('.topbar [data-tool]').forEach(function (b) {
   b.addEventListener('click', function () { setTool(b.dataset.tool); state.chestTool = null; renderChest(); });
