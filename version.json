@@ -1,5 +1,5 @@
 {
-  "version": "3.6.0",
+  "version": "3.7.0",
   "date": "2026-11-10",
-  "notes": "Selecting on the drawing highlights the markup in the list and scrolls to it; the floating palette remembers its position."
+  "notes": "Resize the markups list by dragging its edge; Select mode in the list to tick or drag-select markups and groups, then Group, Combine, Ungroup or Remove."
 }

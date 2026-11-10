@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.6.0">
+<meta name="app-version" content="3.7.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -287,7 +287,7 @@ body.portrait #btnHelp { display: none; }
 
 /* Side panel */
 .panel {
-  flex: none; width: 380px; max-width: 100%; background: var(--surface); border-left: 1px solid var(--line);
+  flex: none; width: var(--panel-w, 380px); max-width: 100%; background: var(--surface); border-left: 1px solid var(--line); position: relative;
   display: flex; flex-direction: column; min-height: 0; padding-bottom: var(--safe-bottom);
 }
 .panel[hidden] { display: none; }
@@ -464,6 +464,12 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .row.flash { animation: rowflash 1s ease-out; }
 @keyframes rowflash { 0% { box-shadow: inset 4px 0 0 var(--accent), 0 0 0 2px var(--accent); } 100% { box-shadow: inset 4px 0 0 var(--accent), 0 0 0 0 transparent; } }
 .row.sel { box-shadow: inset 4px 0 0 var(--accent); }
+/* Select mode: the colour dot becomes a tick circle; drag down the ticks to select a run of rows. */
+body.list-select .row .sw { width: 22px; height: 22px; margin: -4px; padding: 0; background: transparent; box-shadow: inset 0 0 0 2px var(--c); touch-action: none; position: relative; cursor: pointer; }
+body.list-select .row .sw::before { content: ""; position: absolute; inset: -12px -10px; }
+body.list-select .row.sel .sw { background: var(--accent); box-shadow: none; }
+body.list-select .row.sel .sw::after { content: ""; position: absolute; left: 7px; top: 3px; width: 6px; height: 11px; border: solid #fff; border-width: 0 2.5px 2.5px 0; transform: rotate(45deg); }
+#btnListSelect.on { background: var(--accent); color: var(--on-accent); border-color: transparent; }
 .row .sw { grid-area: sw; width: 14px; height: 14px; border-radius: 50%; background: var(--c); box-shadow: inset 0 0 0 1px rgba(128,128,128,.4); align-self: center; }
 .row .subj { grid-area: subj; font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .row .subj .muted { color: var(--ink-2); font-weight: 400; }
@@ -490,7 +496,12 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 body.pbottom .work { flex-direction: column; overflow: hidden; }
 body.pbottom .panel { overflow: hidden; min-height: 0; }
 body.pbottom .viewer, body.narrow .viewer { min-height: 0; }
-body.pside.portrait .panel { width: 330px; }
+body.pside.portrait .panel { width: var(--panel-w, 330px); }
+.pedge { position: absolute; top: 0; bottom: 0; left: -7px; width: 14px; z-index: 6; cursor: ew-resize; touch-action: none; }
+.pedge::after { content: ""; position: absolute; left: 5px; top: 50%; width: 4px; height: 44px; margin-top: -22px; border-radius: 2px; background: var(--line); opacity: .9; }
+.pedge:hover::after, .pedge.on::after { background: var(--accent); }
+body.pleft .pedge { left: auto; right: -7px; }
+body.pbottom .pedge { display: none; }
 body.narrow #zoomOut, body.narrow #zoomIn, body.narrow #btnPalette, body.narrow #btnHelp, body.narrow #btnVersion, body.narrow #btnSave .lbl { display: none; }
 body.narrow #btnVersion.has-update { display: inline-flex; }
 body.pbottom .panel { width: 100%; height: var(--sheet-h, 42%); max-height: 88%; border-left: 0; border-right: 0; border-top: 1px solid var(--line); }
@@ -829,9 +840,11 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
   </div>
 
   <aside class="panel" id="panel" hidden>
+    <div class="pedge" id="panelEdge" title="Drag to make the list wider or narrower (double-tap: default width)" aria-hidden="true"></div>
     <div class="grab" id="sheetGrab" title="Drag to resize" aria-label="Resize the markups panel"></div>
     <div class="panel-head">
       <h2>Markups</h2><span class="count" id="count2">0</span>
+      <button class="btn" id="btnListSelect" type="button" title="Tick markups and groups in the list (drag down the ticks to pick several), then Group, Combine, Ungroup or Remove in the bar">Select</button>
       <button class="btn icon" id="btnPanelPos" type="button" aria-label="Move the markups list" style="margin-left:auto"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="4" width="18" height="16" rx="2"/><path class="pp-side" d="M15 4v16"/><path class="pp-bottom" d="M3 14h18"/></svg></button>
       <button class="btn" id="btnExport" type="button" title="Export counts and markups to Excel or CSV, or place a legend">Export</button>
       <button class="btn x" id="btnClosePanel" type="button">Close</button>
@@ -2273,7 +2286,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.6.0';
+var APP_VERSION = '3.7.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3115,6 +3128,26 @@ function updateZoomLabel() { $('#zoomVal').textContent = Math.round(state.zoom *
 
 var renderQueued = false;
 // The selection bar and properties pop-up sit over the drawing, not over the markups list.
+/* Side list width: drag its inner edge. Saved; double-tap the edge for the default width. */
+function applyPanelW() { var w = ui().panelW; if (w) document.body.style.setProperty('--panel-w', Math.round(clamp(w, 260, Math.max(300, window.innerWidth - 320))) + 'px'); else document.body.style.removeProperty('--panel-w'); }
+(function () {
+  var e0 = document.getElementById('panelEdge'), d = null, lastTap = 0;
+  var refit = function () { renderVisible(); if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } };
+  e0.addEventListener('pointerdown', function (e) {
+    var now = Date.now();
+    if (now - lastTap < 350) { ui().panelW = null; saveUI(); applyPanelW(); refit(); lastTap = 0; return; }
+    lastTap = now;
+    d = { id: e.pointerId, x: e.clientX, w: $('#panel').getBoundingClientRect().width, left: document.body.classList.contains('pleft') };
+    e0.classList.add('on'); e0.setPointerCapture(e.pointerId); e.preventDefault(); e.stopPropagation();
+  });
+  e0.addEventListener('pointermove', function (e) {
+    if (!d || e.pointerId !== d.id) return;
+    ui().panelW = d.w + (d.left ? e.clientX - d.x : d.x - e.clientX); applyPanelW(); renderVisible();
+  });
+  var end = function (e) { if (!d || e.pointerId !== d.id) return; d = null; e0.classList.remove('on'); saveUI(); refit(); };
+  e0.addEventListener('pointerup', end); e0.addEventListener('pointercancel', end);
+  window.addEventListener('resize', applyPanelW);
+})();
 function centerOverlays() {
   var w = document.querySelector('.work'), v = $('#viewer'); if (!w || !v) return;
   var wr = w.getBoundingClientRect(), vr = v.getBoundingClientRect();
@@ -3425,7 +3458,7 @@ function handleAt(a, p, clientX, clientY) {
   for (var i = 0; i < hs.length; i++) if (Math.abs(vx - hs[i][1]) <= ht && Math.abs(vy - hs[i][2]) <= ht) return hs[i][0];
   return null;
 }
-function isMulti() { return state.multi || state.multiToggle; }
+function isMulti() { return state.multi || state.multiToggle || state.listSelect; }
 /* Box selection: drag left to right to pick markups fully inside the box (solid blue),
    right to left to pick everything the box touches (dashed green). */
 // A point in the viewer's scrolled content, so a box can run across pages and the gaps between them.
@@ -3483,6 +3516,53 @@ function afterSelectionChange() {
   revealInList();
 }
 // Bring the selected markup's row (or its group's row) into view in the markups list, and flash it.
+function setListSelect(on) {
+  state.listSelect = !!on; document.body.classList.toggle('list-select', state.listSelect);
+  $('#btnListSelect').classList.toggle('on', state.listSelect); $('#btnListSelect').textContent = state.listSelect ? 'Done' : 'Select';
+  if (on) toast('Tap rows to tick them, or drag down the circles to tick several. Then use Group, Combine, Ungroup or Remove in the bar.', 4500);
+}
+$('#btnListSelect').addEventListener('click', function () { setListSelect(!state.listSelect); });
+// Drag down the tick circles (or, with the Pencil or a mouse, anywhere on the rows in Select mode) to select a run of rows.
+(function () {
+  var list = document.getElementById('rows'), d = null, scrollT = null;
+  var rowItems = function (r) {
+    if (r.dataset.group) { var h = byId(r.dataset.group); return h ? membersOf(h) : []; }
+    var a = byId(r.dataset.id); return a ? [a] : [];
+  };
+  var apply = function (cy) {
+    var rows = $$('#rows .row[data-id], #rows .row[data-group]'), el = document.elementFromPoint(d.x, cy), cur = el && el.closest ? el.closest('#rows .row') : null;
+    if (!cur) return;
+    var i0 = rows.indexOf(d.start), i1 = rows.indexOf(cur); if (i0 < 0 || i1 < 0) return;
+    var sel = new Set(d.base);
+    rows.slice(Math.min(i0, i1), Math.max(i0, i1) + 1).forEach(function (r) { rowItems(r).forEach(function (a) { if (d.adding) sel.add(a.id); else sel.delete(a.id); }); });
+    state.sel = sel; state.fromList = true; afterSelectionChange();
+  };
+  list.addEventListener('pointerdown', function (e) {
+    if (!state.listSelect) return;
+    var onTick = e.target.closest && e.target.closest('.sw');
+    if (!onTick && e.pointerType === 'touch') return; // a finger elsewhere scrolls the list
+    var r = e.target.closest ? e.target.closest('.row[data-id], .row[data-group]') : null; if (!r || (e.target.closest && e.target.closest('[data-twist]'))) return;
+    var items = rowItems(r), adding = !items.every(function (a) { return state.sel.has(a.id); });
+    d = { id: e.pointerId, start: r, x: r.getBoundingClientRect().left + 30, y0: e.clientY, moved: false, base: new Set(state.sel), adding: adding };
+  });
+  list.addEventListener('pointermove', function (e) {
+    if (!d || e.pointerId !== d.id) return;
+    if (!d.moved && Math.abs(e.clientY - d.y0) < 6) return;
+    if (!d.moved) { try { list.setPointerCapture(e.pointerId); } catch (err) { /* ignore */ } }
+    d.moved = true; d.cy = e.clientY; apply(e.clientY); e.preventDefault();
+    // near the top or bottom edge: scroll the list while dragging
+    var lr = list.getBoundingClientRect(); clearInterval(scrollT);
+    var dir = e.clientY < lr.top + 36 ? -1 : e.clientY > lr.bottom - 36 ? 1 : 0;
+    if (dir) scrollT = setInterval(function () { if (!d) { clearInterval(scrollT); return; } list.scrollTop += dir * 14; apply(Math.min(Math.max(d.cy, lr.top + 2), lr.bottom - 2)); }, 40);
+  });
+  var end = function (e) {
+    if (!d || e.pointerId !== d.id) return;
+    clearInterval(scrollT);
+    if (d.moved) { state.skipRowClick = true; setTimeout(function () { state.skipRowClick = false; }, 50); }
+    d = null;
+  };
+  list.addEventListener('pointerup', end); list.addEventListener('pointercancel', end);
+})();
 function revealInList() {
   if (state.fromList) { state.fromList = false; return; }
   var s = selected(); if (!s.length || $('#panel').hidden) return;
@@ -4636,7 +4716,7 @@ function renderProps() {
       (mk === 'area' && a.owned ? ' <button class="btn" type="button" id="pCutout">Cut out</button>' + (a.holes && a.holes.length ? ' <button class="btn" type="button" id="pClearCut">Remove cut-outs (' + a.holes.length + ')</button>' : '') : '')
     : 'No scale on this page. <button class="btn" type="button" id="pSetScale">Set scale</button>';
   var gcount = groupCount(s), whole = s.length > 1 && new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length;
-  $('#btnGroup').hidden = s.length < 2 || whole;
+  $('#btnGroup').hidden = s.length < 2 || whole || (new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.every(inGroup));
   $('#btnCombine').hidden = !(s.length === 1 || whole);
   $('#btnCombine').querySelector('span').textContent = inGroup(a) ? 'Combine\u2026' : 'Add to group\u2026';
   $('#btnGroup').querySelector('span').textContent = s.length < 2 ? 'Group' : gcount > 1 ? 'Combine' : gcount === 1 && !whole ? 'Add to group' : 'Group';
@@ -5220,6 +5300,7 @@ $('#btnPanelPos').addEventListener('click', function () {
   if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; }
 });
 $('#rows').addEventListener('click', function (e) {
+  if (state.skipRowClick) { state.skipRowClick = false; return; }
   state.fromList = true; setTimeout(function () { state.fromList = false; }, 0);
   if (!propsPopup() && e.target.closest && e.target.closest('.row') && !e.target.closest('[data-twist]')) state.propsOpen = true;
   if (e.target.id === 'moreRows') { state.listLimit = (state.listLimit || 250) + 250; renderList(); return; }
@@ -6790,6 +6871,7 @@ window.addEventListener('offline', function () { toast('You are offline. Opening
 renderVersion(); setTimeout(maybeCheck, 4000);
 renderFavBar(); arrangeToolbar(); renderPalette();
 if (ui().sheetH) document.body.style.setProperty('--sheet-h', ui().sheetH);
+applyPanelW();
 window.addEventListener('resize', function () { if (ui().palette) renderPalette(); });
 setTimeout(fitToolbar, 0);
 if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) $('#panel').hidden = false;

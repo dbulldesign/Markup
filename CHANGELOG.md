@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.7.0
+- Resizable markups list: drag the handle on its inner edge to make it wider or narrower (the drawing re-fits when Fit is on). The width is remembered; double-tap the handle for the default. At the bottom, drag its top edge as before.
+- Select mode in the list (Select button in the list header): the colour dots become tick circles. Tap rows to tick or untick them (a group row ticks the whole group, a row inside an open group just that markup), or drag down the circles to tick a run of rows; the list scrolls when you drag to its top or bottom edge. With the Pencil or a mouse you can drag anywhere on the rows. Then use the selection bar: Group, Combine (several groups into one), Ungroup, or Remove (take the ticked markups out of their group). Done leaves Select mode.
+
 ## 3.6.0
 - Selecting a markup on the drawing highlights its row in the markups list and scrolls the list to it (with a short flash). A markup inside a collapsed group opens the group; a whole group selected shows the group's row. Works for long lists too (more rows are shown if needed). Selected rows also get an accent bar on the left.
 - Floating tool palette remembers its position: fixed for iPad drags that ended without saving. After rotating the iPad or resizing the window it keeps the same relative spot, and it always stays fully on screen.
