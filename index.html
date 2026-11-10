@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.16.0">
+<meta name="app-version" content="3.17.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -528,6 +528,15 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 
 /* Markups list */
 .filter { padding: 10px 14px; border-bottom: 1px solid var(--line); }
+.filter .srch { position: relative; display: flex; align-items: center; }
+.filter .srch > svg { position: absolute; left: 10px; color: var(--ink-2); pointer-events: none; }
+.filter .srch input { flex: 1; min-width: 0; padding-left: 34px !important; padding-right: 74px !important; }
+.filter .srch input::-webkit-search-cancel-button { display: none; }
+.filter .fcount { position: absolute; right: 38px; font-size: 12px; color: var(--ink-2); font-variant-numeric: tabular-nums; pointer-events: none; }
+.filter .fclear { position: absolute; right: 6px; width: 28px; height: 28px; border-radius: 50%; border: 0; background: var(--surface-3); color: var(--ink); font-size: 16px; line-height: 1; cursor: pointer; }
+.filter .fclear[hidden] { display: none; }
+.list-head .sortsel { font: inherit; font-size: 13px; padding: 4px 6px; border-radius: 8px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); max-width: 46%; }
+.list-head .sortdir { min-width: 34px; font-size: 15px !important; }
 .list-head { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 4px; padding: 4px 10px; font-size: 12px; color: var(--ink-2); border-bottom: 1px solid var(--line); background: var(--surface-2); }
 .list-head .lbl { padding: 0 4px; }
 .list-head button { background: none; border: 0; padding: 6px 8px; color: inherit; cursor: pointer; font-size: 13px; min-height: 34px; border-radius: 8px; }
@@ -993,16 +1002,16 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <div class="counts" id="counts" hidden></div>
     <div class="ctable" id="ctable" hidden></div>
     <div class="stbar" id="stBar" hidden></div>
-    <div class="filter"><input id="filter" placeholder="Filter by subject, comment, page or author" type="search"></div>
+    <div class="filter"><span class="srch"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="filter" placeholder="Search markups" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search"><span class="fcount" id="filterCount"></span><button type="button" class="fclear" id="filterClear" aria-label="Clear the search" hidden>&#215;</button></span></div>
     <div class="list-head">
       <span class="lbl">Sort by</span>
-      <button type="button" data-key="subject">Subject</button>
-      <button type="button" data-key="page">Page</button>
-      <button type="button" data-key="comments">Comments</button>
-      <button type="button" data-key="author">Author</button>
-      <button type="button" data-key="date">Date</button>
-      <button type="button" data-key="color">Color</button>
-      <button type="button" data-key="status">Status</button>
+      <select class="sortsel" id="sortSel" aria-label="Sort markups by">
+        <option value="page">Page</option><option value="subject">Subject</option><option value="label">Label / number</option><option value="type">Type</option>
+        <option value="status">Status</option><option value="comments">Comments</option><option value="channel">Channel</option><option value="room">Room</option>
+        <option value="layer">Layer</option><option value="length">Length (total)</option><option value="measure">Measurement</option><option value="author">Author</option>
+        <option value="date">Date</option><option value="color">Colour</option><option value="position">Position on the page</option>
+      </select>
+      <button type="button" class="sortdir" id="sortDir" title="Reverse the order" aria-label="Reverse the order">&#9650;</button>
       <button type="button" id="btnVis" class="visbtn" title="Show or hide markups by subject">Show&#x2026;</button>
     </div>
     <div class="rows" id="rows"><div class="none">No markups yet.</div></div>
@@ -2387,7 +2396,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.16.0';
+var APP_VERSION = '3.17.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -5269,8 +5278,25 @@ $('#pMeasure').addEventListener('click', function (e) {
   if (e.target.id === 'pSetScale') { var s = selected(); openScale(s.length ? s[0].pageIndex : currentPageIndex()); } });
 
 /* ---------- markups list ---------- */
+function measureValue(a) {
+  var k = measureKind(a); if (!k || !a.measure) return null;
+  var f = a.measure.factor;
+  if (k === 'area' || k === 'room') return a.vertices && a.vertices.length >= 3 ? netArea(a) * f * f : null;
+  if (k === 'wall') return a.vertices ? polyLength(a.vertices) * f * (+a.wallH || 0) : null;
+  if (k === 'radius' || k === 'diameter') return (a.rad || 0) * f * (k === 'diameter' ? 2 : 1);
+  if (k === 'angle') return a.vertices && a.vertices.length === 3 ? angleAt(a.vertices) : null;
+  return a.vertices ? polyLength(a.vertices) * f : null;
+}
 function sortVal(a, key) {
   switch (key) {
+    case 'label': return a.sym ? (a.sym.n != null ? (a.sym.prefix || '') + String(a.sym.n) : (a.sym.label || '')) : (a.mtext || '\uffff');
+    case 'type': return (a.sym ? (a.sym.n != null ? 'Number' : 'Symbol') : (MKIND_LABEL[a.mkind] || typeLabel(a.subtype, a.intent))).toLowerCase();
+    case 'channel': return a.fields && a.fields.Channel ? String(a.fields.Channel) : '\uffff';
+    case 'room': { var r = a.mkind === 'room' ? a : (a.sym ? roomOf(a) : null); return r ? String(r.roomName || 'room').toLowerCase() : '\uffff'; }
+    case 'layer': return (a.layer || '\uffff').toLowerCase();
+    case 'length': return a.fixLen > 0 ? fixTotal(a) * ((UNIT_M[FMT_BASE[a.fixFmt || 'ft-in'] || 'ft'] || 0.3048)) : -1;
+    case 'measure': { var mv = measureValue(a); return mv == null ? -1 : mv; }
+    case 'position': return a.pageIndex * 1e7 + Math.round(10000 - a.rect[3]) * 1000 + Math.round(a.rect[0]) / 1000;
     case 'subject': return (a.subject || '').toLowerCase();
     case 'page': return a.pageIndex;
     case 'comments': return (a.contents || '').toLowerCase();
@@ -5281,10 +5307,18 @@ function sortVal(a, key) {
     default: return 0;
   }
 }
+/* Search: every word typed must appear somewhere in the markup: subject, label or number, comments,
+   measurement, length, custom fields (Channel, Circuit, Location...), layer, room, type, status, author, page. */
+function searchText(a) {
+  var r = a.sym ? roomOf(a) : null;
+  return [a.subject, a.contents, a.mtext, MarkupIO.symLabel(a), a.author, 'p' + pageLabel(a.pageIndex), 'page ' + pageLabel(a.pageIndex), STATUS_LABEL[a.status] || (a.status ? '' : 'open'), typeLabel(a.subtype, a.intent), MKIND_LABEL[a.mkind] || '', a.layer || '', a.roomName || '', r ? r.roomName || '' : '', a.fixLen > 0 ? fixDesc(a) : '', a.link ? (a.link.url || '') : '']
+    .concat(a.fields ? Object.keys(a.fields).map(function (k) { return k + ' ' + a.fields[k]; }) : []).join(' \u0001 ').toLowerCase();
+}
 function matchesFilter(a) {
   if (state.statusFilter && (state.statusFilter === 'open' ? !!a.status : a.status !== state.statusFilter)) return false;
   var f = state.filter.trim().toLowerCase(); if (!f) return true;
-  return [a.subject, a.contents, a.mtext, MarkupIO.symLabel(a), a.author, pageLabel(a.pageIndex), STATUS_LABEL[a.status] || ''].concat(a.fields ? Object.keys(a.fields).map(function (k) { return a.fields[k]; }) : []).some(function (v) { return String(v || '').toLowerCase().indexOf(f) >= 0; });
+  var hay = searchText(a);
+  return f.split(/\s+/).every(function (w) { return hay.indexOf(w) >= 0; });
 }
 // Counted: symbols and numbered markups (not stamps, not the symbols drawn inside a legend).
 /* Rooms: polygons drawn with the Room tool. A symbol belongs to the room its centre is in. */
@@ -5797,7 +5831,8 @@ function renderList() {
   var groups = heads.map(function (h) { return { head: h, members: kids[h.id] || [] }; });
   groups = groups.filter(function (g) { return [g.head].concat(g.members).some(matchesFilter); });
   var k = state.sort.key, dir = state.sort.dir;
-  var cmp = function (a, b) { var va = sortVal(a, k), vb = sortVal(b, k); return (va < vb ? -1 : va > vb ? 1 : 0) * dir || a.pageIndex - b.pageIndex; };
+  // strings sort naturally (L2 before L10); numbers by value
+  var cmp = function (a, b) { var va = sortVal(a, k), vb = sortVal(b, k), c = typeof va === 'string' && typeof vb === 'string' ? va.localeCompare(vb, undefined, { numeric: true, sensitivity: 'base' }) : (va < vb ? -1 : va > vb ? 1 : 0); return c * dir || a.pageIndex - b.pageIndex || (b.rect[3] - a.rect[3]); };
   groups.sort(function (x, y) { return cmp(x.head, y.head); });
   var html = '', limit = state.listLimit || 250, shown = 0, more = 0;
   var row = function (a, cls) {
@@ -5834,7 +5869,12 @@ function renderList() {
   });
   if (more) html += '<button type="button" class="more-rows" id="moreRows">Show ' + Math.min(more, 250) + ' more of ' + more + '</button>';
   rowsEl.innerHTML = html || '<div class="none">Nothing matches that filter.</div>';
-  $$('.list-head button').forEach(function (b) { b.classList.toggle('on', b.dataset.key === k); b.textContent = b.textContent.replace(/[▲▼]\s*$/, '').trim() + (b.dataset.key === k ? (dir > 0 ? ' ▲' : ' ▼') : ''); });
+  if ($('#sortSel').value !== k) $('#sortSel').value = k;
+  $('#sortDir').innerHTML = dir > 0 ? '&#9650;' : '&#9660;';
+  // search result count and clear button
+  var nShown = all.filter(function (a) { return matchesFilter(a); }).length, searching = !!state.filter.trim() || !!state.statusFilter;
+  $('#filterCount').textContent = searching ? nShown + ' of ' + all.length : '';
+  $('#filterClear').hidden = !state.filter;
 }
 $('#pmOpen').addEventListener('click', function () { state.propsOpen = true; renderProps(); });
 $('#pmHide').addEventListener('click', function () { state.propsOpen = false; renderProps(); });
@@ -5883,14 +5923,18 @@ function jumpTo(a) {
   v.scrollTo({ left: cx - v.clientWidth / 2, top: cy - v.clientHeight / 2, behavior: 'smooth' });
   setTimeout(renderVisible, 50); setTimeout(renderVisible, 600);
 }
-$$('.list-head button').forEach(function (b) {
-  b.addEventListener('click', function () {
-    var key = b.dataset.key;
-    if (state.sort.key === key) state.sort.dir *= -1; else state.sort = { key: key, dir: 1 };
-    renderList();
-  });
+$('#sortSel').addEventListener('change', function (e) { var key = e.target.value; state.sort = { key: key, dir: /^(date|length|measure)$/.test(key) ? -1 : 1 }; ui().sort = state.sort; saveUI(); renderList(); });
+$('#sortDir').addEventListener('click', function () { state.sort.dir *= -1; ui().sort = state.sort; saveUI(); renderList(); });
+$('#filter').addEventListener('input', function (e) { state.filter = e.target.value; state.listLimit = 250; state.searchAt = -1; renderList(); });
+$('#filterClear').addEventListener('click', function () { state.filter = ''; $('#filter').value = ''; state.statusFilter = state.statusFilter || ''; renderList(); $('#filter').focus(); });
+// Return steps through the results on the drawing.
+$('#filter').addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter') return; e.preventDefault();
+  var res = readingOrder(live().filter(function (a) { return !(a.sym && a.sym.legend) && matchesFilter(a); })); if (!res.length || !state.filter.trim()) return;
+  state.searchAt = ((state.searchAt == null ? -1 : state.searchAt) + (e.shiftKey ? -1 : 1) + res.length) % res.length;
+  var a = res[state.searchAt]; state.sel = new Set([a.id]); afterSelectionChange(); jumpTo(a);
+  toast((state.searchAt + 1) + ' of ' + res.length + ' \u00b7 p. ' + pageLabel(a.pageIndex), 1500);
 });
-$('#filter').addEventListener('input', function (e) { state.filter = e.target.value; state.listLimit = 250; renderList(); });
 
 /* ---------- save ---------- */
 async function savePdf() {
@@ -7107,7 +7151,7 @@ setInterval(maybeCheck, 30 * 60 * 1000);
 /* ---------- interface settings ---------- */
 var UI_DEFAULT = { theme: 'system', compact: true, hover: true, hold: true, holdMs: 500, palette: false, palPos: null, toolOrder: null, toolHidden: [], ringTools: ['select', 'pen', 'highlighter', 'text', 'circle', 'rect', 'symbol', 'numbered', 'length', 'eraser'], palTools: ['select', 'pen', 'highlighter', 'text', 'symbol', 'numbered', 'length', 'eraser'] };
 function ui() { return state.ui || (state.ui = JSON.parse(JSON.stringify(UI_DEFAULT))); }
-function loadUI() { try { var u = JSON.parse(localStorage.getItem('pencil-markup-ui') || '{}'); state.ui = Object.assign(JSON.parse(JSON.stringify(UI_DEFAULT)), u); } catch (e) { ui(); } }
+function loadUI() { try { var u = JSON.parse(localStorage.getItem('pencil-markup-ui') || '{}'); state.ui = Object.assign(JSON.parse(JSON.stringify(UI_DEFAULT)), u); } catch (e) { ui(); } if (ui().sort && ui().sort.key) state.sort = { key: ui().sort.key, dir: ui().sort.dir || 1 }; }
 function saveUI() { try { localStorage.setItem('pencil-markup-ui', JSON.stringify(ui())); } catch (e) { /* ignore */ } }
 var TOOL_NAMES = { select: 'Select', circle: 'Circle', rect: 'Rectangle', polygon: 'Polygon', pen: 'Pen' };
 function toolName(t) { return TOOL_NAMES[t] || (TOOLS[t] && TOOLS[t].name) || t; }

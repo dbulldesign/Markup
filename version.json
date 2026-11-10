@@ -1,5 +1,5 @@
 {
-  "version": "3.16.0",
+  "version": "3.17.0",
   "date": "2026-11-10",
-  "notes": "Search tools in the Tool Chest and the toolbar tool drop-down."
+  "notes": "Search markups (all words, labels, channels, rooms, fields) with a result count; more ways to sort the list."
 }

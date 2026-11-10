@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.17.0 (search and sort the markups list)
+- Search markups: the box at the top of the list searches the subject, label or number, comments, measurement, length, custom fields (Channel 101, Circuit P2/C20, Location...), layer, room, type, status (including "open"), author and page ("p3"). Every word typed must match. It shows "12 of 35", a x clears it, and Return steps through the results on the drawing (Shift+Return goes back). Works together with the status filter.
+- More ways to sort: a Sort by list with Page, Subject, Label / number (natural order: L2 before L10), Type, Status, Comments, Channel, Room, Layer, Length (total), Measurement (largest first), Author, Date (newest first), Colour and Position on the page (top to bottom); the arrow reverses the order. The choice is remembered.
+
 ## 3.16.0
 - Search in the Tool Chest and in the toolbar's tool drop-down: type a type code (LT1, E-R1), a word from the description (sconce, track), a manufacturer, a voltage or any other field; every word must match. Palettes with no matches are hidden, folded sections open while searching, and Return picks the first match.
 
