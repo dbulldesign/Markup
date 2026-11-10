@@ -2,6 +2,13 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.5.0 (properties pop-up)
+- Properties have their own pop-up window, separate from the markups list. Select a fixture, markup or group (on the drawing or in the list), then tap Properties in the selection bar. Tap anywhere outside it, tap Done, press Escape, or select something else to close it. Edits inside stay open as you work.
+- The markups panel is now only the list (counts, filter, sort, rows), so it has the whole height.
+- Tapping a row in the list selects the markup and jumps to it without opening properties. A two-finger tap on a markup opens its properties pop-up directly.
+- The selection bar and the pop-up are centred over the drawing, not over the markups list.
+- Settings > Properties: "Pop-up window" (new default) or "In the markups list" (the 3.1 behaviour).
+
 ## 3.4.1
 - Length box redesigned for the narrow properties panel: labelled Each, Units, Qty and a large Total, with a Clear link (shown only when a length is set). Typed values are full-strength text, not the grey of the hints.
 - The broken "\u00d7" labels in the Length box are gone (fixed in 3.4.0; this release makes sure iPads still on older versions update).

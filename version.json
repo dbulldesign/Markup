@@ -1,5 +1,5 @@
 {
-  "version": "3.4.1",
+  "version": "3.5.0",
   "date": "2026-11-10",
-  "notes": "Clearer Length box (Each, Units, Qty, Total); fixed \"\\u00d7\" labels; automatic updates no longer held back after \"Later\" on the save bar."
+  "notes": "Properties in their own pop-up window: select a fixture or group, tap Properties; tap outside to close. The markups panel is just the list."
 }

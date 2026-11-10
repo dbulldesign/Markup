@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.4.1">
+<meta name="app-version" content="3.5.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -307,7 +307,12 @@ body.portrait #btnHelp { display: none; }
 .style details[open] summary { color: var(--ink); }
 .props[hidden] { display: none; }
 .props .title .hide-props { margin-left: auto; padding: 4px 10px; min-height: 0; font-size: 13px; }
-.selbar { position: absolute; top: 10px; left: 50%; transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: calc(100% - 20px); overflow-x: auto; scrollbar-width: none; }
+.propspop { position: absolute; top: calc(var(--vtop, 0px) + 74px); left: var(--vcx, 50%); transform: translateX(-50%); z-index: 12; width: min(420px, calc(var(--vw, 100%) - 20px)); max-height: calc(100% - 90px); overflow: auto; background: var(--surface); border: 1px solid var(--line); border-radius: 16px; box-shadow: 0 12px 40px rgba(0,0,0,.28); overscroll-behavior: contain; }
+.propspop[hidden] { display: none; }
+.propspop .props { max-height: none; border-bottom: 0; padding: 12px 16px 16px; }
+.propspop .props .title { position: sticky; top: -12px; background: var(--surface); padding: 12px 0 8px; margin-top: -12px; z-index: 1; }
+body.big .propspop { width: min(460px, calc(100% - 20px)); }
+.selbar { position: absolute; top: calc(var(--vtop, 0px) + 10px); left: var(--vcx, 50%); transform: translateX(-50%); z-index: 8; display: flex; align-items: center; gap: 2px; padding: 4px; border-radius: 14px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); max-width: calc(var(--vw, 100%) - 20px); overflow-x: auto; scrollbar-width: none; }
 .selbar::-webkit-scrollbar { display: none; }
 .selbar[hidden] { display: none; }
 .selbar .sb-n { padding: 0 8px 0 10px; font-size: 13px; font-weight: 600; color: var(--ink-2); white-space: nowrap; }
@@ -772,6 +777,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <button class="btn" id="cmpAll" type="button">Cloud all pages</button>
     <button class="btn primary" id="cmpDone" type="button">Done</button>
   </div>
+  <div class="propspop" id="propsPop" role="dialog" aria-label="Properties" hidden></div>
   <div class="selbar" id="selBar" role="toolbar" aria-label="Selected markups" hidden>
     <span class="sb-n" id="selN"></span>
     <button class="sbb" id="btnSelProps" type="button" title="Properties"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h10M18 6h2M4 12h4M12 12h8M4 18h12M20 18h0"/><circle cx="16" cy="6" r="2"/><circle cx="10" cy="12" r="2"/><circle cx="18" cy="18" r="2"/></svg><span>Properties</span></button>
@@ -2255,7 +2261,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.4.1';
+var APP_VERSION = '3.5.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3096,10 +3102,18 @@ function setZoom(z, anchor) {
 function updateZoomLabel() { $('#zoomVal').textContent = Math.round(state.zoom * 100) + '%'; }
 
 var renderQueued = false;
+// The selection bar and properties pop-up sit over the drawing, not over the markups list.
+function centerOverlays() {
+  var w = document.querySelector('.work'), v = $('#viewer'); if (!w || !v) return;
+  var wr = w.getBoundingClientRect(), vr = v.getBoundingClientRect();
+  w.style.setProperty('--vcx', Math.round(vr.left - wr.left + vr.width / 2) + 'px');
+  w.style.setProperty('--vw', Math.round(vr.width) + 'px');
+  w.style.setProperty('--vtop', Math.round(vr.top - wr.top) + 'px');
+}
 function renderVisible() {
   if (renderQueued) return; renderQueued = true;
   requestAnimationFrame(function () {
-    renderQueued = false;
+    renderQueued = false; centerOverlays();
     var viewer = $('#viewer'), top = viewer.scrollTop, bottom = top + viewer.clientHeight, h = viewer.clientHeight;
     state.pages.forEach(function (p) {
       var pt = p.el.offsetTop, pb = pt + p.el.offsetHeight;
@@ -3554,7 +3568,11 @@ function twoFingerTap(cx, cy, pts) {
     var el = document.elementFromPoint(q[0], q[1]), pe = el && el.closest ? el.closest('.page') : null; if (!pe) return false;
     pg = state.pages[+pe.dataset.index]; hit = hitTest(pg, toPdf(pg, q[0], q[1])); return !!hit;
   });
-  if (hit) { state.propsOpen = true; selectAnnot(hit, false); if ($('#panel').hidden) { $('#panel').hidden = false; renderVisible(); } layoutClasses(); return; }
+  if (hit) {
+    selectAnnot(hit, false);
+    if (propsPopup()) { openPropsPop(); return; }
+    state.propsOpen = true; renderProps(); if ($('#panel').hidden) { $('#panel').hidden = false; renderVisible(); } layoutClasses(); return;
+  }
   if (state.history.length) { undo(); toast('Undo', 900); }
 }
 function onDown(e) {
@@ -4459,14 +4477,29 @@ function updateStyleChip() {
 /* ---------- properties panel ---------- */
 // Compact list (Settings > Properties): the properties open when a markup is picked in the list
 // (or with a two-finger tap / the Properties button); picking on the drawing shows just a one-line bar.
-function propsCompact() { return (ui().propsMode || 'list') === 'list'; }
+function propsPopup() { var m = ui().propsMode; return !m || m === 'popup' || m === 'list'; }
+function propsCompact() { return true; }
+var propsHome = null;
+function placeProps() {
+  // Pop-up window, or inside the markups panel (Settings > Properties).
+  var box = $('#props'); if (!box) return;
+  if (!propsHome) propsHome = { parent: box.parentNode, next: box.nextSibling };
+  if (propsPopup()) { if (box.parentNode !== $('#propsPop')) $('#propsPop').appendChild(box); }
+  else if (box.parentNode !== propsHome.parent) propsHome.parent.insertBefore(box, propsHome.next);
+}
+function openPropsPop() { state.propsOpen = true; state.propsFor = Array.from(state.sel).sort().join(','); renderProps(); }
+function closePropsPop() { if (!state.propsOpen) return; state.propsOpen = false; renderProps(); }
 function renderProps() {
   var s = selected(), box = $('#props');
+  placeProps();
   if (!s.length) state.propsOpen = false;
-  var show = s.length && (!propsCompact() || state.propsOpen);
+  // The pop-up belongs to the selection it was opened for; a new selection closes it.
+  if (propsPopup() && state.propsOpen && state.propsFor != null && state.propsFor !== Array.from(state.sel).sort().join(',')) state.propsOpen = false;
+  var show = s.length && state.propsOpen;
   box.hidden = !show;
-  $('#pmHide').hidden = !propsCompact();
-  $('#propsMini').hidden = !s.length || !!show;
+  $('#propsPop').hidden = !(propsPopup() && show);
+  $('#pmHide').textContent = propsPopup() ? 'Done' : 'Hide';
+  $('#propsMini').hidden = propsPopup() || !s.length || !!show;
   $('#selBar').hidden = !s.length || !!state.combine;
   if (s.length) $('#selN').textContent = s.length === 1 ? '1 selected' : s.length + ' selected';
   if (s.length && !show) { var a0 = s[0]; $('#pmTitle').textContent = s.length === 1 ? (a0.subject || typeLabel(a0.subtype, a0.intent)) + (MarkupIO.symLabel(a0) || a0.mtext ? ' \u00b7 ' + (MarkupIO.symLabel(a0) || a0.mtext) : '') + ' \u00b7 p. ' + pageLabel(a0.pageIndex) : s.length + ' markups selected'; }
@@ -4673,6 +4706,7 @@ $('#pSubject').addEventListener('input', function (e) { applyToSelection({ subje
 $('#pContents').addEventListener('input', function (e) { applyToSelection({ contents: e.target.value }, 'contents'); });
 $('#btnGroup').addEventListener('click', groupSelection);
 $('#btnSelProps').addEventListener('click', function () {
+  if (propsPopup()) { if (state.propsOpen) closePropsPop(); else openPropsPop(); return; }
   state.propsOpen = true; if ($('#panel').hidden) { $('#panel').hidden = false; renderVisible(); }
   renderProps(); var pr = $('#props'); if (pr && pr.scrollIntoView) pr.scrollIntoView({ block: 'nearest' });
 });
@@ -5074,13 +5108,20 @@ function renderList() {
 }
 $('#pmOpen').addEventListener('click', function () { state.propsOpen = true; renderProps(); });
 $('#pmHide').addEventListener('click', function () { state.propsOpen = false; renderProps(); });
+// Tap anywhere outside the pop-up (or press Escape) to close it.
+document.addEventListener('pointerdown', function (e) {
+  if (!state.propsOpen || !propsPopup()) return;
+  var t = e.target;
+  if (t.closest && (t.closest('#propsPop') || t.closest('#btnSelProps') || t.closest('.pop') || t.closest('.modal'))) return;
+  closePropsPop();
+}, true);
 $('#btnPanelPos').addEventListener('click', function () {
   var u = ui(), bottom = document.body.classList.contains('pbottom');
   u.panelPos = bottom ? (u.lefty ? 'left' : 'right') : 'bottom'; saveUI(); layoutClasses(); renderVisible();
   if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; }
 });
 $('#rows').addEventListener('click', function (e) {
-  if (e.target.closest && e.target.closest('.row') && !e.target.closest('[data-twist]')) state.propsOpen = true;
+  if (!propsPopup() && e.target.closest && e.target.closest('.row') && !e.target.closest('[data-twist]')) state.propsOpen = true;
   if (e.target.id === 'moreRows') { state.listLimit = (state.listLimit || 250) + 250; renderList(); return; }
   var tw = e.target.closest ? e.target.closest('[data-twist]') : null;
   if (tw) { var id = tw.dataset.twist; if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id); renderList(); return; }
@@ -6351,7 +6392,7 @@ function openSettings() {
       row('Floating quick palette', chk('palette', u.palette), 'A small bar of tools and favourites you can drag anywhere') +
       row('Toolbar at the bottom in portrait', chk('bottomBar', u.bottomBar !== false), 'Within reach of your thumb when holding the iPad upright') +
       row('Markups list', sel('panelPos', u.panelPos || 'auto', [['auto', 'Automatic'], ['right', 'Right side'], ['bottom', 'Bottom'], ['left', 'Left side']]), 'Automatic: at the bottom when the iPad is upright, at the side when it is sideways') +
-      row('Properties', sel('propsMode', u.propsMode || 'list', [['list', 'When picked in the list'], ['always', 'Whenever a markup is selected']]), 'Keeps the list roomy: tapping a markup on the drawing shows a one-line bar with a Properties button') +
+      row('Properties', sel('propsMode', propsPopup() ? 'popup' : 'panel', [['popup', 'Pop-up window'], ['panel', 'In the markups list']]), 'Pop-up: select a markup or group, tap Properties in the bar over the drawing; tap outside to close') +
       row('Left-handed', chk('lefty', u.lefty), 'Tool ring and palette away from your hand (and the list on the left when Automatic)') +
       row('Larger touch targets', chk('big', u.big), 'Bigger buttons, colours and handles, for gloves or site use') + '</div>' +
     '<div class="setsec"><h3>Apple Pencil and touch</h3>' +
@@ -6434,7 +6475,7 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'symStamp') u.symStamp = v;
   else if (k === 'panelPos') { u.panelPos = v; saveUI(); layoutClasses(); renderVisible(); if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } }
   else if (k === 'autoUpdate') { u.autoUpdate = v; }
-  else if (k === 'propsMode') { u.propsMode = v; saveUI(); renderProps(); }
+  else if (k === 'propsMode') { u.propsMode = v; state.propsOpen = false; saveUI(); renderProps(); }
   else if (k === 'bottomBar' || k === 'lefty' || k === 'big') { u[k] = v; saveUI(); layoutClasses(); renderPalette(); renderVisible(); }
   else if (k === 'palm' || k === 'fingerTaps') u[k] = v;
   else if (k === 'holdMs') u.holdMs = +v;
@@ -6522,6 +6563,7 @@ document.addEventListener('keydown', function (e) {
   }
   if (tag === 'input' || tag === 'textarea') return;
   if (state.combine && e.key === 'Escape') { endCombine(); return; }
+  if (state.propsOpen && propsPopup() && e.key === 'Escape') { closePropsPop(); return; }
   if (state.draft) {
     if (e.key === 'Enter') { e.preventDefault(); finishDraft(); return; }
     if (e.key === 'Escape') { cancelDraft(); return; }
