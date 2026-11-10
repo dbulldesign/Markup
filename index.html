@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.2.1">
+<meta name="app-version" content="3.3.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -757,6 +757,10 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <button class="btn" id="cmpAll" type="button">Cloud all pages</button>
     <button class="btn primary" id="cmpDone" type="button">Done</button>
   </div>
+  <div class="polybar" id="combineBar" hidden>
+    <span class="info" id="combineInfo"></span>
+    <button class="btn" id="combineCancel" type="button">Cancel</button>
+  </div>
   <div class="polybar" id="polyBar" hidden>
     <span class="info" id="polyInfo"></span>
     <label class="pb-x" id="pbLenW" hidden>Next<input class="fld-in" id="polyLen" placeholder="12'-6&quot; @ 90" autocomplete="off" spellcheck="false" enterkeyhint="done" aria-label="Type the length of the next segment (optionally @ angle)"></label>
@@ -789,7 +793,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <button class="btn x" id="btnClosePanel" type="button">Close</button>
     </div>
     <label class="author-row">Author <input id="author" placeholder="Your name (shows in Revu)" autocomplete="name"></label>
-    <div class="props-mini" id="propsMini" hidden><span class="t" id="pmTitle"></span><button class="btn" type="button" id="pmOpen">Properties</button></div>
+    <div class="props-mini" id="propsMini" hidden><span class="t" id="pmTitle"></span><button class="btn" type="button" id="pmGroup" hidden>Group</button><button class="btn" type="button" id="pmCombine" hidden>Combine with\u2026</button><button class="btn" type="button" id="pmOpen">Properties</button></div>
     <section class="props" id="props" hidden>
       <div class="title"><span id="propsTitle">1 markup</span><span class="meta" id="propsMeta"></span><button class="btn hide-props" type="button" id="pmHide" title="Hide the properties">Hide</button></div>
       <label class="fld">Subject<input class="fld-in" id="pSubject" list="subjects" placeholder="e.g. Ellipse, Issue, Verify"></label>
@@ -826,6 +830,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <div class="style" id="styleSel"></div>
       <div class="actions">
         <button class="btn" id="btnGroup" type="button">Group</button>
+        <button class="btn" id="btnCombine" type="button" title="Then tap another group or markup (on the drawing or in the list) to make them one group">Combine with\u2026</button>
         <button class="btn" id="btnUngroup" type="button">Ungroup</button>
         <button class="btn" id="btnRemoveFromGroup" type="button" title="Take the selected markups out of their group; the rest of the group stays together">Remove from group</button>
         <button class="btn" id="btnDuplicate" type="button" title="Duplicate (Ctrl/Cmd+D)">Duplicate</button>
@@ -2227,7 +2232,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.2.1';
+var APP_VERSION = '3.3.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3584,6 +3589,7 @@ function onDown(e) {
     if (h) { pushHistory(); gesture = { mode: 'resize', id: e.pointerId, a: single, handle: h, p: p, vr0: viewRect(p, single.subtype === 'FreeText' && single.box ? single.box : single.rect) }; return; }
 
     var hit = hitTest(p, pt);
+    if (state.combine) { if (hit) finishCombine(hit); else endCombine(); gesture = { mode: 'tap', id: e.pointerId }; return; }
     if (hit) {
       var grp = membersOf(hit), drill = !isMulti() && grp.length > 1 && state.sel.has(hit.id) && state.sel.size === grp.length && grp.every(function (m) { return state.sel.has(m.id); });
       var wasSel = state.sel.has(hit.id);
@@ -4438,6 +4444,13 @@ function renderProps() {
   box.hidden = !show;
   $('#pmHide').hidden = !propsCompact();
   $('#propsMini').hidden = !s.length || !!show;
+  if (s.length && !show) {
+    var gc0 = groupCount(s), whole0 = s.length > 1 && new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(s[0]).length;
+    $('#pmGroup').hidden = s.length < 2 || whole0;
+    $('#pmGroup').textContent = gc0 > 1 ? 'Combine groups' : gc0 === 1 ? 'Add to group' : 'Group';
+    $('#pmCombine').hidden = !(s.length === 1 || whole0);
+    $('#pmCombine').textContent = inGroup(s[0]) ? 'Combine with\u2026' : 'Add to a group\u2026';
+  }
   if (s.length && !show) { var a0 = s[0]; $('#pmTitle').textContent = s.length === 1 ? (a0.subject || typeLabel(a0.subtype, a0.intent)) + (MarkupIO.symLabel(a0) || a0.mtext ? ' \u00b7 ' + (MarkupIO.symLabel(a0) || a0.mtext) : '') + ' \u00b7 p. ' + pageLabel(a0.pageIndex) : s.length + ' markups selected'; }
   $('#panel').classList.toggle('named', propsCompact() && !!(state.author || '').trim());
   if (!s.length) return;
@@ -4486,7 +4499,8 @@ function renderProps() {
     : 'No scale on this page. <button class="btn" type="button" id="pSetScale">Set scale</button>';
   var gcount = groupCount(s), whole = s.length > 1 && new Set(s.map(function (x) { return headOf(x).id; })).size === 1 && s.length === membersOf(a).length;
   $('#btnGroup').disabled = s.length < 2 || whole;
-  $('#btnGroup').textContent = s.length < 2 ? 'Group' : gcount > 1 ? 'Merge groups' : gcount === 1 && !whole ? 'Add to group' : 'Group';
+  $('#btnCombine').textContent = inGroup(a) ? 'Combine with\u2026' : 'Add to a group\u2026';
+  $('#btnGroup').textContent = s.length < 2 ? 'Group' : gcount > 1 ? 'Combine groups' : gcount === 1 && !whole ? 'Add to group' : 'Group';
   $('#btnUngroup').disabled = !gcount;
   $('#btnRemoveFromGroup').hidden = !gcount;
   if (s.length === 1 && inGroup(a)) $('#propsMeta').textContent += ' · in a group of ' + membersOf(a).length + ' (tap Remove from group to take it out)';
@@ -4637,6 +4651,28 @@ $('#pStatus').addEventListener('change', function (e) { applyToSelection({ statu
 $('#pSubject').addEventListener('input', function (e) { applyToSelection({ subject: e.target.value }, 'subject'); });
 $('#pContents').addEventListener('input', function (e) { applyToSelection({ contents: e.target.value }, 'contents'); });
 $('#btnGroup').addEventListener('click', groupSelection);
+$('#pmGroup').addEventListener('click', groupSelection);
+/* Combine: pick a group (or a markup), tap Combine with..., then tap the other group or markup. */
+function startCombine() {
+  var s = selected(); if (!s.length) return;
+  var a = s[0], grp = membersOf(a);
+  state.combine = { head: headOf(a).id };
+  if (state.tool !== 'select') setTool('select');
+  $('#combineInfo').innerHTML = 'Tap the group or markup to combine with <b>' + esc(grp.length > 1 ? 'the group of ' + grp.length : (a.subject || typeLabel(a.subtype, a.intent))) + '</b> (on the drawing or in the list)';
+  $('#combineBar').hidden = false;
+}
+function endCombine() { state.combine = null; $('#combineBar').hidden = true; }
+function finishCombine(b) {
+  var c = state.combine; endCombine();
+  var h = byId(c && c.head); if (!h || h.deleted || !b) return;
+  var A = membersOf(h), B = membersOf(b);
+  if (B.some(function (x) { return x.id === h.id; })) { toast('That is already in this group.'); state.sel = new Set(A.map(function (x) { return x.id; })); afterSelectionChange(); return; }
+  state.sel = new Set(A.concat(B).map(function (x) { return x.id; }));
+  groupSelection(); afterSelectionChange();
+}
+$('#btnCombine').addEventListener('click', startCombine);
+$('#pmCombine').addEventListener('click', startCombine);
+$('#combineCancel').addEventListener('click', endCombine);
 $('#btnUngroup').addEventListener('click', ungroupSelection);
 $('#btnRemoveFromGroup').addEventListener('click', removeFromGroup);
 $('#btnDelete').addEventListener('click', deleteSelection);
@@ -5024,9 +5060,11 @@ $('#rows').addEventListener('click', function (e) {
   var tw = e.target.closest ? e.target.closest('[data-twist]') : null;
   if (tw) { var id = tw.dataset.twist; if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id); renderList(); return; }
   var g = e.target.closest ? e.target.closest('.row[data-group]') : null;
-  if (g) { var h = byId(g.dataset.group); if (h) { selectAnnot(h, false); jumpTo(h); } return; }
+  if (g && state.combine) { var hc = byId(g.dataset.group); if (hc) finishCombine(hc); return; }
+  if (g) { var h = byId(g.dataset.group); if (h) { selectAnnot(h, isMulti()); jumpTo(h); } return; }
   var r = e.target.closest ? e.target.closest('.row[data-id]') : null; if (!r) return;
   var a = byId(r.dataset.id); if (!a) return;
+  if (state.combine) { finishCombine(a); return; }
   if (r.classList.contains('member')) {
     // A row inside a group picks just that markup (the group's header row picks the whole group).
     if (isMulti()) { if (state.sel.has(a.id)) state.sel.delete(a.id); else state.sel.add(a.id); }
@@ -6458,6 +6496,7 @@ document.addEventListener('keydown', function (e) {
     e.target.blur(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; return;
   }
   if (tag === 'input' || tag === 'textarea') return;
+  if (state.combine && e.key === 'Escape') { endCombine(); return; }
   if (state.draft) {
     if (e.key === 'Enter') { e.preventDefault(); finishDraft(); return; }
     if (e.key === 'Escape') { cancelDraft(); return; }

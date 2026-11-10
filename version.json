@@ -1,5 +1,5 @@
 {
-  "version": "3.2.1",
+  "version": "3.3.0",
   "date": "2026-11-10",
-  "notes": "Updates install by themselves; toolbar stays on one row with many favourites; toolbar no longer blurred by the status bar."
+  "notes": "Combine groups: select a group, tap Combine with..., then tap the other group."
 }

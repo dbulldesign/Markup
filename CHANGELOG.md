@@ -2,6 +2,11 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.3.0 (combine groups)
+- Combine groups in two taps: select a group (or a single markup), tap "Combine with..." (in the one-line bar or the properties), then tap the other group or markup, on the drawing or in the markups list. They become one group, in one undo step. Cancel or Escape stops it.
+- When several markups or groups are selected (box select, or multi-select), the one-line bar now has Group / Add to group / Combine groups, so grouping no longer needs the properties opened.
+- Group rows in the markups list follow Multi-select, so you can pick several groups there and tap Combine groups.
+
 ## 3.2.1
 - Updates install by themselves: when the app opens, or you come back to it after half a minute away, a newer version is loaded straight away if nothing is being edited (your file and markups reopen). Turn it off in Settings > Drawing > Install updates automatically. Updates also skip the browser's 10-minute page cache, so a new version arrives right away.
 - Toolbar on one row with many favourites (full-width iPad): the favourites strip shrinks and scrolls sideways instead of pushing the toolbar onto a second row. On smaller or upright screens it uses a second row only when nothing else fits. The version chip shows only when an update is waiting (always in Settings > About), and in portrait Help moves to Settings > About.

@@ -1,7 +1,7 @@
 /* Pencil Markup service worker: keeps the app and its libraries on the device so it opens offline.
    Bump CACHE whenever any file below changes (keep it in step with APP_VERSION in index.html). */
 'use strict';
-var CACHE = 'pencil-markup-3.2.1';
+var CACHE = 'pencil-markup-3.3.0';
 var APP_SHELL = [
   './',
   'index.html',
