@@ -1,5 +1,5 @@
 {
-  "version": "2.6.0",
+  "version": "2.7.0",
   "date": "2026-11-10",
   "notes": "Fixes: tool ring vs. polygon points, separate Symbol/Numbered settings, bars moved to the bottom, Revu arrows and text boxes, status replies, live legend counts, undo for scale, and more."
 }

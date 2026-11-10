@@ -13,7 +13,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="2.6.0">
+<meta name="app-version" content="2.7.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -402,8 +402,53 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 /* Panel as bottom sheet on narrow screens */
 @media (max-width: 899px) {
   .work { flex-direction: column; }
+  .viewer { min-height: 0; }
   .panel { width: 100%; height: 46%; border-left: 0; border-top: 1px solid var(--line); }
 }
+/* Portrait iPad: the markups panel becomes a sheet at the bottom whose height you drag. */
+body.portrait .work { flex-direction: column; overflow: hidden; }
+body.portrait .panel { overflow: hidden; min-height: 0; }
+body.portrait .viewer, body.narrow .viewer { min-height: 0; }
+body.narrow #zoomOut, body.narrow #zoomIn, body.narrow #btnPalette, body.narrow #btnHelp, body.narrow #btnVersion, body.narrow #btnSave .lbl { display: none; }
+body.narrow #btnVersion.has-update { display: inline-flex; }
+body.portrait .panel { width: 100%; height: var(--sheet-h, 42%); max-height: 88%; border-left: 0; border-top: 1px solid var(--line); }
+body.portrait .drawer, body.narrow .drawer { position: absolute; left: 0; top: 0; bottom: 0; z-index: 9; box-shadow: var(--shadow); }
+.grab { display: none; height: 20px; flex: none; cursor: ns-resize; touch-action: none; position: relative; }
+.grab::after { content: ""; position: absolute; left: 50%; top: 7px; width: 44px; height: 5px; margin-left: -22px; border-radius: 3px; background: var(--line); }
+body.portrait .grab, body.narrow .grab { display: block; }
+/* Toolbar at the bottom (portrait), within thumb reach; menus open upwards. */
+body.tb-bottom { flex-direction: column-reverse; }
+body.tb-bottom .topbar { padding: 8px calc(8px + env(safe-area-inset-right, 0px)) calc(8px + var(--safe-bottom)) calc(8px + env(safe-area-inset-left, 0px)); border-bottom: 0; border-top: 1px solid var(--line); }
+body.tb-bottom .work { margin-top: var(--safe-top); }
+body.tb-bottom .pop { top: auto; bottom: 100%; margin: 0 0 6px; }
+body.tb-bottom .pop.ver-pop { right: 12px; }
+body.tb-bottom .viewer, body.tb-bottom .panel { padding-bottom: 0; }
+body.tb-bottom .polybar { bottom: 14px; }
+body.tb-bottom .savebar, body.tb-bottom .toast { bottom: calc(96px + var(--safe-bottom)); }
+/* Narrow windows (Split View, Slide Over, small Stage Manager windows) */
+body.narrow #tools, body.narrow #markTools, body.narrow #countTools, body.narrow .topbar .toggle { display: none; }
+body.narrow #btnToolPick { display: inline-flex !important; }
+body.narrow .tb .lbl:not(.keep), body.narrow .toolpick .tn, body.narrow #scaleLbl { display: none; }
+body.narrow .topbar { gap: 4px; }
+body.narrow .modal { padding: calc(8px + var(--safe-top)) 8px calc(8px + var(--safe-bottom)); }
+body.narrow .modal .sheet { width: 100%; }
+body.narrow .tab { max-width: 150px; }
+/* Left-handed: markups panel on the left, pages drawer on the right */
+body.lefty .work { flex-direction: row-reverse; }
+body.lefty.portrait .work, body.lefty.narrow .work { flex-direction: column; }
+body.lefty .panel { border-left: 0; border-right: 1px solid var(--line); }
+body.lefty .drawer { border-right: 0; border-left: 1px solid var(--line); }
+/* Larger touch targets */
+body.big .tb { min-height: 52px; min-width: 52px; }
+body.big .btn { min-height: 46px; padding: 0 16px; }
+body.big .swatch, body.big .cswatches .swatch { width: 38px; height: 38px; }
+body.big .row { padding-top: 12px; padding-bottom: 12px; }
+body.big .chip { min-height: 92px; }
+body.big .ring .rb { width: 62px; height: 62px; margin: -31px 0 0 -31px; }
+body.big .list-head button { min-height: 44px; }
+body.big .toggle input { width: 48px; height: 28px; }
+body.big .toggle input::after { width: 22px; height: 22px; }
+body.big .toggle input:checked::after { transform: translateX(20px); }
 
 /* Busy + toast */
 .busy { position: fixed; inset: 0; z-index: 50; display: flex; align-items: center; justify-content: center; background: rgba(0,0,0,.28); }
@@ -660,6 +705,7 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
   </div>
 
   <aside class="panel" id="panel" hidden>
+    <div class="grab" id="sheetGrab" title="Drag to resize" aria-label="Resize the markups panel"></div>
     <div class="panel-head">
       <h2>Markups</h2><span class="count" id="count2">0</span>
       <button class="btn" id="btnExport" type="button" title="Export counts and markups to Excel or CSV, or place a legend" style="margin-left:auto">Export</button>
@@ -846,6 +892,8 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
       <li><b>Apple Pencil draws</b> with the current tool. <b>One finger</b> scrolls, <b>two fingers</b> pinch to zoom. Turn on <i>Finger draws</i> in Settings to draw with a finger too.</li>
       <li><b>Hover</b> the Pencil just above the screen (on iPads that support hover) to see where a symbol will land, which markup you are over, and what a point will snap to.</li>
       <li><b>Press and hold</b> the Pencil (or a mouse button) still for half a second to open the <b>tool ring</b> around the tip: slide onto a tool and lift, or lift and tap one. The middle button is Undo.</li>
+      <li><b>Two-finger tap</b>: undo (on a markup: open its properties). <b>Three-finger tap</b>: redo. While the Pencil is on or near the screen, your palm and fingers are ignored.</li>
+      <li>Holding the iPad upright puts the toolbar at the bottom and the markups list in a sheet you drag up and down by its handle. Left-handed mode and larger touch targets are in Settings.</li>
       <li>Pencil double-tap and squeeze are not available to web apps, so they cannot be used here.</li>
     </ul>
     <h3>Selecting and editing</h3>
@@ -1881,7 +1929,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '2.6.0';
+var APP_VERSION = '2.7.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2572,7 +2620,7 @@ async function buildPages(keepScroll) {
   state.pages.forEach(function (p) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } } });
   cont.innerHTML = ''; state.pages = [];
   var first = await state.pdf.getPage(1);
-  if (!keepScroll) state.zoom = fitZoomFor(first);
+  if (!keepScroll) { state.zoom = fitZoomFor(first); state.fitMode = true; }
   for (var i = 1; i <= state.pdf.numPages; i++) {
     var page = i === 1 ? first : await state.pdf.getPage(i);
     var el = document.createElement('div'); el.className = 'page'; el.dataset.index = String(i - 1);
@@ -2611,6 +2659,7 @@ function dropDetail(p) {
 }
 function setZoom(z, anchor) {
   var viewer = $('#viewer');
+  state.fitMode = false; // any zoom change ends "keep fitting"; Fit and opening a file turn it back on
   z = clamp(z, 0.2, 6);
   var old = state.zoom, ratio = z / old;
   var ax = anchor ? anchor.x : viewer.clientWidth / 2, ay = anchor ? anchor.y : viewer.clientHeight / 2;
@@ -2905,11 +2954,12 @@ function handleAt(a, p, clientX, clientY) {
   var vx = (clientX - r.left) / s, vy = (clientY - r.top) / s, vr = viewRect(p, a.subtype === 'FreeText' && a.box ? a.box : a.rect);
   if (a.subtype === 'FreeText' && a.tip) { var tv = toView(p, a.tip[0], a.tip[1]); if (Math.hypot(vx - tv[0], vy - tv[1]) <= 14) return 'tip'; }
   if (isVertexShape(a)) {
-    for (var k = a.vertices.length - 1; k >= 0; k--) { var v = toView(p, a.vertices[k][0], a.vertices[k][1]); if (Math.hypot(vx - v[0], vy - v[1]) <= 14) return 'v' + k; }
+    for (var k = a.vertices.length - 1; k >= 0; k--) { var v = toView(p, a.vertices[k][0], a.vertices[k][1]); if (Math.hypot(vx - v[0], vy - v[1]) <= (ui().big ? 22 : 14)) return 'v' + k; }
     return null;
   }
   var hs = [['nw', vr[0], vr[1]], ['ne', vr[2], vr[1]], ['sw', vr[0], vr[3]], ['se', vr[2], vr[3]]];
-  for (var i = 0; i < hs.length; i++) if (Math.abs(vx - hs[i][1]) <= 12 && Math.abs(vy - hs[i][2]) <= 12) return hs[i][0];
+  var ht = ui().big ? 20 : 12;
+  for (var i = 0; i < hs.length; i++) if (Math.abs(vx - hs[i][1]) <= ht && Math.abs(vy - hs[i][2]) <= ht) return hs[i][0];
   return null;
 }
 function isMulti() { return state.multi || state.multiToggle; }
@@ -2978,7 +3028,34 @@ viewer.addEventListener('pointermove', onMove);
 viewer.addEventListener('pointerup', onUp);
 viewer.addEventListener('pointercancel', onUp);
 viewer.addEventListener('scroll', function () { renderVisible(); scheduleKeep(); }, { passive: true });
-window.addEventListener('resize', function () { renderVisible(); });
+/* Window size, orientation and preferences decide the layout. */
+function layoutClasses() {
+  var u = ui(), w = window.innerWidth, h = window.innerHeight, b = document.body;
+  var narrow = w < 700, portrait = h > w && w < 1100;
+  b.classList.toggle('narrow', narrow);
+  b.classList.toggle('portrait', portrait || narrow);
+  b.classList.toggle('tb-bottom', portrait && u.bottomBar !== false && !narrow);
+  b.classList.toggle('lefty', !!u.lefty);
+  b.classList.toggle('big', !!u.big);
+  if ($('#btnToolPick')) $('#btnToolPick').hidden = !(u.compact || narrow);
+}
+var resizeT = null;
+window.addEventListener('resize', function () {
+  layoutClasses(); renderVisible();
+  clearTimeout(resizeT); resizeT = setTimeout(function () { if (state.fitMode && state.pages[0]) setZoom(fitZoomFor(state.pages[0].page)), state.fitMode = true; }, 200);
+});
+// Drag the sheet handle to resize the markups panel in portrait.
+(function () {
+  var g = null;
+  $('#sheetGrab').addEventListener('pointerdown', function (e) { g = { y: e.clientY, h: $('#panel').getBoundingClientRect().height }; $('#sheetGrab').setPointerCapture(e.pointerId); e.preventDefault(); });
+  $('#sheetGrab').addEventListener('pointermove', function (e) { if (!g) return; var wh = $('.work').getBoundingClientRect().height, nh = clamp(g.h + (g.y - e.clientY), 90, wh * 0.88); document.body.style.setProperty('--sheet-h', nh + 'px'); });
+  $('#sheetGrab').addEventListener('pointerup', function () {
+    if (!g) return; g = null;
+    var wh = $('.work').getBoundingClientRect().height, cur = $('#panel').getBoundingClientRect().height, snaps = [0.22, 0.45, 0.8];
+    var best = snaps.reduce(function (a, b) { return Math.abs(b * wh - cur) < Math.abs(a * wh - cur) ? b : a; });
+    document.body.style.setProperty('--sheet-h', Math.round(best * 100) + '%'); ui().sheetH = Math.round(best * 100) + '%'; saveUI(); renderVisible();
+  });
+})();
 
 function startPinch() {
   var ids = Array.from(ptrs.keys()).slice(0, 2), a = ptrs.get(ids[0]), b = ptrs.get(ids[1]);
@@ -2999,8 +3076,43 @@ function pinchApply(g) {
 function pinchClear(g) {
   g.pages.forEach(function (p) { p.el.style.transform = ''; p.el.style.zIndex = ''; });
 }
+/* Palm rejection: while the Pencil is on or just above the screen, finger and palm touches are ignored. */
+var penDownCount = 0, lastPenAt = 0;
+function penNear() { return penDownCount > 0 || Date.now() - lastPenAt < 600; }
+function notePen(e) { if (e.pointerType === 'pen') lastPenAt = Date.now(); }
+/* Two-finger tap: undo (or, on a markup, open its properties). Three-finger tap: redo. */
+var tapS = null;
+function tapDown(e) {
+  if (e.pointerType !== 'touch') return;
+  if (!tapS || tapS.active <= 0) tapS = { t0: Date.now(), active: 0, max: 0, moved: false, start: {} };
+  tapS.active++; tapS.max = Math.max(tapS.max, tapS.active); tapS.start[e.pointerId] = [e.clientX, e.clientY];
+}
+function tapMove(e) { if (!tapS || e.pointerType !== 'touch') return; var s0 = tapS.start[e.pointerId]; if (s0 && Math.hypot(e.clientX - s0[0], e.clientY - s0[1]) > 14) tapS.moved = true; }
+function tapUp(e) {
+  if (!tapS || e.pointerType !== 'touch' || !tapS.start[e.pointerId]) return;
+  tapS.active--;
+  if (tapS.active > 0) return;
+  var t = tapS; tapS = null;
+  if (t.moved || Date.now() - t.t0 > 350 || ui().fingerTaps === false) return;
+  var pts = Object.keys(t.start).map(function (k) { return t.start[k]; }), cx = 0, cy = 0;
+  pts.forEach(function (q) { cx += q[0] / pts.length; cy += q[1] / pts.length; });
+  if (t.max === 2) twoFingerTap(cx, cy, pts); else if (t.max === 3) { redo(); toast('Redo', 900); }
+}
+function twoFingerTap(cx, cy, pts) {
+  var hit = null, pg = null;
+  [[cx, cy]].concat(pts).some(function (q) {
+    var el = document.elementFromPoint(q[0], q[1]), pe = el && el.closest ? el.closest('.page') : null; if (!pe) return false;
+    pg = state.pages[+pe.dataset.index]; hit = hitTest(pg, toPdf(pg, q[0], q[1])); return !!hit;
+  });
+  if (hit) { selectAnnot(hit, false); if ($('#panel').hidden) { $('#panel').hidden = false; renderVisible(); } layoutClasses(); return; }
+  if (state.history.length) { undo(); toast('Undo', 900); }
+}
 function onDown(e) {
   if (!state.pdf) return;
+  notePen(e);
+  if (e.pointerType === 'pen') penDownCount++;
+  if (e.pointerType === 'touch' && ui().palm !== false && penNear()) return; // palm resting while writing
+  tapDown(e);
   clearHover();
   if (!$('#ring').hidden) return;
   if (e.target.closest && e.target.closest('#textEdit')) return; // typing in a text box
@@ -3072,6 +3184,7 @@ function onDown(e) {
 }
 function onMove(e) {
   var pr = ptrs.get(e.pointerId);
+  notePen(e); tapMove(e);
   holdMoved(e);
   if (gesture && gesture.mode === 'ring' && gesture.id === e.pointerId) { ringHover(e.clientX, e.clientY); return; }
   if (!pr) {
@@ -3179,6 +3292,8 @@ function onMove(e) {
   }
 }
 function onUp(e) {
+  if (e.pointerType === 'pen') { penDownCount = Math.max(0, penDownCount - 1); lastPenAt = Date.now(); }
+  tapUp(e);
   ptrs.delete(e.pointerId);
   cancelHold();
   if (gesture && gesture.mode === 'ring' && gesture.id === e.pointerId) {
@@ -4859,7 +4974,7 @@ function arrangeToolbar() {
   toolOrder().forEach(function (t) { box.appendChild(TBTN[t]); TBTN[t].hidden = hid.indexOf(t) >= 0; });
   ['#markTools', '#countTools'].forEach(function (id) { var el = $(id); if (el) el.hidden = !el.querySelector('[data-tool]'); });
   document.body.classList.toggle('compact', !!ui().compact);
-  $('#btnToolPick').hidden = !ui().compact;
+  layoutClasses();
   updateToolPick();
 }
 function updateToolPick() {
@@ -4889,7 +5004,7 @@ function renderPalette() {
   $('#qbtns').innerHTML = ui().palTools.filter(function (t) { return TBTN[t]; }).map(function (t) { return '<button type="button" class="tb' + (state.tool === t && !state.chestTool ? ' on' : '') + '" data-qt="' + t + '" title="' + esc(toolName(t)) + '" aria-label="' + esc(toolName(t)) + '">' + toolIcon(t) + '</button>'; }).join('') +
     (favs.length ? '<span class="sep"></span>' + favs.map(function (f) { return '<button type="button" class="tb fav' + (isActiveTool(f.set, f.tool) ? ' on' : '') + '" data-qf="' + esc(f.set.id) + '|' + esc(f.tool.id) + '" title="' + esc(f.tool.title) + '">' + toolPreview(f.tool) + '</button>'; }).join('') : '') +
     '<span class="sep"></span><button type="button" class="tb" data-qa="undo" title="Undo" aria-label="Undo">' + $('#btnUndo').innerHTML + '</button><button type="button" class="tb" data-qa="redo" title="Redo" aria-label="Redo">' + $('#btnRedo').innerHTML + '</button>';
-  var pos = ui().palPos || { x: Math.max(12, window.innerWidth / 2 - 220), y: window.innerHeight - 90 };
+  var pos = ui().palPos || { x: ui().lefty ? 12 : Math.max(12, window.innerWidth - 470), y: window.innerHeight - (document.body.classList.contains('tb-bottom') ? 170 : 90) };
   q.style.left = clamp(pos.x, 4, window.innerWidth - 80) + 'px'; q.style.top = clamp(pos.y, 4, window.innerHeight - 50) + 'px';
 }
 $('#btnPalette').addEventListener('click', function () { ui().palette = !ui().palette; saveUI(); renderPalette(); });
@@ -4933,7 +5048,8 @@ function showRing(x, y, pid) {
   var r = 92, cx = clamp(x, r + 30, window.innerWidth - r - 30), cy = clamp(y, r + 30, window.innerHeight - r - 30), ring = $('#ring');
   ring.style.left = cx + 'px'; ring.style.top = cy + 'px';
   ring.innerHTML = '<button type="button" class="rb mid" data-ring="undo" data-label="Undo" aria-label="Undo">' + $('#btnUndo').innerHTML + '</button>' + items.map(function (it, i) {
-    var t = -Math.PI / 2 + i * 2 * Math.PI / items.length;
+    // Arc of 270 degrees centred away from the hand (right hand: lower right covers the screen).
+    var mid = ui().lefty ? -Math.PI / 4 : -3 * Math.PI / 4, span = 1.5 * Math.PI, t = items.length > 1 ? mid - span / 2 + i * span / (items.length - 1) : mid;
     return '<button type="button" class="rb' + (it.fav ? ' fav' : '') + (it.on ? ' on' : '') + '" style="left:' + (r * Math.cos(t)).toFixed(1) + 'px;top:' + (r * Math.sin(t)).toFixed(1) + 'px" data-ring="' + esc(it.k) + '" data-label="' + esc(it.label) + '" aria-label="' + esc(it.label) + '">' + it.html + '</button>';
   }).join('');
   ring.hidden = false;
@@ -4985,9 +5101,14 @@ function openSettings() {
     '<div class="setsec"><h3>Appearance</h3>' +
       row('Theme', sel('theme', u.theme, [['system', 'Match the iPad'], ['light', 'Light'], ['dark', 'Dark']])) +
       row('Compact toolbar', chk('compact', u.compact), 'One tool button with a picker instead of every tool') +
-      row('Floating quick palette', chk('palette', u.palette), 'A small bar of tools and favourites you can drag anywhere') + '</div>' +
+      row('Floating quick palette', chk('palette', u.palette), 'A small bar of tools and favourites you can drag anywhere') +
+      row('Toolbar at the bottom in portrait', chk('bottomBar', u.bottomBar !== false), 'Within reach of your thumb when holding the iPad upright') +
+      row('Left-handed', chk('lefty', u.lefty), 'Markups panel on the left; tool ring and palette away from your hand') +
+      row('Larger touch targets', chk('big', u.big), 'Bigger buttons, colours and handles, for gloves or site use') + '</div>' +
     '<div class="setsec"><h3>Apple Pencil and touch</h3>' +
       row('Finger draws', chk('fingerDraw', state.fingerDraw), 'Otherwise a finger scrolls and pinches') +
+      row('Palm rejection', chk('palm', u.palm !== false), 'Ignore touches while the Pencil is on or near the screen') +
+      row('Finger taps', chk('fingerTaps', u.fingerTaps !== false), 'Two-finger tap: undo (on a markup: open its properties). Three-finger tap: redo') +
       row('Hover preview', chk('hover', u.hover), 'Show the symbol, markup or snap point under the hovering Pencil') +
       row('Press and hold for the tool ring', chk('hold', u.hold)) +
       row('Hold time', sel('holdMs', u.holdMs, [[350, 'Short'], [500, 'Medium'], [750, 'Long']])) + '</div>' +
@@ -5026,6 +5147,8 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'hover') { u.hover = v; if (!v) clearHover(); }
   else if (k === 'hold') u.hold = v;
   else if (k === 'symStamp') u.symStamp = v;
+  else if (k === 'bottomBar' || k === 'lefty' || k === 'big') { u[k] = v; saveUI(); layoutClasses(); renderPalette(); renderVisible(); }
+  else if (k === 'palm' || k === 'fingerTaps') u[k] = v;
   else if (k === 'holdMs') u.holdMs = +v;
   else if (k === 'fingerDraw') { state.fingerDraw = v; $('#fingerDraw').checked = v; savePrefs(); }
   else if (k === 'snap') { state.snap = v; $('#snapToggle').checked = v; savePrefs(); }
@@ -5087,7 +5210,7 @@ $('#snapToggle').addEventListener('change', function (e) { state.snap = e.target
 $('#multiSel').addEventListener('change', function (e) { state.multiToggle = e.target.checked; });
 $('#zoomIn').addEventListener('click', function () { setZoom(state.zoom * 1.25); });
 $('#zoomOut').addEventListener('click', function () { setZoom(state.zoom / 1.25); });
-$('#zoomFit').addEventListener('click', function () { if (state.pages[0]) setZoom(fitZoomFor(state.pages[0].page)); });
+$('#zoomFit').addEventListener('click', function () { if (state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } });
 $('#btnUndo').addEventListener('click', undo);
 $('#btnRedo').addEventListener('click', redo);
 $('#btnPanel').addEventListener('click', function () { var p = $('#panel'); p.hidden = !p.hidden; renderVisible(); });
@@ -5149,7 +5272,7 @@ window.addEventListener('pagehide', function () { saveSession(); });
 function fitPop(pop) {
   pop.style.maxHeight = '';
   var r = pop.getBoundingClientRect(), vh = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-  pop.style.maxHeight = Math.max(180, vh - r.top - 12) + 'px';
+  pop.style.maxHeight = Math.max(180, document.body.classList.contains('tb-bottom') ? r.bottom - 12 - (parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--safe-top')) || 0) : vh - r.top - 12) + 'px';
 }
 window.addEventListener('scroll', function () {
   var el = document.activeElement;
@@ -5184,6 +5307,7 @@ window.addEventListener('online', function () { lastUpdateCheck = 0; maybeCheck(
 window.addEventListener('offline', function () { toast('You are offline. Opening, marking up and saving PDFs still works.', 4000); });
 renderVersion(); setTimeout(maybeCheck, 1500);
 renderFavBar(); arrangeToolbar(); renderPalette();
+if (ui().sheetH) document.body.style.setProperty('--sheet-h', ui().sheetH);
 window.addEventListener('resize', function () { if (ui().palette) renderPalette(); });
 if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) $('#panel').hidden = false;
 renderList();

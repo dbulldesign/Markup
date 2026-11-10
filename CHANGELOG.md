@@ -2,6 +2,15 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 2.7.0 (round 2, phase 2: iPad input and layout)
+- Palm rejection: while the Pencil is on or near the page, finger touches are ignored (Settings toggle).
+- Two-finger tap undoes, three-finger tap redoes. Two-finger tap on a markup selects it and opens its properties.
+- Portrait layout: toolbar moves to the bottom within thumb reach, menus open upward, and the markups panel becomes a bottom sheet you drag taller or shorter.
+- Split View and Stage Manager: narrow windows switch to a tool picker and hide less-used buttons; Fit zoom is kept when the window resizes.
+- Left-handed mode: panel on the left, quick tool ring opens away from your hand.
+- Larger touch targets option in Settings (bigger buttons and easier-to-grab handles).
+- Fixed: tabs bar hidden behind the markups sheet in portrait.
+
 ## 2.6.0 (round 2, phase 1: fixes)
 **Fixed**
 - The tool ring no longer opens while you hold the Pencil still to place polygon, area, cloud or angle points, or while erasing.
