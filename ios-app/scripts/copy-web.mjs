@@ -8,7 +8,7 @@ const src = join(here, '..', '..');
 const out = join(here, '..', 'www');
 rmSync(out, { recursive: true, force: true });
 mkdirSync(out, { recursive: true });
-for (const item of ['index.html', 'manifest.webmanifest', 'version.json', 'vendor', 'icons', 'templates']) {
+for (const item of ['index.html', 'css', 'js', 'manifest.webmanifest', 'version.json', 'vendor', 'icons', 'templates']) {
   const from = join(src, item);
   if (existsSync(from)) cpSync(from, join(out, item), { recursive: true });
 }

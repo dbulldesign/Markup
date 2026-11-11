@@ -1,0 +1,22 @@
+const { chromium } = require('playwright'); const path = require('path');
+const SP = process.env.PM_DIR;
+(async () => {
+  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2 });
+  const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(e.message));
+  await page.goto(process.env.PM_URL); await page.waitForTimeout(800);
+  await page.evaluate(() => { localStorage.clear(); return new Promise(r => { const q = indexedDB.deleteDatabase('pencil-markup'); q.onsuccess = q.onerror = q.onblocked = () => r(); }); });
+  await page.reload(); await page.waitForTimeout(800);
+  await page.setInputFiles('#file', path.join(SP, 'sheet.pdf')); await page.waitForTimeout(1500);
+  const tool = async (t) => { await page.click('#btnToolPick'); await page.click('#toolGrid [data-pick="' + t + '"]'); };
+  const tapPdf = async (x, y) => { const bx = await page.locator('.page').first().boundingBox(), sc = bx.width / 2592; await page.mouse.click(bx.x + x * sc, bx.y + (1728 - y) * sc); await page.waitForTimeout(200); };
+  await tool('symbol'); await tapPdf(300, 1300); await tapPdf(500, 1300); await tool('select'); await tapPdf(300, 1300);
+  const b0 = await page.locator('#selBar').boundingBox(), g = await page.locator('#selGrip').boundingBox();
+  await page.mouse.move(g.x + g.width / 2, g.y + g.height / 2); await page.mouse.down(); await page.mouse.move(g.x - 150, g.y + 450, { steps: 8 }); await page.mouse.up();
+  const b1 = await page.locator('#selBar').boundingBox(); console.log('moved by', Math.round(b1.x - b0.x), Math.round(b1.y - b0.y), '| selection kept:', await page.textContent('#selN'));
+  await page.click('#btnDuplicate'); console.log('buttons still work (duplicate):', await page.textContent('#count'));
+  await tapPdf(2000, 200); await tapPdf(500, 1300); const b2 = await page.locator('#selBar').boundingBox(); console.log('next selection, same place:', Math.abs(b2.x - b1.x) < 2 && Math.abs(b2.y - b1.y) < 2);
+  await page.screenshot({ path: path.join(SP, 'p30.png') });
+  const g2 = await page.locator('#selGrip').boundingBox(); await page.mouse.click(g2.x + 5, g2.y + 10); await page.mouse.click(g2.x + 5, g2.y + 10); await page.waitForTimeout(100);
+  const b3 = await page.locator('#selBar').boundingBox(); console.log('double-tap returns to top:', Math.abs(b3.y - b0.y) < 2 && Math.abs(b3.x - b0.x) < 30);
+  console.log('errors:', errs); await b.close();
+})();

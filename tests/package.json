@@ -1,0 +1,11 @@
+{
+  "name": "pencil-markup-tests",
+  "private": true,
+  "description": "Browser tests for Pencil Markup (Playwright). Run: npm install && npx playwright install chromium && npm test",
+  "type": "module",
+  "scripts": { "test": "node run.mjs" },
+  "devDependencies": {
+    "playwright": "1.63.0",
+    "pdf-lib": "1.17.1"
+  }
+}

@@ -2,6 +2,11 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 4.0.0
+- Under the hood: the app is split from one 8,600-line file into `index.html` (the page), `css/app.css`, `js/markup-io.js` (Revu-compatible PDF reading and writing), `js/toolchest.js` (.btx tool sets) and `js/app.js`. Nothing to build: GitHub Pages serves them as they are. Each file's address carries the version, so an update always brings matching files, and the offline copy keeps all of them (it works with no connection as before).
+- `tools/release.py` bumps the version everywhere it lives in one step.
+- The browser tests are now in the repository (`tests/`, about 50 of them), run in parallel in about 3 minutes, and run automatically on GitHub for every push.
+
 ## 3.24.0
 - Apple Pencil double-tap and squeeze (iPad app): Settings > Pencil chooses what they do: switch to the last tool, the quick menu, eraser on/off, undo, colour and style, nothing, or follow iPad Settings. "Last tool" also returns to the last Tool Chest tool. On the web and with a keyboard, the ` key switches to the last tool.
 - The quick menu (press and hold, or the Pencil) now includes your recent tools after your favourites.

@@ -1,0 +1,25 @@
+const { chromium } = require('playwright'); const path = require('path'), fs = require('fs');
+const SP = process.env.PM_DIR;
+(async () => {
+  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, acceptDownloads: true });
+  const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(e.message));
+  await page.goto(process.env.PM_URL); await page.waitForTimeout(800);
+  await page.evaluate(() => { localStorage.clear(); return new Promise(r => { const q = indexedDB.deleteDatabase('pencil-markup'); q.onsuccess = q.onerror = q.onblocked = () => r(); }); });
+  await page.reload(); await page.waitForTimeout(800);
+  await page.setInputFiles('#file', path.join(SP, 'sheet.pdf')); await page.waitForTimeout(1500);
+  const tool = async (t) => { await page.click('#btnToolPick'); await page.click('#toolGrid [data-pick="' + t + '"]'); };
+  const tapPdf = async (x, y) => { const bx = await page.locator('.page').first().boundingBox(), sc = bx.width / 2592; await page.mouse.click(bx.x + x * sc, bx.y + (1728 - y) * sc); await page.waitForTimeout(150); };
+  await tool('symbol'); for (const x of [300, 450, 600, 750, 900]) await tapPdf(x, 1300);
+  console.log('no statuses yet, strip hidden:', await page.isHidden('#stBar'));
+  await tool('select');
+  const setStatus = async (x, st) => { await tapPdf(x, 1300); await page.click('#btnSelProps'); await page.selectOption('#pStatus', st); await page.click('#pmHide'); };
+  await setStatus(300, 'accepted'); await setStatus(450, 'accepted'); await setStatus(600, 'rejected');
+  console.log('strip:', (await page.textContent('#stBar')).replace(/\s+/g, ' ').trim());
+  await page.click('#stBar [data-st="accepted"]'); console.log('filter Accepted -> rows:', await page.$$eval('#rows .row[data-id]', x => x.length));
+  await page.click('#stBar [data-st="open"]'); console.log('filter Open -> rows:', await page.$$eval('#rows .row[data-id]', x => x.length));
+  await page.click('#stBar [data-st="open"]'); console.log('tap again -> all rows:', await page.$$eval('#rows .row[data-id]', x => x.length));
+  await page.screenshot({ path: path.join(SP, 'p43.png'), clip: { x: 790, y: 90, width: 390, height: 420 } });
+  await page.click('#btnExport'); const [d] = await Promise.all([page.waitForEvent('download'), page.click('[data-ex="summary"]')]); await d.saveAs(path.join(SP, 'sum2.pdf'));
+  console.log('summary saved:', fs.statSync(path.join(SP, 'sum2.pdf')).size > 1000);
+  console.log('errors:', errs); await b.close();
+})();

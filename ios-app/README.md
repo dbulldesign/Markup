@@ -1,6 +1,6 @@
 # Pencil Markup for iPad (native app)
 
-This folder wraps the web app (`../index.html`) in a native iPad app using
+This folder wraps the web app (`../index.html` with `../css`, `../js` and `../vendor`) in a native iPad app using
 [Capacitor 6](https://capacitorjs.com). It is the same app as the website.
 The native app adds:
 
@@ -63,7 +63,7 @@ Drag `../icons/icon-1024.png` (1024 × 1024, no transparency) into **App > Asset
 
 ## After changing the web app
 
-Whenever `index.html` or the files in `vendor/` change, run:
+Whenever `index.html` or the files in `css/`, `js/` or `vendor/` change, run:
 
 ```bash
 cd ios-app

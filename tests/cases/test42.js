@@ -1,0 +1,30 @@
+const { chromium } = require('playwright'); const path = require('path');
+const SP = process.env.PM_DIR;
+(async () => {
+  const b = await chromium.launch(); const ctx = await b.newContext({ viewport: { width: 1180, height: 820 }, deviceScaleFactor: 2, colorScheme: 'dark' });
+  const page = await ctx.newPage(); const errs = []; page.on('pageerror', e => errs.push(e.message));
+  await page.goto(process.env.PM_URL); await page.waitForTimeout(800);
+  await page.evaluate(() => { localStorage.clear(); return new Promise(r => { const q = indexedDB.deleteDatabase('pencil-markup'); q.onsuccess = q.onerror = q.onblocked = () => r(); }); });
+  await page.reload(); await page.waitForTimeout(800);
+  await page.setInputFiles('#file', path.join(SP, 'sheet.pdf')); await page.waitForTimeout(1500);
+  const tool = async (t) => { await page.click('#btnToolPick'); await page.click('#toolGrid [data-pick="' + t + '"]'); };
+  const tapPdf = async (x, y) => { const bx = await page.locator('.page').first().boundingBox(), sc = bx.width / 2592; await page.mouse.click(bx.x + x * sc, bx.y + (1728 - y) * sc); await page.waitForTimeout(200); };
+  await tool('symbol'); for (const x of [400, 600, 800]) await tapPdf(x, 1200);
+  await tool('select');
+  await page.click('#rows .row[data-id] >> nth=1'); await page.waitForTimeout(150);
+  console.log('list tap: props shown?', await page.isVisible('#props'), '| panel holds props?', await page.evaluate(() => !!document.querySelector('#panel #props')));
+  await page.click('#btnSelProps'); await page.waitForTimeout(150);
+  console.log('Properties tap: pop-up shown', await page.isVisible('#propsPop'), '| title', await page.textContent('#propsTitle'));
+  await page.screenshot({ path: path.join(SP, 'p27-pop.png') });
+  await page.fill('#pSubject', 'Downlight'); await page.waitForTimeout(150);
+  console.log('edit inside keeps it open:', await page.isVisible('#propsPop'), '| list shows:', await page.textContent('#rows .row[data-id] >> nth=1 >> .subj'));
+  await page.fill('#pLenV', "4'"); await page.press('#pLenV', 'Enter'); console.log('length inside:', await page.textContent('#pLenTot'), await page.isVisible('#propsPop'));
+  await tapPdf(60, 200); console.log('tap away closes:', await page.isHidden('#propsPop'));
+  await tapPdf(600, 1200); await page.click('#btnSelProps'); await page.keyboard.press('Escape'); console.log('Escape closes:', await page.isHidden('#propsPop'));
+  await page.click('#btnSelProps'); await page.click('#pmHide'); console.log('Done closes:', await page.isHidden('#propsPop'));
+  await page.click('#btnSelProps'); await tapPdf(400, 1200); console.log('tapping another fixture closes + selects it:', await page.isHidden('#propsPop'), await page.textContent('#selN'));
+  // panel mode still available
+  await page.click('#btnSettings'); await page.evaluate(() => document.querySelectorAll('#setBody .setsec').forEach(x => x.hidden = false)); await page.selectOption('#setBody [data-set="propsMode"]', 'panel'); await page.click('#setClose');
+  await page.click('#rows .row[data-id] >> nth=0'); console.log('panel mode: props in list after list tap:', await page.evaluate(() => !!document.querySelector('#panel #props') && !document.querySelector('#props').hidden));
+  console.log('errors:', errs); await b.close();
+})();

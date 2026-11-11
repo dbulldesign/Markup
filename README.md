@@ -1,10 +1,10 @@
 # Pencil Markup for Bluebeam
 
-A single-file web app for marking up PDFs on an iPad with Apple Pencil. Markups are written as standard PDF annotations that Bluebeam Revu reads (Subject, Comments, Author, Color, fill opacity, groups), and markups made in Revu show up here.
+A web app (no build step, no server code) for marking up PDFs on an iPad with Apple Pencil. Markups are written as standard PDF annotations that Bluebeam Revu reads (Subject, Comments, Author, Color, fill opacity, groups), and markups made in Revu show up here.
 
 ## Host it on GitHub Pages
 
-1. Create a repository and add `index.html`, `version.json`, `sw.js`, `manifest.webmanifest` and the `icons/` and `vendor/` folders.
+1. Create a repository and add `index.html`, `version.json`, `sw.js`, `manifest.webmanifest` and the `css/`, `js/`, `icons/`, `vendor/` and `templates/` folders.
 2. Settings, Pages, Source: *Deploy from a branch*, branch `main`, folder `/ (root)`.
 3. Open `https://<you>.github.io/<repo>/` in Safari on the iPad. Use Share, *Add to Home Screen* to run it full-screen.
 
@@ -57,15 +57,44 @@ This is a working copy inside the app, not your file in Files: tap *Save PDF* an
 
 The version number is in the toolbar (for example *v1.1.0*). The app checks `version.json` on the server when it opens, when you come back to it, and every 30 minutes. When a newer version is published, the chip turns into *Update*; tap it to see what changed and reload into the new version.
 
-To publish a new version, bump both together:
+To publish a new version, run one command, then add the entry to `CHANGELOG.md`:
 
-1. `APP_VERSION` in `index.html` (and the `app-version` meta tag).
-2. `version` (and `notes`) in `version.json`.
-3. `CACHE` in `sw.js` (so devices replace their offline copy).
+```
+python3 tools/release.py 4.0.1 "One line for the update banner"
+```
+
+It bumps every place the version lives so devices never mix old and new files: `APP_VERSION` in `js/app.js`, the `app-version` meta tag and the `?v=` on the `css/` and `js/` links in `index.html`, `CACHE` and the file versions in `sw.js`, and `version.json`.
+
+## How the code is laid out
+
+| File | What it holds |
+| --- | --- |
+| `index.html` | The page: toolbar, panels, dialogs |
+| `css/app.css` | All the styling |
+| `js/markup-io.js` | Reading and writing PDF annotations (pdf-lib), the Revu-compatible part |
+| `js/toolchest.js` | Reading Revu tool sets (`.btx`) |
+| `js/app.js` | The app itself: drawing, selection, the markups list, counts, settings |
+| `sw.js` | Keeps the app on the device for offline use |
+| `tools/release.py` | Version bump for a release |
+| `tests/` | Browser tests (see below) |
+
+## Tests
+
+`tests/` holds about 50 browser tests (Playwright, Chromium) that drive the real app: drawing every tool, saving and reopening, Revu round trips, counts and schedules, groups, shortcuts, settings, offline. They run in parallel, each with its own copy of the test files, and GitHub runs them on every push (Actions, *Tests*).
+
+```
+cd tests
+npm install
+npx playwright install chromium
+npm test            # all of them
+node run.mjs 63 64  # just some
+```
+
+A test passes when it finishes with no error on the page. Output and screenshots are in `tests/out/<test>/`. Tests that use a real project's schedule look for it in `tests/fixtures/private/` (not in the repository) and are skipped without it.
 
 ## Offline
 
-After the app has been opened once with a connection, it works with no connection: opening, marking up and saving PDFs all run on the device. The service worker (`sw.js`) keeps `index.html`, the `vendor/` libraries and the `icons/` on the iPad, and always tries the network first for the page so updates still arrive when you are online.
+After the app has been opened once with a connection, it works with no connection: opening, marking up and saving PDFs all run on the device. The service worker (`sw.js`) keeps `index.html`, `css/`, `js/`, the `vendor/` libraries and the `icons/` on the iPad, and always tries the network first for the page so updates still arrive when you are online.
 
 On iPad, add it to the Home Screen and open it from there once while online; the version popover shows *Offline: ready* when it is set up. Home Screen apps keep their own storage, separate from Safari.
 

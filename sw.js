@@ -1,10 +1,14 @@
 /* Pencil Markup service worker: keeps the app and its libraries on the device so it opens offline.
-   Bump CACHE whenever any file below changes (keep it in step with APP_VERSION in index.html). */
+   CACHE and the ?v= versions below are bumped by tools/release.py together with APP_VERSION in js/app.js. */
 'use strict';
-var CACHE = 'pencil-markup-3.24.0';
+var CACHE = 'pencil-markup-4.0.0';
 var APP_SHELL = [
   './',
   'index.html',
+  'css/app.css?v=4.0.0',
+  'js/markup-io.js?v=4.0.0',
+  'js/toolchest.js?v=4.0.0',
+  'js/app.js?v=4.0.0',
   'manifest.webmanifest',
   'icons/apple-touch-icon.png',
   'icons/icon.svg',

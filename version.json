@@ -1,5 +1,5 @@
 {
-  "version": "3.24.0",
-  "date": "2026-11-10",
-  "notes": "Pencil double-tap choices, dark drawings, instant return to recent pages."
+  "version": "4.0.0",
+  "date": "2026-11-11",
+  "notes": "The app is now split into separate files (faster updates); tests run on every push."
 }
