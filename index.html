@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.17.0">
+<meta name="app-version" content="3.18.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -164,6 +164,13 @@ body.compact #measureTools > [data-tool] { display: none; }
 .tsearch input { width: 100%; box-sizing: border-box; }
 .chest .tsearch { padding: 0 0 8px; }
 .tool-none { padding: 12px 4px; color: var(--ink-2); font-size: 14px; }
+.kbsheet { width: min(860px, 100%) !important; }
+.kbbody { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 22px; }
+.kbbody h3 { margin: 8px 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
+.kbbody dl { display: grid; grid-template-columns: auto 1fr; gap: 4px 10px; margin: 0; font-size: 13px; align-items: baseline; }
+.kbbody dt { white-space: nowrap; text-align: right; }
+.kbbody dd { margin: 0; }
+kbd { display: inline-block; min-width: 18px; padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 6px; background: var(--surface-2); font: inherit; font-size: 12px; font-weight: 600; text-align: center; }
 .fp-head { display: flex; align-items: center; gap: 8px; margin: 0 2px 8px; font-size: 14px; }
 .favgrid .tb svg, .favgrid .tb img { width: 46px; height: 30px; }
 .favgrid .tb .lbl { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -687,6 +694,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
 [data-mode-panel][hidden] { display: none; }
 
 .toast { position: fixed; left: 50%; bottom: calc(20px + var(--safe-bottom)); transform: translateX(-50%); z-index: 60; background: var(--ink); color: var(--surface); padding: 10px 16px; border-radius: 10px; max-width: min(90vw, 480px); text-align: center; box-shadow: var(--shadow); }
+.toast { pointer-events: none; } /* messages never block a tap on what is under them */
 .toast[hidden] { display: none; }
 </style>
 </head>
@@ -916,6 +924,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
   <div class="polybar" id="combineBar" hidden>
     <span class="info" id="combineInfo"></span>
     <button class="btn" id="combineCancel" type="button">Cancel</button>
+    <button class="btn primary" id="combineGo" type="button">Combine</button>
   </div>
   <div class="polybar" id="polyBar" hidden>
     <span class="info" id="polyInfo"></span>
@@ -1187,6 +1196,14 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <h2 id="setTitle">Settings</h2>
     <div id="setBody"></div>
     <div class="actions"><span class="spacer"></span><button class="btn primary" type="button" id="setClose">Done</button></div>
+  </div>
+</div>
+<div class="modal" id="kbModal" hidden>
+  <div class="sheet wide kbsheet" role="dialog" aria-modal="true" aria-labelledby="kbTitle">
+    <h2 id="kbTitle">Keyboard shortcuts</h2>
+    <p class="sub">With a keyboard connected to the iPad (Magic Keyboard, Smart Keyboard or Bluetooth).</p>
+    <div id="kbBody" class="kbbody"></div>
+    <div class="actions"><span class="spacer"></span><button class="btn primary" type="button" id="kbClose">Done</button></div>
   </div>
 </div>
 <div class="modal" id="helpModal" hidden>
@@ -2396,7 +2413,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.17.0';
+var APP_VERSION = '3.18.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3642,7 +3659,7 @@ function handleAt(a, p, clientX, clientY) {
   for (var i = 0; i < hs.length; i++) if (Math.abs(vx - hs[i][1]) <= ht && Math.abs(vy - hs[i][2]) <= ht) return hs[i][0];
   return null;
 }
-function isMulti() { return state.multi || state.multiToggle || state.listSelect; }
+function isMulti() { return state.multi || state.multiToggle || state.listSelect || !!state.combine; }
 /* Box selection: drag left to right to pick markups fully inside the box (solid blue),
    right to left to pick everything the box touches (dashed green). */
 // A point in the viewer's scrolled content, so a box can run across pages and the gaps between them.
@@ -3686,7 +3703,7 @@ function selectAnnot(a, add) {
 }
 function clearSel() { if (!state.sel.size) return; state.sel = new Set(); afterSelectionChange(); }
 function afterSelectionChange() {
-  state.pages.forEach(drawOverlay); renderProps();
+  state.pages.forEach(drawOverlay); renderProps(); updateCombineBar();
   // One markup picked inside a collapsed group: open the group so its row shows.
   var opened = false;
   selected().forEach(function (a) {
@@ -3900,10 +3917,10 @@ function finishLasso(g) {
 }
 function fingerTap(cx, cy) {
   var el = document.elementFromPoint(cx, cy), pe = el && el.closest ? el.closest('.page') : null;
-  if (!pe) { if (state.combine) endCombine(); return; }
+  if (!pe) return;
   var p = state.pages[+pe.dataset.index]; if (!p) return;
   var pt = toPdf(p, cx, cy), hit = hitTest(p, pt);
-  if (state.combine) { if (hit) finishCombine(hit); else endCombine(); return; }
+  if (state.combine) { if (hit) selectAnnot(hit, true); return; }
   if (state.draft || state.editing) return;
   if (hit && hit.subtype === 'FreeText' && hit.owned && hit.box && state.sel.size === 1 && state.sel.has(hit.id)) { openTextEditor(hit); return; }
   if (hit) {
@@ -3983,7 +4000,7 @@ function onDown(e) {
     if (h) { pushHistory(); gesture = { mode: 'resize', id: e.pointerId, a: single, handle: h, p: p, vr0: viewRect(p, single.subtype === 'FreeText' && single.box ? single.box : single.rect) }; return; }
 
     var hit = hitTest(p, pt);
-    if (state.combine) { if (hit) finishCombine(hit); else endCombine(); gesture = { mode: 'tap', id: e.pointerId }; return; }
+    if (state.combine) { if (hit) selectAnnot(hit, true); gesture = { mode: 'tap', id: e.pointerId }; return; }
     if (hit) {
       var grp = membersOf(hit), drill = !isMulti() && grp.length > 1 && state.sel.has(hit.id) && state.sel.size === grp.length && grp.every(function (m) { return state.sel.has(m.id); });
       var wasSel = state.sel.has(hit.id);
@@ -4991,6 +5008,7 @@ function renderProps() {
   $('#propsMini').hidden = propsPopup() || !s.length || !!show;
   var sbWas = $('#selBar').hidden;
   $('#selBar').hidden = !s.length || !!state.combine;
+  if (state.combine) $('#selBar').hidden = true;
   if (sbWas && !$('#selBar').hidden) placeSelBar();
   if (s.length) $('#selN').textContent = s.length === 1 ? '1 selected' : s.length + ' selected';
   if (s.length && !show) { var a0 = s[0]; $('#pmTitle').textContent = s.length === 1 ? (a0.subject || typeLabel(a0.subtype, a0.intent)) + (MarkupIO.symLabel(a0) || a0.mtext ? ' \u00b7 ' + (MarkupIO.symLabel(a0) || a0.mtext) : '') + ' \u00b7 p. ' + pageLabel(a0.pageIndex) : s.length + ' markups selected'; }
@@ -5232,16 +5250,26 @@ $('#btnSelProps').addEventListener('click', function () {
 });
 $('#btnSelClear').addEventListener('click', function () { clearSel(); });
 /* Combine: pick a group (or a markup), tap Combine with..., then tap the other group or markup. */
+/* Combine: starting from the selection, tap (or box-select, or lasso) as many more groups and fixtures as
+   you like, on the drawing or in the list, then Combine makes them all one group. */
 function startCombine() {
   var s = selected(); if (!s.length) return;
   $('#selBar').hidden = true;
-  var a = s[0], grp = membersOf(a);
-  state.combine = { head: headOf(a).id };
-  if (state.tool !== 'select') setTool('select');
-  $('#combineInfo').innerHTML = 'Tap the group or markup to combine with <b>' + esc(grp.length > 1 ? 'the group of ' + grp.length : (a.subject || typeLabel(a.subtype, a.intent))) + '</b> (on the drawing or in the list)';
-  $('#combineBar').hidden = false;
+  state.combine = { head: headOf(s[0]).id, base: Array.from(state.sel) };
+  if (state.tool !== 'select' && state.tool !== 'lasso') setTool('select');
+  $('#combineBar').hidden = false; updateCombineBar();
 }
-function endCombine() { state.combine = null; $('#combineBar').hidden = true; $('#selBar').hidden = !selected().length; placeSelBar(); }
+function updateCombineBar() {
+  if (!state.combine) return;
+  var s = selected(), heads = new Set(s.map(function (x) { return headOf(x).id; }));
+  $('#combineInfo').innerHTML = 'Tap the groups and fixtures to add (or drag a box / lasso), then Combine. <b>' + s.length + ' selected</b>' + (heads.size > 1 ? ' in ' + heads.size + ' groups or markups' : '');
+  $('#combineGo').disabled = heads.size < 2;
+}
+function endCombine(cancel) {
+  var c = state.combine; state.combine = null; $('#combineBar').hidden = true;
+  if (cancel && c) { state.sel = new Set(c.base.filter(function (id) { var x = byId(id); return x && !x.deleted; })); afterSelectionChange(); }
+  $('#selBar').hidden = !selected().length; placeSelBar();
+}
 function finishCombine(b) {
   var c = state.combine; endCombine();
   var h = byId(c && c.head); if (!h || h.deleted || !b) return;
@@ -5251,7 +5279,8 @@ function finishCombine(b) {
   groupSelection(); afterSelectionChange();
 }
 $('#btnCombine').addEventListener('click', startCombine);
-$('#combineCancel').addEventListener('click', endCombine);
+$('#combineCancel').addEventListener('click', function () { endCombine(true); });
+$('#combineGo').addEventListener('click', function () { if (groupCount(selected()) || selected().length > 1) groupSelection(); endCombine(false); afterSelectionChange(); });
 $('#btnUngroup').addEventListener('click', ungroupSelection);
 $('#btnRemoveFromGroup').addEventListener('click', removeFromGroup);
 $('#btnDelete').addEventListener('click', deleteSelection);
@@ -5898,11 +5927,11 @@ $('#rows').addEventListener('click', function (e) {
   var tw = e.target.closest ? e.target.closest('[data-twist]') : null;
   if (tw) { var id = tw.dataset.twist; if (state.expanded.has(id)) state.expanded.delete(id); else state.expanded.add(id); renderList(); return; }
   var g = e.target.closest ? e.target.closest('.row[data-group]') : null;
-  if (g && state.combine) { var hc = byId(g.dataset.group); if (hc) finishCombine(hc); return; }
+  if (g && state.combine) { var hc = byId(g.dataset.group); if (hc) selectAnnot(hc, true); return; }
   if (g) { var h = byId(g.dataset.group); if (h) { selectAnnot(h, isMulti()); jumpTo(h); } return; }
   var r = e.target.closest ? e.target.closest('.row[data-id]') : null; if (!r) return;
   var a = byId(r.dataset.id); if (!a) return;
-  if (state.combine) { finishCombine(a); return; }
+  if (state.combine) { selectAnnot(a, true); return; }
   if (r.classList.contains('member')) {
     // A row inside a group picks just that markup (the group's header row picks the whole group).
     if (isMulti()) { if (state.sel.has(a.id)) state.sel.delete(a.id); else state.sel.add(a.id); }
@@ -7444,6 +7473,8 @@ $('#btnSettings').addEventListener('click', openSettings);
 $('#setClose').addEventListener('click', function () { $('#setModal').hidden = true; });
 $('#setModal').addEventListener('pointerdown', function (e) { if (e.target === $('#setModal')) $('#setModal').hidden = true; });
 $('#btnHelp').addEventListener('click', function () { $('#helpModal').hidden = false; });
+$('#kbClose').addEventListener('click', function () { $('#kbModal').hidden = true; });
+$('#kbModal').addEventListener('pointerdown', function (e) { if (e.target === $('#kbModal')) $('#kbModal').hidden = true; });
 $('#helpClose').addEventListener('click', function () { $('#helpModal').hidden = true; });
 $('#helpModal').addEventListener('pointerdown', function (e) { if (e.target === $('#helpModal')) $('#helpModal').hidden = true; });
 
@@ -7509,39 +7540,129 @@ $('#btnPanel').addEventListener('click', function () { var p = $('#panel'); p.hi
 $('#btnClosePanel').addEventListener('click', function () { $('#panel').hidden = true; renderVisible(); });
 $('#author').addEventListener('input', function (e) { state.author = e.target.value; savePrefs(); });
 
-var KEY_TOOL = { u: 'angle', d: 'diameter', q: 'radius', v: 'select', c: 'circle', r: 'rect', g: 'polygon', p: 'pen', l: 'length', a: 'area', e: 'perimeter', s: 'symbol', n: 'numbered', t: 'text', k: 'callout', h: 'highlighter', x: 'eraser', i: 'line', w: 'arrow', o: 'cloud', m: 'stamp' };
+/* ---------- keyboard shortcuts ----------
+   One list drives both the keys and the Shortcuts sheet (Cmd+/ or Help). "Mod" is Cmd on iPad and Mac, Ctrl elsewhere. */
+var KEY_TOOL = { v: 'select', b: 'lasso', u: 'angle', d: 'diameter', q: 'radius', c: 'circle', r: 'rect', g: 'polygon', p: 'pen', l: 'length', a: 'area', e: 'perimeter', s: 'symbol', n: 'numbered', t: 'text', k: 'callout', h: 'highlighter', x: 'eraser', i: 'line', w: 'arrow', o: 'cloud', m: 'stamp', j: 'room', 'Shift+W': 'wall', 'Shift+R': 'run', 'Shift+K': 'link', 'Shift+S': 'signature', 'Shift+I': 'initials' };
+function nudge(dxPx, dyPx) {
+  var s = selected().filter(function (a) { return a.owned; }); if (!s.length) return;
+  pushHistory('nudge');
+  s.forEach(function (a) {
+    var p = state.pages[a.pageIndex]; if (!p) return;
+    var o = p.vp.convertToPdfPoint(0, 0), q = p.vp.convertToPdfPoint(dxPx, dyPx);
+    moveAnnot(a, q[0] - o[0], q[1] - o[1]);
+    if (a.vertices || a.ctr) updateGeom(a);
+    if (!a.isNew) { a.dirty = true; a.geomDirty = true; }
+  });
+  new Set(s.map(function (a) { return a.pageIndex; })).forEach(function (i) { drawOverlay(state.pages[i]); });
+  markUnsaved();
+}
+function selectAllOnPage() { var i = currentPageIndex(); state.sel = new Set(live().filter(function (a) { return a.pageIndex === i && isVisible(a); }).map(function (a) { return a.id; })); afterSelectionChange(); toast(state.sel.size + ' markups selected on page ' + pageLabel(i) + '.', 1800); }
+function togglePanel() { var p = $('#panel'); p.hidden = !p.hidden; renderVisible(); }
+function openCountsTable() { if ($('#panel').hidden) togglePanel(); state.ctOpen = !state.ctOpen; renderCounts(); }
+function focusMarkupSearch() { if ($('#panel').hidden) togglePanel(); setTimeout(function () { $('#filter').focus(); $('#filter').select(); }, 30); }
+function openToolSearch() { if ($('#favDD') && !$('#favBar').hidden) { openFavPop(); setTimeout(function () { $('#favSearch').focus(); $('#favSearch').select(); }, 30); } else { $('#chestPop').hidden = false; renderChest(); fitPop($('#chestPop')); setTimeout(function () { $('#chestSearch').focus(); }, 30); } }
+var SHORTCUTS = [
+  ['File', [
+    ['Mod+O', 'Open a PDF', function () { $('#file').click(); }],
+    ['Mod+S', 'Save PDF (markups into the file)', function () { if (state.pdf) savePdf(); }],
+    ['Mod+E', 'Counts and export', function () { openExport(); }],
+    ['Mod+P', 'Printable summary (PDF)', function () { if (state.pdf) summaryPdf(); }],
+    ['Mod+,', 'Settings', function () { openSettings(); }]]],
+  ['Tools', [
+    ['V', 'Select'], ['B', 'Lasso'], ['C', 'Circle'], ['R', 'Rectangle'], ['G', 'Polygon'], ['P', 'Pen'], ['H', 'Highlighter'], ['I', 'Line'], ['W', 'Arrow'], ['O', 'Cloud'],
+    ['T', 'Text box'], ['K', 'Callout'], ['M', 'Stamp'], ['S', 'Symbol'], ['N', 'Numbered'], ['X', 'Eraser'], ['L', 'Length'], ['A', 'Area'], ['E', 'Perimeter'], ['U', 'Angle'], ['Q', 'Radius'], ['D', 'Diameter'],
+    ['J', 'Room'], ['Shift+W', 'Wall area'], ['Shift+R', 'Linear run'], ['Shift+K', 'Link'], ['Shift+S', 'Signature'], ['Shift+I', 'Initials'],
+    ['Mod+K', 'Search tools (favourites and palettes)', openToolSearch],
+    ['Mod+Shift+K', 'Tool Chest', function () { var p = $('#chestPop'); p.hidden = !p.hidden; if (!p.hidden) { renderChest(); fitPop(p); } }],
+    ['Mod+Shift+M', 'Scale', function () { openScale(currentPageIndex()); }]]],
+  ['Selection', [
+    ['Mod+A', 'Select everything on this page', selectAllOnPage],
+    ['Escape', 'Deselect / close / cancel'],
+    ['Enter', 'Properties of the selection', function () { if (state.sel.size) { if (propsPopup()) openPropsPop(); else { state.propsOpen = true; renderProps(); } } }],
+    ['Delete', 'Delete'],
+    ['Mod+C', 'Copy'], ['Mod+V', 'Paste here'], ['Mod+Shift+V', 'Paste in place'], ['Mod+D', 'Duplicate'],
+    ['Mod+G', 'Group'], ['Mod+Shift+G', 'Ungroup'],
+    ['Mod+Shift+C', 'Combine with... (pick more, then Enter)', function () { if (state.sel.size) startCombine(); }],
+    ['Mod+Shift+R', 'Remove from group', function () { removeFromGroup(); }],
+    ['Arrows', 'Nudge (Shift: 10x)'],
+    [',  .', 'Rotate symbols -15 / +15 degrees'],
+    ['Mod+Z', 'Undo'], ['Mod+Shift+Z', 'Redo']]],
+  ['View', [
+    ['Mod+=', 'Zoom in', function () { setZoom(state.zoom * 1.25); }],
+    ['Mod+-', 'Zoom out', function () { setZoom(state.zoom / 1.25); }],
+    ['Mod+0', 'Fit', function () { $('#zoomFit').click(); }],
+    ['[  ]', 'Previous / next page'],
+    ['Home  End', 'First / last page'],
+    ['Mod+1', 'Show / hide the markups list', togglePanel],
+    ['Mod+2', 'Pages and thumbnails', function () { $('#btnPages').click(); }],
+    ['Mod+3', 'Floating tool palette', function () { $('#btnPalette').click(); }],
+    ['Mod+4', 'Counts table', openCountsTable],
+    ['Mod+F', 'Search the drawing text', function () { openDrawer('search'); }],
+    ['Mod+Shift+F', 'Search the markups list', focusMarkupSearch],
+    ['Mod+Shift+L', 'Select mode in the list', function () { if ($('#panel').hidden) togglePanel(); setListSelect(!state.listSelect); }],
+    ['Mod+Shift+H', 'Show / hide markups and layers', function () { openVis(); }],
+    ['Mod+/', 'This list of shortcuts', function () { openShortcuts(); }],
+    ['?', 'Help']]]
+];
+function keyName(e) {
+  var k = e.key; if (k === ' ') k = 'Space'; if (k.length === 1) k = k.toUpperCase(); if (k === '+') k = '=';
+  return (e.metaKey || e.ctrlKey ? 'Mod+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey && k.length > 1 || e.shiftKey && /[A-Z]/.test(k) ? 'Shift+' : '') + k;
+}
+var SHORTCUT_FN = {}; SHORTCUTS.forEach(function (g) { g[1].forEach(function (r) { if (r[2]) SHORTCUT_FN[r[0].toUpperCase()] = r[2]; }); });
+function shortcutLabel(k) { var mac = /Mac|iPad|iPhone/.test(navigator.platform) || /Mac OS/.test(navigator.userAgent); return k.replace(/Mod\+/g, mac ? '⌘' : 'Ctrl+').replace(/Shift\+/g, mac ? '⇧' : 'Shift+').replace(/Alt\+/g, mac ? '⌥' : 'Alt+'); }
+function openShortcuts() {
+  $('#kbBody').innerHTML = SHORTCUTS.map(function (g) {
+    return '<section><h3>' + esc(g[0]) + '</h3><dl>' + g[1].map(function (r) { return '<dt><kbd>' + esc(shortcutLabel(r[0])).replace(/  /g, '</kbd> <kbd>') + '</kbd></dt><dd>' + esc(r[1]) + '</dd>'; }).join('') + '</dl></section>';
+  }).join('');
+  $('#helpModal').hidden = true; $('#kbModal').hidden = false;
+}
+// Tool buttons say their key in the tooltip.
+(function () { var rev = {}; Object.keys(KEY_TOOL).forEach(function (k) { rev[KEY_TOOL[k]] = k.length === 1 ? k.toUpperCase() : k; }); $$('.topbar [data-tool]').forEach(function (b) { var k = rev[b.dataset.tool]; if (k && b.title && b.title.indexOf('(' + k + ')') < 0) b.title += ' (' + shortcutLabel(k) + ')'; }); })();
 document.addEventListener('keydown', function (e) {
-  var tag = (e.target.tagName || '').toLowerCase();
+  var tag = (e.target.tagName || '').toLowerCase(), mod = e.metaKey || e.ctrlKey;
   state.multi = e.shiftKey || e.metaKey || e.ctrlKey;
+  if (!$('#kbModal').hidden) { if (e.key === 'Escape' || (mod && e.key === '/')) { e.preventDefault(); $('#kbModal').hidden = true; } return; }
   if (!$('#exportModal').hidden) { if (e.key === 'Escape') closeExport(); return; }
   if (!$('#visModal').hidden) { if (e.key === 'Escape') $('#visModal').hidden = true; return; }
-  if (!$('#setModal').hidden || !$('#helpModal').hidden) { if (e.key === 'Escape') { $('#setModal').hidden = true; $('#helpModal').hidden = true; } return; }
+  if (!$('#setModal').hidden || !$('#helpModal').hidden) { if (e.key === 'Escape') { $('#setModal').hidden = true; $('#helpModal').hidden = true; } else if (mod && e.key === '/') { e.preventDefault(); openShortcuts(); } return; }
   if (!$('#ring').hidden && e.key === 'Escape') { closeRing(); return; }
-  if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'f') { e.preventDefault(); openDrawer('search'); return; }
   if (!$('#toolModal').hidden) { if (e.key === 'Escape') closeToolEditor(); else if (e.key === 'Enter' && tag === 'input') { e.preventDefault(); saveToolFromEditor(); } return; }
   if (!$('#scaleModal').hidden) { if (e.key === 'Escape') closeScale(); else if (e.key === 'Enter' && tag !== 'select') { e.preventDefault(); applyScaleFromDialog(); } return; }
   if (e.key === 'Escape' && (tag === 'input' || tag === 'textarea' || tag === 'select')) {
-    e.target.blur(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; return;
+    e.target.blur(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; $('#favPop').hidden = true; return;
   }
-  if (tag === 'input' || tag === 'textarea') return;
-  if (state.combine && e.key === 'Escape') { endCombine(); return; }
+  // Shortcuts with Cmd work even while typing in a search box, except the editing ones.
+  if ((tag === 'input' || tag === 'textarea') && !(mod && /^[,\/1-4ekospfFK]$/i.test(e.key))) return;
+  if (state.combine && e.key === 'Escape') { endCombine(true); return; }
+  if (state.combine && e.key === 'Enter') { e.preventDefault(); $('#combineGo').click(); return; }
   if (state.propsOpen && propsPopup() && e.key === 'Escape') { closePropsPop(); return; }
   if (state.draft) {
     if (e.key === 'Enter') { e.preventDefault(); finishDraft(); return; }
     if (e.key === 'Escape') { cancelDraft(); return; }
     if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); undoDraftPoint(); return; }
   }
-  var plain = !e.metaKey && !e.ctrlKey && !e.altKey;
+  var kn = keyName(e), fn = SHORTCUT_FN[kn.toUpperCase()];
+  if (fn) { e.preventDefault(); fn(); return; }
   if (e.key === '?') { $('#helpModal').hidden = false; return; }
-  if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openSettings(); return; }
   if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel.size) { e.preventDefault(); deleteSelection(); }
-  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
-  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelection(); }
-  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'c' && state.sel.size) { e.preventDefault(); copySelection(); }
-  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteClip(e.shiftKey); }
-  else if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSelection(); else groupSelection(); }
-  else if (e.key === 'Escape') { clearSel(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; }
-  else if (plain && KEY_TOOL[e.key]) { var tb = document.querySelector('.topbar [data-tool="' + KEY_TOOL[e.key] + '"]'); if (tb) tb.click(); }
+  else if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
+  else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
+  else if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelection(); }
+  else if (mod && e.key.toLowerCase() === 'c' && state.sel.size) { e.preventDefault(); copySelection(); }
+  else if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteClip(e.shiftKey); }
+  else if (mod && e.key.toLowerCase() === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSelection(); else groupSelection(); }
+  else if (/^Arrow/.test(e.key) && state.sel.size && !mod) {
+    e.preventDefault(); var st = e.shiftKey ? 10 : 1;
+    nudge(e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, e.key === 'ArrowUp' ? -st : e.key === 'ArrowDown' ? st : 0);
+  }
+  else if ((e.key === ',' || e.key === '.') && !mod && state.sel.size) { applyToSelection({ symAngle: e.key === ',' ? -15 : 15 }, 'rot'); renderProps(); }
+  else if ((e.key === '[' || e.key === ']') && !mod) { goToPage(clamp(currentPageIndex() + (e.key === '[' ? -1 : 1), 0, state.pages.length - 1)); }
+  else if ((e.key === 'Home' || e.key === 'End') && !mod) { e.preventDefault(); goToPage(e.key === 'Home' ? 0 : state.pages.length - 1); }
+  else if (e.key === 'Escape') { clearSel(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; $('#favPop').hidden = true; }
+  else if (!mod && !e.altKey && KEY_TOOL[e.shiftKey ? 'Shift+' + e.key.toUpperCase() : e.key.toLowerCase()]) {
+    var tool = KEY_TOOL[e.shiftKey ? 'Shift+' + e.key.toUpperCase() : e.key.toLowerCase()];
+    if (TBTN[tool]) TBTN[tool].click(); else pickTool(tool);
+  }
 });
 document.addEventListener('keyup', function (e) { state.multi = e.shiftKey || e.metaKey || e.ctrlKey; });
 

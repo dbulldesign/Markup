@@ -1,5 +1,5 @@
 {
-  "version": "3.17.0",
+  "version": "3.18.0",
   "date": "2026-11-10",
-  "notes": "Search markups (all words, labels, channels, rooms, fields) with a result count; more ways to sort the list."
+  "notes": "Keyboard shortcuts for every tool and action (Cmd+/ lists them); Combine with... picks any number of groups and fixtures."
 }

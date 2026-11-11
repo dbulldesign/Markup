@@ -2,6 +2,11 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.18.0 (shortcuts, combine many)
+- Keyboard shortcuts for every tool and action, with a keyboard connected to the iPad. Cmd+/ (or Help) shows them all. Highlights: every tool has a key (V select, B lasso, S symbol, J room, Shift+W wall area, Shift+R linear run...); Cmd+S save, Cmd+O open, Cmd+E export, Cmd+P printable summary; Cmd+A select all on the page; Enter properties; Cmd+C / Cmd+V / Shift+Cmd+V; Cmd+D duplicate; Cmd+G / Shift+Cmd+G group / ungroup; Shift+Cmd+C combine; arrows nudge (Shift: 10x); , and . rotate symbols; [ and ] previous / next page; Cmd+= / Cmd+- / Cmd+0 zoom; Cmd+1 markups list, Cmd+2 pages, Cmd+3 palette, Cmd+4 counts; Cmd+K search tools; Shift+Cmd+F search markups; Cmd+Y or Shift+Cmd+Z redo. Tool buttons show their key in their tooltip.
+- Fixed: the short messages at the bottom of the screen could sit on top of buttons (such as Combine or Paste) and swallow the tap. They no longer block anything.
+- Combine with... now picks any number: after tapping Combine..., tap as many more groups and fixtures as you like (on the drawing or in the list, or drag a box or lasso), then tap Combine (or press Enter). Cancel (Escape) puts the selection back.
+
 ## 3.17.0 (search and sort the markups list)
 - Search markups: the box at the top of the list searches the subject, label or number, comments, measurement, length, custom fields (Channel 101, Circuit P2/C20, Location...), layer, room, type, status (including "open"), author and page ("p3"). Every word typed must match. It shows "12 of 35", a x clears it, and Return steps through the results on the drawing (Shift+Return goes back). Works together with the status filter.
 - More ways to sort: a Sort by list with Page, Subject, Label / number (natural order: L2 before L10), Type, Status, Comments, Channel, Room, Layer, Length (total), Measurement (largest first), Author, Date (newest first), Colour and Position on the page (top to bottom); the arrow reverses the order. The choice is remembered.
