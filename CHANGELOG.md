@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.22.0
+- Repeat (selection bar, or Option+Cmd+D): copy the selection in rows and columns (counts and spacing in the page's scale, e.g. 8'-0"), or along a line: say how many in all, tap the start and end, and they are spaced evenly (the selection moves to the start). Groups stay groups, numbered markups keep counting, and Cmd+Z undoes it.
+- Snap to the drawing: snapping now also finds the PDF's own line ends and corners, and points along its lines, after your markups' points. The drawing is read in the background the first time you draw on a page. Settings > Drawing > Snap to the drawing turns it off.
+
 ## 3.21.0
 - Edit a whole type at once: in Counts > By type, the tick button selects every markup of that type on every page and opens Properties, so one change (colour, layer, status, a field) changes them all.
 - Find and replace (Option+Cmd+F, or the Replace button by the markups search): in types, symbol labels, comments and text boxes, and field values; match case and whole words; in all markups, this page, the selection or the markups in the list. It shows the matches before you replace, can select them instead, and Cmd+Z undoes it.

@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.21.0">
+<meta name="app-version" content="3.22.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -720,6 +720,8 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
 .modal label.fld { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); }
 .modal select, .modal input:not([type=range]):not([type=checkbox]):not([type=color]) { border: 1px solid var(--line); background: var(--surface-2); border-radius: 9px; padding: 8px 10px; font-size: 16px; width: 100%; color: var(--ink); font: inherit; }
 .modal .ratio { display: grid; grid-template-columns: 1fr 84px auto 1.4fr; gap: 8px; align-items: center; }
+body.picking .viewer, body.picking .page { cursor: crosshair; }
+#arModal .seg { display: flex; }
 .frchk { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
 .frprev { display: grid; gap: 2px; max-height: 180px; overflow: auto; font-size: 13px; }
 .frprev:empty { display: none; }
@@ -947,6 +949,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <button class="sbb" id="btnCombine" type="button" title="Then tap another group or markup (on the drawing or in the list) to make them one group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/><path d="M11 12h2"/></svg><span>Combine&#8230;</span></button>
     <button class="sbb" id="btnUngroup" type="button" title="Ungroup (Shift+Cmd+G)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M14 5l5 5M19 5l-5 5"/></svg><span>Ungroup</span></button>
     <button class="sbb" id="btnRemoveFromGroup" type="button" title="Take the selected markups out of their group; the rest stays together"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2h20v20H2z" stroke-dasharray="3 3"/><rect x="8" y="8" width="8" height="8" rx="1.5"/><path d="M14 4l6 0"/></svg><span>Remove</span></button>
+    <button class="sbb" id="btnArray" type="button" title="Repeat in rows and columns or along a line (Option+Cmd+D)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="5" height="5" rx="1"/><rect x="10" y="3" width="5" height="5" rx="1"/><rect x="17" y="3" width="4" height="5" rx="1"/><rect x="3" y="10" width="5" height="5" rx="1"/><rect x="10" y="10" width="5" height="5" rx="1" stroke-dasharray="2 2"/><rect x="3" y="17" width="5" height="4" rx="1" stroke-dasharray="2 2"/></svg><span>Repeat</span></button>
     <button class="sbb" id="btnRenumber" type="button" title="Renumber the selected numbered markups in order (Shift+Cmd+N)" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h2v6M4 12h4M4 16h3a1 1 0 0 1 0 2H5h2a1 1 0 0 1 0 2H4M12 7h8M12 12h8M12 17h8"/></svg><span>Renumber</span></button>
     <button class="sbb" id="btnCopy" type="button" title="Copy (Cmd+C): paste on another page or into another open file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="3" width="13" height="16" rx="2"/><path d="M5 7H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-1"/></svg><span>Copy</span></button>
     <button class="sbb" id="btnDuplicate" type="button" title="Duplicate (Cmd+D)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg><span>Duplicate</span></button>
@@ -1133,6 +1136,23 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <div class="result" id="frResult">Type something to find.</div>
     <div class="frprev" id="frPrev"></div>
     <div class="actions"><button class="btn" type="button" id="frSelect" disabled>Select them</button><span class="spacer"></span><button class="btn" type="button" id="frClose">Close</button><button class="btn primary" type="button" id="frGo" disabled>Replace all</button></div>
+  </div>
+</div>
+<div class="modal simple" id="arModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="arTitle">
+    <h2 id="arTitle">Repeat</h2>
+    <p class="sub" id="arSub"></p>
+    <div class="seg" role="tablist"><button type="button" class="tb on" data-armode="grid">Rows and columns</button><button type="button" class="tb" data-armode="line">Along a line</button></div>
+    <div id="arGrid">
+      <div class="two"><label class="fld">Across (columns)<input type="number" id="arCols" min="1" max="200" step="1" value="4" inputmode="numeric"></label><label class="fld">Down (rows)<input type="number" id="arRows" min="1" max="200" step="1" value="1" inputmode="numeric"></label></div>
+      <div class="two"><label class="fld">Spacing across<input type="text" id="arDx" autocomplete="off" spellcheck="false"></label><label class="fld">Spacing down<input type="text" id="arDy" autocomplete="off" spellcheck="false"></label></div>
+    </div>
+    <div id="arLine" hidden>
+      <label class="fld">How many in all (including this one)<input type="number" id="arN" min="2" max="500" step="1" value="5" inputmode="numeric"></label>
+      <p class="hint">Then tap the start and the end of the line on the drawing (they snap to markups and the drawing). The selection moves to the start and the copies are spaced evenly to the end.</p>
+    </div>
+    <div class="result" id="arPrev"></div>
+    <div class="actions"><span class="spacer"></span><button class="btn" type="button" id="arClose">Cancel</button><button class="btn primary" type="button" id="arGo">Repeat</button></div>
   </div>
 </div>
 <div class="modal simple" id="rnModal" hidden>
@@ -2488,7 +2508,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.21.0';
+var APP_VERSION = '3.22.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -4002,6 +4022,7 @@ function fingerTap(cx, cy) {
   if (!pe) return;
   var p = state.pages[+pe.dataset.index]; if (!p) return;
   var pt = toPdf(p, cx, cy), hit = hitTest(p, pt);
+  if (state.arrayPick) { arrayPickPoint(p, snapPt(p, pt)); return; }
   if (state.combine) { if (hit) selectAnnot(hit, true); return; }
   if (state.draft || state.editing) return;
   if (hit && hit.subtype === 'FreeText' && hit.owned && hit.box && state.sel.size === 1 && state.sel.has(hit.id)) { openTextEditor(hit); return; }
@@ -4052,13 +4073,14 @@ function onDown(e) {
   if (gesture && gesture.mode !== 'pan') return;
   e.preventDefault();
   armHold(e);
-  if (T0lasso()) { gesture = { mode: 'lasso', id: e.pointerId, pts: [[e.clientX, e.clientY]], add: isMulti() }; drawLasso(gesture.pts); return; }
+  if (T0lasso() && !state.arrayPick) { gesture = { mode: 'lasso', id: e.pointerId, pts: [[e.clientX, e.clientY]], add: isMulti() }; drawLasso(gesture.pts); return; }
   var pageEl = e.target.closest ? e.target.closest('.page') : null;
   if (!pageEl) {
     if (state.tool === 'select') { if (!isMulti()) clearSel(); gesture = { mode: 'marquee', id: e.pointerId, start: contentPt(e), cur: contentPt(e), moved: false, add: isMulti() }; return; }
     gesture = { mode: 'tap', id: e.pointerId }; return;
   }
   var p = state.pages[+pageEl.dataset.index], pt = toPdf(p, e.clientX, e.clientY);
+  if (state.arrayPick) { arrayPickPoint(p, snapPt(p, pt)); gesture = { mode: 'tap', id: e.pointerId }; return; }
   var T = TOOLS[state.tool];
   if (T && T.eraser) { gesture = { mode: 'erase', id: e.pointerId, p: p, hist: false, n: 0 }; eraseAt(gesture, pt); return; }
   if (T && T.signature) { placeSignature(state.tool, p, pt); gesture = { mode: 'tap', id: e.pointerId }; return; }
@@ -4508,6 +4530,7 @@ function snapPt(p, pt, o) {
   var tol = 10 / state.zoom, best = null, bd = tol;
   snapTargets(p, o.exclude).forEach(function (q) { var d = Math.hypot(q[0] - pt[0], q[1] - pt[1]); if (d < bd) { bd = d; best = q; } });
   if (best) { p.snapMark = best; return best.slice(); }
+  var gq = geoSnap(p, pt, tol); if (gq) { p.snapMark = gq; return gq.slice(); }
   p.snapMark = null;
   if (o.from) {
     // within 3 degrees of horizontal or vertical: straighten
@@ -4790,13 +4813,13 @@ $('#toolChip').addEventListener('click', function (e) { e.stopPropagation(); if 
 $('#btnPasteHere').addEventListener('click', function () { pasteClip(false); });
 $('#btnPasteInPlace').addEventListener('click', function () { pasteClip(true); });
 $('#btnPasteClear').addEventListener('click', function () { clipSet(null); });
-function duplicateSelection() {
-  var s = selected().filter(function (a) { return a.owned; }); if (!s.length) return;
-  pushHistory();
+/* Copies of markups moved by (dx, dy) in PDF units, or by the screen offset when off is null. Added to the document; groups stay groups. */
+function cloneAnnots(s, off) {
   var d = 16 / state.zoom, map = {}, copies = [];
   s.forEach(function (a) {
-    var c = JSON.parse(JSON.stringify(a)), p = state.pages[a.pageIndex], off = p ? p.vp.convertToPdfPoint(d * state.zoom, d * state.zoom) : [d, -d], o0 = p ? p.vp.convertToPdfPoint(0, 0) : [0, 0];
-    var dx = off[0] - o0[0], dy = off[1] - o0[1];
+    var c = JSON.parse(JSON.stringify(a)), p = state.pages[a.pageIndex], dx, dy;
+    if (off) { dx = off[0]; dy = off[1]; }
+    else { var o1 = p ? p.vp.convertToPdfPoint(d * state.zoom, d * state.zoom) : [d, -d], o0 = p ? p.vp.convertToPdfPoint(0, 0) : [0, 0]; dx = o1[0] - o0[0]; dy = o1[1] - o0[1]; }
     c.id = 'n' + (state.nextId++); map[a.id] = c.id;
     Object.assign(c, { isNew: true, deleted: false, dirty: true, geomDirty: false, styleDirty: false, owned: true, num: null, gen: 0, inline: false, nm: MarkupIO.makeNM(), date: new Date().toISOString(), author: state.author || a.author });
     var mv = function (q) { return [q[0] + dx, q[1] + dy]; };
@@ -4814,6 +4837,12 @@ function duplicateSelection() {
     if (c.sym && c.sym.n != null && c.sym.series) { state.annots.push(c); c.sym.n = nextNumber(c.sym.series); state.annots.pop(); }
     state.annots.push(c);
   });
+  return copies;
+}
+function duplicateSelection() {
+  var s = selected().filter(function (a) { return a.owned; }); if (!s.length) return;
+  pushHistory();
+  var copies = cloneAnnots(s, null);
   state.sel = new Set(copies.map(function (c) { return c.id; }));
   new Set(copies.map(function (c) { return c.pageIndex; })).forEach(function (i) { drawOverlay(state.pages[i]); });
   markUnsaved(); renderList(); afterSelectionChange(); updateSeqBar();
@@ -5147,6 +5176,7 @@ function renderProps() {
   $('#btnGroup').querySelector('span').textContent = s.length < 2 ? 'Group' : gcount > 1 ? 'Combine' : gcount === 1 && !whole ? 'Add to group' : 'Group';
   $('#btnUngroup').hidden = !gcount;
   $('#btnRemoveFromGroup').hidden = !gcount || whole;
+  $('#btnArray').hidden = !s.some(function (x) { return x.owned; });
   $('#btnRenumber').hidden = s.filter(function (x) { return x.sym && x.sym.n != null && x.owned !== false; }).length < 2;
   if (s.length === 1 && inGroup(a)) $('#propsMeta').textContent += ' · in a group of ' + membersOf(a).length + ' (tap Remove from group to take it out)';
 }
@@ -5256,6 +5286,156 @@ $('#rnGo').addEventListener('click', function () {
   var last = l[l.length - 1]; toast('Renumbered ' + MarkupIO.symLabel(l[0]) + '–' + MarkupIO.symLabel(last) + '.', 3000);
 });
 $('#rnFrom').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#rnGo').click(); } });
+
+/* ---------- Repeat: copies in rows and columns, or evenly along a line ---------- */
+function selBox(s) {
+  var b = [Infinity, Infinity, -Infinity, -Infinity];
+  s.forEach(function (a) { var r = a.rect; b[0] = Math.min(b[0], r[0]); b[1] = Math.min(b[1], r[1]); b[2] = Math.max(b[2], r[2]); b[3] = Math.max(b[3], r[3]); });
+  return b;
+}
+// Lengths are typed in the page's scale; with no scale, in inches on paper.
+function arScale(s) { var a = s[0], b = selBox(s); return scaleAt(a.pageIndex, [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2]); }
+function arFmt(pt, sc) { return sc ? fmtLength(pt * sc.factor, sc) : (Math.round(pt / 72 * 100) / 100) + '"'; }
+function arParse(t, sc) { if (sc) { var v = parseLength(t, sc.fmt); return v > 0 ? v / sc.factor : NaN; } var n = parseLength(t, 'in'); return n > 0 ? n * 72 : NaN; }
+// Screen directions (right, down) as PDF vectors, so rotated pages repeat the way they look.
+function screenAxes(p) { var o = p.vp.convertToPdfPoint(0, 0), x = p.vp.convertToPdfPoint(1, 0), y = p.vp.convertToPdfPoint(0, 1), n = function (v) { var l = Math.hypot(v[0], v[1]) || 1; return [v[0] / l, v[1] / l]; }; return { x: n([x[0] - o[0], x[1] - o[1]]), y: n([y[0] - o[0], y[1] - o[1]]) }; }
+function arItems() { return selected().filter(function (a) { return a.owned; }); }
+function arMode() { var b = $('#arModal [data-armode].on'); return b ? b.dataset.armode : 'grid'; }
+function arPreview() {
+  var s = arItems(), sc = arScale(s);
+  if (arMode() === 'grid') {
+    var c = parseInt($('#arCols').value, 10), r = parseInt($('#arRows').value, 10), dx = arParse($('#arDx').value, sc), dy = arParse($('#arDy').value, sc);
+    var ok = c >= 1 && r >= 1 && c * r >= 2 && c * r <= 2000 && (c < 2 || dx > 0) && (r < 2 || dy > 0);
+    $('#arGo').disabled = !ok; $('#arGo').textContent = 'Repeat';
+    $('#arPrev').textContent = ok ? c + ' × ' + r + ': ' + (c * r - 1) + ' cop' + (c * r - 1 === 1 ? 'y' : 'ies') + (s.length > 1 ? ' of the ' + s.length + ' markups' : '') + ', to the right and down from the selection.' : 'Type the counts' + (c > 1 || r > 1 ? ' and the spacing' : '') + '.';
+  } else {
+    var n = parseInt($('#arN').value, 10), ok2 = n >= 2 && n <= 500;
+    $('#arGo').disabled = !ok2; $('#arGo').textContent = 'Pick the line';
+    $('#arPrev').textContent = ok2 ? n + ' in all: ' + (n - 1) + ' copies, evenly spaced.' : 'Type how many (2 or more).';
+  }
+}
+function openArray() {
+  var s = arItems(); if (!s.length) { toast('Select a markup you drew first.'); return; }
+  var sc = arScale(s), b = selBox(s), p = state.pages[s[0].pageIndex], ax = screenAxes(p);
+  var w = Math.abs((b[2] - b[0]) * ax.x[0]) + Math.abs((b[3] - b[1]) * ax.x[1]), h = Math.abs((b[2] - b[0]) * ax.y[0]) + Math.abs((b[3] - b[1]) * ax.y[1]);
+  $('#arSub').textContent = (s.length === 1 ? '1 markup' : s.length + ' markups') + (sc ? ' · lengths in the page scale' : ' · no scale on this page: lengths are inches on paper') + '.';
+  if (!$('#arDx').value || state.arFor !== s.map(function (a) { return a.id; }).join()) { $('#arDx').value = arFmt(Math.max(w * 2, 12), sc); $('#arDy').value = arFmt(Math.max(h * 2, 12), sc); }
+  state.arFor = s.map(function (a) { return a.id; }).join();
+  $('#arModal').hidden = false; arPreview();
+}
+$$('#arModal [data-armode]').forEach(function (b) { b.addEventListener('click', function () { $$('#arModal [data-armode]').forEach(function (x) { x.classList.toggle('on', x === b); }); $('#arGrid').hidden = b.dataset.armode !== 'grid'; $('#arLine').hidden = b.dataset.armode !== 'line'; arPreview(); }); });
+['arCols', 'arRows', 'arDx', 'arDy', 'arN'].forEach(function (id) { $('#' + id).addEventListener('input', arPreview); $('#' + id).addEventListener('keydown', function (e) { if (e.key === 'Enter' && !$('#arGo').disabled) { e.preventDefault(); $('#arGo').click(); } }); });
+$('#arClose').addEventListener('click', function () { $('#arModal').hidden = true; });
+$('#btnArray').addEventListener('click', openArray);
+function arDone(copies, s) {
+  state.sel = new Set(s.concat(copies).map(function (a) { return a.id; }));
+  new Set(s.concat(copies).map(function (a) { return a.pageIndex; })).forEach(function (i) { drawOverlay(state.pages[i]); });
+  markUnsaved(); renderList(); afterSelectionChange(); updateSeqBar(); renderCounts();
+}
+$('#arGo').addEventListener('click', function () {
+  var s = arItems(); if (!s.length) return;
+  if (arMode() === 'line') {
+    var n = parseInt($('#arN').value, 10); if (!(n >= 2)) return;
+    $('#arModal').hidden = true;
+    state.arrayPick = { n: n, ids: s.map(function (a) { return a.id; }), pts: [], page: s[0].pageIndex };
+    if (state.tool !== 'select') setTool('select'); pageGeo(state.pages[s[0].pageIndex]);
+    document.body.classList.add('picking');
+    toast('Tap the START of the line (Escape cancels).', 6000); return;
+  }
+  var c = parseInt($('#arCols').value, 10), r = parseInt($('#arRows').value, 10), sc = arScale(s);
+  var dx = c > 1 ? arParse($('#arDx').value, sc) : 0, dy = r > 1 ? arParse($('#arDy').value, sc) : 0, ax = screenAxes(state.pages[s[0].pageIndex]);
+  pushHistory('repeat');
+  var copies = [];
+  for (var j = 0; j < r; j++) for (var i = 0; i < c; i++) {
+    if (!i && !j) continue;
+    copies = copies.concat(cloneAnnots(s, [ax.x[0] * dx * i + ax.y[0] * dy * j, ax.x[1] * dx * i + ax.y[1] * dy * j]));
+  }
+  $('#arModal').hidden = true; arDone(copies, s);
+  toast(c + ' × ' + r + ': ' + copies.length + ' markups added. Cmd+Z undoes it.', 3000);
+});
+function arrayPickPoint(p, pt) {
+  var ap = state.arrayPick; if (!ap) return;
+  if (p.index !== ap.page) { toast('Tap on page ' + pageLabel(ap.page) + ', where the selection is.'); return; }
+  ap.pts.push(pt.slice()); p.snapMark = pt.slice(); drawOverlay(p);
+  if (ap.pts.length < 2) { toast('Now tap the END of the line.', 6000); return; }
+  var s = ap.ids.map(byId).filter(function (a) { return a && !a.deleted; }), b = selBox(s), c0 = [(b[0] + b[2]) / 2, (b[1] + b[3]) / 2];
+  var A = ap.pts[0], B = ap.pts[1], n = ap.n; endArrayPick();
+  if (!s.length || Math.hypot(B[0] - A[0], B[1] - A[1]) < 2) { toast('The line was too short.'); return; }
+  pushHistory('repeat');
+  s.forEach(function (a) { moveAnnot(a, A[0] - c0[0], A[1] - c0[1]); if (a.vertices || a.ctr) updateGeom(a); if (!a.isNew) { a.dirty = true; a.geomDirty = true; } });
+  var copies = [];
+  for (var i = 1; i < n; i++) { var t = i / (n - 1); copies = copies.concat(cloneAnnots(s, [(B[0] - A[0]) * t, (B[1] - A[1]) * t])); }
+  arDone(copies, s);
+  var sc = scaleAt(p.index, A), gap = Math.hypot(B[0] - A[0], B[1] - A[1]) / (n - 1);
+  toast(n + ' in all, ' + (sc ? fmtLength(gap * sc.factor, sc) : Math.round(gap) + ' pt') + ' apart. Cmd+Z undoes it.', 3500);
+}
+function endArrayPick() { state.arrayPick = null; document.body.classList.remove('picking'); state.pages.forEach(function (p) { if (p.snapMark) { p.snapMark = null; drawOverlay(p); } }); }
+
+/* ---------- snap to the drawing itself: line ends, corners and points along the PDF's lines ---------- */
+var GEO_CELL = 32, GEO_MAX = 250000;
+function pageGeo(p) {
+  if (!p || !p.page || ui().snapPdf === false) return null;
+  if (p.geo) return p.geo.ready ? p.geo : null;
+  p.geo = { ready: false };
+  p.page.getOperatorList().then(function (ol) { return buildGeo(ol); }).then(function (g) { p.geo = g; }, function () { p.geo = { ready: true, ends: {}, segs: {}, n: 0 }; });
+  return null;
+}
+// Reads the drawing a slice at a time so the app keeps responding on big sheets.
+async function buildGeo(ol) {
+  var O = pdfjsLib.OPS, fn = ol.fnArray, args = ol.argsArray, ctm = [1, 0, 0, 1, 0, 0], stack = [], ends = {}, segs = {}, n = 0, seen = {};
+  var mul = function (m, t) { return [m[0] * t[0] + m[2] * t[1], m[1] * t[0] + m[3] * t[1], m[0] * t[2] + m[2] * t[3], m[1] * t[2] + m[3] * t[3], m[0] * t[4] + m[2] * t[5] + m[4], m[1] * t[4] + m[3] * t[5] + m[5]]; };
+  var tp = function (x, y) { return [ctm[0] * x + ctm[2] * y + ctm[4], ctm[1] * x + ctm[3] * y + ctm[5]]; };
+  var key = function (x, y) { return Math.floor(x / GEO_CELL) + ',' + Math.floor(y / GEO_CELL); };
+  var addEnd = function (q) { var k2 = Math.round(q[0] * 4) + ':' + Math.round(q[1] * 4); if (seen[k2]) return; seen[k2] = 1; var k = key(q[0], q[1]); (ends[k] || (ends[k] = [])).push(q); };
+  var addSeg = function (a, b) {
+    var len = Math.hypot(b[0] - a[0], b[1] - a[1]); if (len < 1 || n >= GEO_MAX) return;
+    n++; addEnd(a); addEnd(b);
+    var sg = [a[0], a[1], b[0], b[1]], steps = Math.min(400, Math.ceil(len / (GEO_CELL / 2))), last = '';
+    for (var i = 0; i <= steps; i++) { var t = i / steps, k = key(a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t); if (k !== last) { (segs[k] || (segs[k] = [])).push(sg); last = k; } }
+  };
+  var tick = Date.now();
+  for (var i = 0; i < fn.length && n < GEO_MAX; i++) {
+    if (Date.now() - tick > 12) { await new Promise(function (r) { setTimeout(r, 0); }); tick = Date.now(); }
+    var f = fn[i], ar = args[i];
+    if (f === O.save) stack.push(ctm);
+    else if (f === O.restore) ctm = stack.pop() || ctm;
+    else if (f === O.transform) ctm = mul(ctm, ar);
+    else if (f === O.paintFormXObjectBegin) { stack.push(ctm); if (ar && ar[0]) ctm = mul(ctm, ar[0]); }
+    else if (f === O.paintFormXObjectEnd) ctm = stack.pop() || ctm;
+    else if (f === O.constructPath) {
+      var ops = ar[0], c = ar[1], j = 0, cur = null, start = null;
+      for (var k = 0; k < ops.length; k++) {
+        var op = ops[k];
+        if (op === O.moveTo) { cur = start = tp(c[j], c[j + 1]); j += 2; }
+        else if (op === O.lineTo) { var q = tp(c[j], c[j + 1]); j += 2; if (cur) addSeg(cur, q); cur = q; }
+        else if (op === O.curveTo) { var q2 = tp(c[j + 4], c[j + 5]); j += 6; if (cur) { addEnd(cur); addEnd(q2); } cur = q2; }
+        else if (op === O.curveTo2 || op === O.curveTo3) { var q3 = tp(c[j + 2], c[j + 3]); j += 4; if (cur) { addEnd(cur); addEnd(q3); } cur = q3; }
+        else if (op === O.closePath) { if (cur && start) addSeg(cur, start); cur = start; }
+        else if (op === O.rectangle) { var x = c[j], y = c[j + 1], w = c[j + 2], h = c[j + 3]; j += 4; var p1 = tp(x, y), p2 = tp(x + w, y), p3 = tp(x + w, y + h), p4 = tp(x, y + h); addSeg(p1, p2); addSeg(p2, p3); addSeg(p3, p4); addSeg(p4, p1); cur = start = p1; }
+      }
+    }
+  }
+  return { ready: true, ends: ends, segs: segs, n: n };
+}
+function geoSnap(p, pt, tol) {
+  var g = pageGeo(p); if (!g || !g.n) return null;
+  var cx = Math.floor(pt[0] / GEO_CELL), cy = Math.floor(pt[1] / GEO_CELL), r = Math.max(1, Math.ceil(tol / GEO_CELL)), best = null, bd = tol, i, j, l;
+  for (i = -r; i <= r; i++) for (j = -r; j <= r; j++) {
+    l = g.ends[(cx + i) + ',' + (cy + j)]; if (!l) continue;
+    l.forEach(function (q) { var d = Math.hypot(q[0] - pt[0], q[1] - pt[1]); if (d < bd) { bd = d; best = q; } });
+  }
+  if (best) return best.slice();
+  var lt = tol * 0.6; bd = lt;
+  for (i = -r; i <= r; i++) for (j = -r; j <= r; j++) {
+    l = g.segs[(cx + i) + ',' + (cy + j)]; if (!l) continue;
+    l.forEach(function (sg) {
+      var vx = sg[2] - sg[0], vy = sg[3] - sg[1], L = vx * vx + vy * vy; if (!L) return;
+      var t = clamp(((pt[0] - sg[0]) * vx + (pt[1] - sg[1]) * vy) / L, 0, 1), q = [sg[0] + vx * t, sg[1] + vy * t], d = Math.hypot(q[0] - pt[0], q[1] - pt[1]);
+      if (d < bd) { bd = d; best = q; }
+    });
+  }
+  return best;
+}
 /* ---------- site photos ---------- */
 var photoUrls = {};
 async function photoBytes(id) { try { var r = await idb.get('photo:' + id); return r && r.bytes ? new Uint8Array(r.bytes) : null; } catch (e) { return null; } }
@@ -7556,6 +7736,7 @@ function openSettings() {
       row('Press and hold for the tool ring', chk('hold', u.hold)) +
       row('Hold time', sel('holdMs', u.holdMs, [[350, 'Short'], [500, 'Medium'], [750, 'Long']])) + '</div>' +
     '<div class="setsec"><h3>Drawing</h3>' +
+      row('Snap to the drawing', chk('snapPdf', u.snapPdf !== false), "Also to the PDF's own line ends, corners and lines (read in the background)") +
       row('Snap', chk('snap', state.snap), 'To corners, ends and centres, and level or plumb lines') +
       row('Multi-select', chk('multi', state.multiToggle), 'Tapping markups adds them to the selection') +
       row('Save symbols as stamps', chk('symStamp', u.symStamp), 'Revu keeps the label or number inside, but cannot restyle them') +
@@ -7711,6 +7892,7 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'panelPos') { u.panelPos = v; saveUI(); layoutClasses(); renderVisible(); if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } }
   else if (k === 'autoUpdate') { u.autoUpdate = v; }
   else if (k === 'nameStamp') { u.nameStamp = v; }
+  else if (k === 'snapPdf') { u.snapPdf = v; if (!v) state.pages.forEach(function (pg) { pg.geo = null; }); }
   else if (k === 'toolChip') { u.toolChip = v; saveUI(); renderToolChip(); }
   else if (k === 'haptics') { u.haptics = v; }
   else if (k === 'rpMins' || k === 'saveRemind') { u[k] = +v; }
@@ -7793,7 +7975,7 @@ function recentHTML(n) {
   }).join('') + '</div></section>';
 }
 function setTool(tool) {
-  setTimeout(function () { noteRecent(tool); }, 0);
+  setTimeout(function () { noteRecent(tool); if (tool !== 'select' && state.snap && state.pages.length) pageGeo(state.pages[currentPageIndex()]); }, 0);
   if (state.draft && state.draft.tool !== tool) finishDraft();
   if (state.tool && state.tool !== tool) { state.prevTool = state.tool; haptic('tool'); }
   state.tool = tool; setTimeout(renderToolChip, 0);
@@ -7882,6 +8064,7 @@ var SHORTCUTS = [
     { id: 'paste', key: 'Mod+V', label: 'Paste here', fn: function () { pasteClip(false); } },
     { id: 'pasteinplace', key: 'Mod+Shift+V', label: 'Paste in place', fn: function () { pasteClip(true); } },
     { id: 'duplicate', key: 'Mod+D', label: 'Duplicate', fn: function () { duplicateSelection(); } },
+    { id: 'repeat', key: 'Mod+Alt+D', label: 'Repeat in rows and columns or along a line', fn: openArray },
     { id: 'group', key: 'Mod+G', label: 'Group', fn: function () { groupSelection(); } },
     { id: 'ungroup', key: 'Mod+Shift+G', label: 'Ungroup', fn: function () { ungroupSelection(); } },
     { id: 'combine', key: 'Mod+Shift+C', label: 'Combine with... (pick more, then Enter)', fn: function () { if (state.sel.size) startCombine(); } },
@@ -8011,6 +8194,7 @@ document.addEventListener('keydown', function (e) {
   if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) {
     if (!id || !mod || /^MOD\+(SHIFT\+)?[ACVXZY]$/.test(kn.toUpperCase())) return;
   }
+  if (state.arrayPick && e.key === 'Escape') { endArrayPick(); toast('Repeat cancelled.'); return; }
   if (state.combine && e.key === 'Escape') { endCombine(true); return; }
   if (state.combine && e.key === 'Enter') { e.preventDefault(); $('#combineGo').click(); return; }
   if (state.propsOpen && propsPopup() && e.key === 'Escape') { closePropsPop(); return; }

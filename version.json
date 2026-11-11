@@ -1,5 +1,5 @@
 {
-  "version": "3.21.0",
+  "version": "3.22.0",
   "date": "2026-11-10",
-  "notes": "Edit every fixture of a type at once, find and replace, renumber in order."
+  "notes": "Repeat markups in rows and columns or along a line; snap to the drawing."
 }
