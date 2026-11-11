@@ -2,6 +2,10 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.23.0
+- Project templates (Settings > Templates): save a job's setup (the scale, markup layers, numbered series prefixes, drawing style and the tool palettes it uses), apply it to a new drawing set, export it to share (the palettes go with it) and import a colleague's. Choose one under "Use for new files" and it is applied whenever you open a PDF with no markups and no scale yet. Pages that already have a scale keep it.
+- Compare a revised schedule (Tool Chest > Import schedule > Compare a revision): pick the new workbook and see fixture types added, removed and changed (description, quantity, length and every field, with before and after), how many of each are already placed on the drawing, and channels added, removed and changed. Export the changes as CSV, or update the palette: types keep their look and stay linked to placed fixtures, and the placed fixtures can get the new descriptions and fields.
+
 ## 3.22.0
 - Repeat (selection bar, or Option+Cmd+D): copy the selection in rows and columns (counts and spacing in the page's scale, e.g. 8'-0"), or along a line: say how many in all, tap the start and end, and they are spaced evenly (the selection moves to the start). Groups stay groups, numbered markups keep counting, and Cmd+Z undoes it.
 - Snap to the drawing: snapping now also finds the PDF's own line ends and corners, and points along its lines, after your markups' points. The drawing is read in the background the first time you draw on a page. Settings > Drawing > Snap to the drawing turns it off.

@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.22.0">
+<meta name="app-version" content="3.23.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -722,6 +722,20 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
 .modal .ratio { display: grid; grid-template-columns: 1fr 84px auto 1.4fr; gap: 8px; align-items: center; }
 body.picking .viewer, body.picking .page { cursor: crosshair; }
 #arModal .seg { display: flex; }
+.tpllist { display: grid; gap: 4px; }
+.tplrow .actions { flex: none; gap: 6px; }
+.tplrow .actions .btn { min-height: 34px; padding: 0 10px; }
+.cschips { display: flex; flex-wrap: wrap; gap: 6px; }
+.cschip { padding: 4px 10px; border-radius: 14px; font-size: 13px; background: var(--surface-2); }
+.cschip.add { color: #067647; } .cschip.chg { color: #b54708; } .cschip.rem { color: #b42318; }
+.cslist { display: grid; gap: 6px; max-height: 46vh; overflow: auto; }
+.cslist h3 { margin: 6px 0 0; font-size: 14px; }
+.csrow { padding: 8px 10px; border-radius: 9px; background: var(--surface-2); font-size: 14px; border-left: 4px solid var(--line); }
+.csrow.added { border-left-color: #12b76a; } .csrow.changed { border-left-color: #f79009; } .csrow.removed { border-left-color: #f04438; }
+.csrow .csc { font-size: 13px; color: var(--ink-2); margin-top: 2px; overflow-wrap: anywhere; }
+.csrow del { color: #b42318; } .csrow ins { color: #067647; text-decoration: none; font-weight: 600; }
+.cskind { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--ink-2); }
+.csplaced { font-size: 12px; color: #b54708; }
 .frchk { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
 .frprev { display: grid; gap: 2px; max-height: 180px; overflow: auto; font-size: 13px; }
 .frprev:empty { display: none; }
@@ -1138,6 +1152,16 @@ body.picking .viewer, body.picking .page { cursor: crosshair; }
     <div class="actions"><button class="btn" type="button" id="frSelect" disabled>Select them</button><span class="spacer"></span><button class="btn" type="button" id="frClose">Close</button><button class="btn primary" type="button" id="frGo" disabled>Replace all</button></div>
   </div>
 </div>
+<div class="modal simple" id="csModal" hidden>
+  <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="csTitle">
+    <h2 id="csTitle">Schedule changes</h2>
+    <label class="fld">Compare with<select id="csOld"></select></label>
+    <div class="cschips" id="csChips"></div>
+    <div class="cslist" id="csList"></div>
+    <label class="check"><input type="checkbox" id="csMarkups" checked>Also update descriptions and fields on fixtures already placed</label>
+    <div class="actions"><button class="btn" type="button" id="csCsv">Export changes (CSV)</button><span class="spacer"></span><button class="btn" type="button" id="csClose">Close</button><button class="btn primary" type="button" id="csApply">Update the palette</button></div>
+  </div>
+</div>
 <div class="modal simple" id="arModal" hidden>
   <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="arTitle">
     <h2 id="arTitle">Repeat</h2>
@@ -1240,10 +1264,13 @@ body.picking .viewer, body.picking .page { cursor: crosshair; }
     <p class="hint">The first row with a Type (or Mark) column is the header. Excel (.xlsx, first sheet), CSV and tab-separated files work.</p>
     <div class="actions">
       <button class="btn" type="button" id="schedTemplate">Download template</button>
+      <button class="btn" type="button" id="schedCompare" title="See what changed in a revised schedule, then update the palette">Compare a revision&#8230;</button>
       <span class="spacer"></span>
       <button class="btn" type="button" id="schedClose">Close</button>
       <button class="btn primary" type="button" id="schedPick">Choose schedule&#8230;</button>
     </div>
+    <input type="file" id="tplFile" accept=".json,application/json" hidden>
+    <input type="file" id="schedCmpFile" accept=".xlsx,.xlsm,.csv,.tsv,.txt" hidden>
     <input type="file" id="schedFile" accept=".csv,.tsv,.txt,.xlsx,.xlsm,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel.sheet.macroEnabled.12" hidden>
   </div>
 </div>
@@ -2508,7 +2535,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.22.0';
+var APP_VERSION = '3.23.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3300,6 +3327,7 @@ async function openFile(file) {
     state.pendingSave = null; $('#saveBar').hidden = true;
     await storeDoc(state.bytes, state.fileName); saveSession();
     toast(state.pdf.numPages + (state.pdf.numPages === 1 ? ' page, ' : ' pages, ') + live().length + ' existing markups');
+    if (ui().autoTemplate) setTimeout(autoTemplate, 600);
   } catch (e) {
     console.error(e);
     toast('That file could not be opened as a PDF. ' + (e && e.message ? e.message : ''), 6000);
@@ -3320,7 +3348,7 @@ async function loadPdf(bytes, name, opts) {
   state.annots = read.annots; state.scales = read.scales || []; state.vps = read.vps || []; state.scaleDirty = new Set();
   state.sel = new Set(); state.history = []; state.future = []; state.nextId = 1;
   if (state.draft) { state.draft = null; updatePolyBar(); }
-  state.series = { defs: {}, cur: null }; state.hideSubj = new Set(); state.hideAll = false;
+  state.series = { defs: {}, cur: null }; state.hideSubj = new Set(); state.hideAll = false; state.extraLayers = [];
   groupBaseline = groupKey(); markUnsaved(); updateUndoButtons();
   if (state.annots.some(function (a) { return a.photosIn; })) await adoptPhotos();
   await buildPages(opts && opts.keepScroll);
@@ -5436,6 +5464,196 @@ function geoSnap(p, pt, tol) {
   }
   return best;
 }
+
+/* ---------- project templates: scale, layers, series, style and palettes for a job ---------- */
+function loadTemplates() { try { var t = JSON.parse(localStorage.getItem('pencil-markup-templates') || '[]'); return Array.isArray(t) ? t : []; } catch (e) { return []; } }
+function saveTemplates(l) { try { localStorage.setItem('pencil-markup-templates', JSON.stringify(l)); return true; } catch (e) { toast('Could not save the template: this iPad’s storage for the app is full.'); return false; } }
+function commonScale() {
+  var c = {}, best = null, bn = 0;
+  state.pages.forEach(function (p) { var sc = state.scales[p.index]; if (!sc) return; var k = JSON.stringify(copyScale(sc)); c[k] = (c[k] || 0) + 1; if (c[k] > bn) { bn = c[k]; best = sc; } });
+  return best ? copyScale(best) : null;
+}
+function templateFromFile(name) {
+  var sets = state.chestSets.filter(function (st) { return st.custom; });
+  return { id: newId('tpl'), name: name, saved: new Date().toISOString(), scale: commonScale(), layers: markupLayers(),
+    series: Object.keys(state.series.defs).map(function (k) { return state.series.defs[k].prefix || ''; }).filter(function (x, i, a) { return x && a.indexOf(x) === i; }),
+    style: JSON.parse(JSON.stringify(state.style)), setIds: sets.map(function (st) { return st.id; }), setTitles: sets.map(function (st) { return st.title; }) };
+}
+function tplSummary(t) {
+  var bits = [];
+  if (t.scale) bits.push('scale ' + scaleLabel(t.scale));
+  if (t.layers && t.layers.length) bits.push(t.layers.length + ' layer' + (t.layers.length === 1 ? '' : 's') + ' (' + t.layers.slice(0, 3).join(', ') + (t.layers.length > 3 ? '…' : '') + ')');
+  if (t.series && t.series.length) bits.push('series ' + t.series.join(', '));
+  if (t.setTitles && t.setTitles.length) bits.push(t.setTitles.length + ' palette' + (t.setTitles.length === 1 ? '' : 's'));
+  return bits.join(' · ') || 'style only';
+}
+function renderTemplates() {
+  var el = $('#tplList'); if (!el) return;
+  var l = loadTemplates();
+  el.innerHTML = l.length ? l.map(function (t) {
+    return '<div class="tplrow setrow"><span><b>' + esc(t.name) + '</b><br><span class="sub2">' + esc(tplSummary(t)) + '</span></span><span class="actions">' +
+      '<button class="btn" type="button" data-tplapply="' + esc(t.id) + '"' + (state.pdf ? '' : ' disabled') + '>Apply</button>' +
+      '<button class="btn" type="button" data-tplexport="' + esc(t.id) + '">Export</button>' +
+      '<button class="btn" type="button" data-tpldel="' + esc(t.id) + '" aria-label="Delete ' + esc(t.name) + '">×</button></span></div>';
+  }).join('') : '<p class="hint">No templates yet.</p>';
+}
+function applyTemplate(t, auto) {
+  if (!state.pdf || !t) return;
+  var done = [];
+  // palettes that came with an imported template
+  (t.sets || []).forEach(function (st) { if (!state.chestSets.some(function (x) { return x.id === st.id || (x.custom && x.title === st.title); })) { state.chestSets.push(JSON.parse(JSON.stringify(st))); done.push('palette ' + st.title); } });
+  if (t.sets && t.sets.length) saveChest();
+  pushHistory('template');
+  if (t.scale) {
+    var empty = state.pages.filter(function (p) { return !state.scales[p.index]; });
+    empty.forEach(function (p) { state.scales[p.index] = copyScale(t.scale); state.scaleDirty.add(p.index); });
+    if (empty.length) done.push('scale ' + scaleLabel(t.scale) + ' on ' + empty.length + ' page' + (empty.length === 1 ? '' : 's'));
+  }
+  var have = markupLayers(), add = (t.layers || []).filter(function (n) { return have.indexOf(n) < 0; });
+  if (add.length) { state.extraLayers = (state.extraLayers || []).concat(add); done.push(add.length + ' layer' + (add.length === 1 ? '' : 's')); }
+  var pre = Object.keys(state.series.defs).map(function (k) { return state.series.defs[k].prefix || ''; }), cur = state.series.cur;
+  var newS = (t.series || []).filter(function (x) { return pre.indexOf(x) < 0; });
+  newS.forEach(function (x) { newSeries(x); });
+  if (newS.length) { state.series.cur = cur || state.series.cur; done.push('series ' + newS.join(', ')); }
+  if (t.style) { Object.assign(state.style, t.style); savePrefs(); updateStyleChip(); styleNew.sync(); done.push('style'); }
+  markUnsaved(); renderList(); renderCounts(); updateSeqBar(); renderChest();
+  state.pages.forEach(function (p) { drawOverlay(p); });
+  toast((auto ? 'Template “' : 'Applied “') + t.name + '”' + (done.length ? ': ' + done.join(', ') : ' (nothing to change)') + '.', 5000);
+}
+$('#setBody').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-tpl], [data-tplapply], [data-tplexport], [data-tpldel]') : null; if (!b) return;
+  var l = loadTemplates(), find = function (id) { return l.filter(function (t) { return t.id === id; })[0]; };
+  if (b.dataset.tpl === 'save') {
+    if (!state.pdf) { toast('Open a PDF set up the way you like first.'); return; }
+    var name = prompt('Name for this template (for example the client or job type):', exportBase()); if (!name || !name.trim()) return;
+    var t = templateFromFile(name.trim()); l = l.filter(function (x) { return x.name !== t.name; }); l.push(t);
+    if (saveTemplates(l)) { openSettings(); toast('Template “' + t.name + '” saved: ' + tplSummary(t) + '.', 4500); }
+  } else if (b.dataset.tpl === 'import') $('#tplFile').click();
+  else if (b.dataset.tplapply) { applyTemplate(find(b.dataset.tplapply)); $('#setModal').hidden = true; }
+  else if (b.dataset.tplexport) {
+    var t2 = JSON.parse(JSON.stringify(find(b.dataset.tplexport) || null)); if (!t2) return;
+    t2.sets = state.chestSets.filter(function (st) { return (t2.setIds || []).indexOf(st.id) >= 0; });
+    exportJSON({ app: 'pencil-markup', kind: 'template', version: 1, template: t2 }, safeName(t2.name) + '.markup-template.json');
+  } else if (b.dataset.tpldel) {
+    var d = find(b.dataset.tpldel); if (!d || !confirm('Delete the template “' + d.name + '”?')) return;
+    saveTemplates(l.filter(function (x) { return x.id !== d.id; })); if (ui().autoTemplate === d.id) { ui().autoTemplate = ''; saveUI(); } openSettings();
+  }
+});
+$('#tplFile').addEventListener('change', async function (e) {
+  var f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try {
+    var j = JSON.parse(await f.text()); if (!j || j.kind !== 'template' || !j.template) throw new Error('not a template file');
+    var t = j.template, l = loadTemplates(); t.id = t.id || newId('tpl');
+    // its palettes join the Tool Chest now, so the template stays small on this iPad
+    (t.sets || []).forEach(function (st) { if (!state.chestSets.some(function (x) { return x.id === st.id; })) state.chestSets.push(st); });
+    if (t.sets && t.sets.length) { saveChest(); renderChest(); }
+    delete t.sets;
+    l = l.filter(function (x) { return x.id !== t.id; }); l.push(t);
+    if (saveTemplates(l)) { openSettings(); toast('Template “' + t.name + '” imported.'); }
+  } catch (err) { toast('That is not a Pencil Markup template (' + (err.message || err) + ').', 5000); }
+});
+// A new drawing set with nothing on it yet gets the template chosen in Settings.
+function autoTemplate() {
+  var id = ui().autoTemplate; if (!id || !state.pdf || live().length || state.scales.some(Boolean)) return;
+  var t = loadTemplates().filter(function (x) { return x.id === id; })[0]; if (t) applyTemplate(t, true);
+}
+
+/* ---------- compare a revised fixture/channel schedule with a palette ---------- */
+var csNew = null;
+function csFieldMap(t) { var m = {}; (t.fields || []).forEach(function (f) { m[f.name] = String(f.value == null ? '' : f.value); }); return m; }
+function csDiff(oldSet, nw) {
+  var out = { types: [], chans: [] }, om = {}, nm = {};
+  oldSet.tools.forEach(function (t) { om[typeOfTool(t)] = t; }); nw.tools.forEach(function (t) { nm[typeOfTool(t)] = t; });
+  var placed = function (t) { return live().filter(function (a) { return a.sym && fixtureMatches(a, t); }).length; };
+  nw.tools.forEach(function (t) {
+    var k = typeOfTool(t), o = om[k];
+    if (!o) { out.types.push({ kind: 'added', key: k, after: t.contents || '', t: t }); return; }
+    var ch = [], of = csFieldMap(o), nf = csFieldMap(t);
+    if ((o.contents || '') !== (t.contents || '')) ch.push(['Description', o.contents || '', t.contents || '']);
+    if ((o.schedQty == null ? '' : o.schedQty) !== (t.schedQty == null ? '' : t.schedQty)) ch.push(['Qty', o.schedQty == null ? '' : String(o.schedQty), t.schedQty == null ? '' : String(t.schedQty)]);
+    if ((o.fixLenText || '') !== (t.fixLenText || '')) ch.push(['Length', o.fixLenText || '', t.fixLenText || '']);
+    Object.keys(Object.assign({}, of, nf)).forEach(function (f) { if (f === 'Category' && !nf[f]) return; if ((of[f] || '') !== (nf[f] || '')) ch.push([f, of[f] || '', nf[f] || '']); });
+    if (ch.length) out.types.push({ kind: 'changed', key: k, changes: ch, placed: placed(o), t: t, o: o });
+  });
+  oldSet.tools.forEach(function (o) { var k = typeOfTool(o); if (!nm[k]) out.types.push({ kind: 'removed', key: k, before: o.contents || '', placed: placed(o), o: o }); });
+  // A channel is known by its sheet and number; rows without a number by their label, description or location, then by their order.
+  var keyed = function (list) { var m = {}, n = {}; (list || []).forEach(function (c) { var b = (c.sheet || '') + '|' + (c.chan || c.label || c.desc || ((c.loc || '') + '/' + (c.area || ''))); n[b] = (n[b] || 0) + 1; m[b + '#' + n[b]] = c; c._k = b + '#' + n[b]; }); return m; };
+  var oc = keyed(oldSet.channels), nc = keyed(nw.channels), ck = function (c) { return c._k; };
+  var nm2 = function (c) { return (c.chan ? 'Ch ' + c.chan : c.label || c.desc || c.loc || 'Channel') + (c.sheet ? ' (' + c.sheet + ')' : ''); };
+  (nw.channels || []).forEach(function (c) {
+    var o = oc[ck(c)]; if (!o) { out.chans.push({ kind: 'added', key: nm2(c), after: [c.type, c.qty, c.loc].filter(Boolean).join(' · ') }); return; }
+    var ch = [];
+    [['type', 'Type'], ['qty', 'Qty'], ['loc', 'Location'], ['area', 'Area'], ['circuit', 'Circuit'], ['desc', 'Description']].forEach(function (f) { if (String(o[f[0]] == null ? '' : o[f[0]]) !== String(c[f[0]] == null ? '' : c[f[0]])) ch.push([f[1], String(o[f[0]] == null ? '' : o[f[0]]), String(c[f[0]] == null ? '' : c[f[0]])]); });
+    if (ch.length) out.chans.push({ kind: 'changed', key: nm2(c), changes: ch });
+  });
+  (oldSet.channels || []).forEach(function (o) { if (!nc[ck(o)]) out.chans.push({ kind: 'removed', key: nm2(o), before: [o.type, o.qty, o.loc].filter(Boolean).join(' · ') }); });
+  return out;
+}
+function csOldSet() { var id = $('#csOld').value; return state.chestSets.filter(function (x) { return x.id === id; })[0]; }
+function renderCS() {
+  var os = csOldSet(); if (!os || !csNew) return;
+  var d = csDiff(os, csNew), n = function (l, k) { return l.filter(function (x) { return x.kind === k; }).length; };
+  var chip = function (cls, t) { return '<span class="cschip ' + cls + '">' + t + '</span>'; };
+  $('#csChips').innerHTML = chip('add', n(d.types, 'added') + ' types added') + chip('chg', n(d.types, 'changed') + ' changed') + chip('rem', n(d.types, 'removed') + ' removed') +
+    (csNew.channels || os.channels ? chip('add', n(d.chans, 'added') + ' channels added') + chip('chg', n(d.chans, 'changed') + ' changed') + chip('rem', n(d.chans, 'removed') + ' removed') : '');
+  var row = function (x) {
+    var head = '<b>' + esc(x.key) + '</b> <span class="cskind ' + x.kind + '">' + x.kind + '</span>' + (x.placed ? ' <span class="csplaced">' + x.placed + ' placed on the drawing</span>' : '');
+    var body = x.changes ? x.changes.map(function (c) { return '<div class="csc">' + esc(c[0]) + ': <del>' + esc(c[1] || '(empty)') + '</del> → <ins>' + esc(c[2] || '(empty)') + '</ins></div>'; }).join('') : '<div class="csc">' + esc(x.after != null ? x.after : x.before || '') + '</div>';
+    return '<div class="csrow ' + x.kind + '">' + head + body + '</div>';
+  };
+  $('#csList').innerHTML = (d.types.length ? '<h3>Fixture types</h3>' + d.types.map(row).join('') : '<p class="hint">No changes to fixture types.</p>') + (d.chans.length ? '<h3>Channels</h3>' + d.chans.map(row).join('') : (csNew.channels ? '<p class="hint">No changes to channels.</p>' : ''));
+  $('#csApply').disabled = !d.types.length && !d.chans.length;
+  state.csDiff = d;
+}
+$('#schedCompare').addEventListener('click', function () {
+  if (!state.chestSets.some(function (x) { return x.schedule; })) { toast('Import the original schedule first, then compare a revision with it.', 5000); return; }
+  $('#schedCmpFile').click();
+});
+$('#schedCmpFile').addEventListener('change', async function (e) {
+  var f = e.target.files[0]; e.target.value = ''; if (!f) return;
+  try { csNew = await readSchedule(f); } catch (err) { toast('Could not read ' + f.name + ': ' + (err && err.message || err), 6000); return; }
+  if (!csNew.tools || !csNew.tools.length) { toast('No fixture types found in ' + f.name + '.', 5000); return; }
+  csNew.name = f.name;
+  var sets = state.chestSets.filter(function (x) { return x.schedule; });
+  $('#csOld').innerHTML = sets.map(function (x) { return '<option value="' + esc(x.id) + '">' + esc(x.title) + ' (' + x.tools.length + ' types)</option>'; }).join('');
+  $('#csOld').value = sets[sets.length - 1].id;
+  $('#csTitle').textContent = 'Changes in ' + f.name;
+  $('#schedModal').hidden = true; $('#csModal').hidden = false; renderCS();
+});
+$('#csOld').addEventListener('change', renderCS);
+$('#csClose').addEventListener('click', function () { $('#csModal').hidden = true; });
+$('#csCsv').addEventListener('click', function () {
+  var d = state.csDiff; if (!d) return;
+  var rows = [];
+  [['Fixture type', d.types], ['Channel', d.chans]].forEach(function (g) { g[1].forEach(function (x) { if (x.changes) x.changes.forEach(function (c) { rows.push([g[0], x.key, x.kind, c[0], c[1], c[2], x.placed || '']); }); else rows.push([g[0], x.key, x.kind, '', x.before || '', x.after || '', x.placed || '']); }); });
+  downloadFile(new Blob([toCSV({ head: ['What', 'Type / channel', 'Change', 'Field', 'Before', 'After', 'Placed on drawing'], rows: rows })], { type: 'text/csv' }), stampFile(exportBase() + ' - schedule changes.csv'));
+});
+$('#csApply').addEventListener('click', function () {
+  var os = csOldSet(); if (!os || !csNew) return;
+  var om = {}; os.tools.forEach(function (t) { om[typeOfTool(t)] = t; });
+  // New data, but each type keeps its look, id and favourite so tools and placed fixtures stay linked.
+  var tools = csNew.tools.map(function (t) {
+    var o = om[typeOfTool(t)]; if (!o) return t;
+    return Object.assign({}, t, { id: o.id, fav: o.fav, icon: o.icon, sym: o.sym, color: o.color, fillColor: o.fillColor, fillOpacity: o.fillOpacity, opacity: o.opacity, lineWidth: o.lineWidth, layer: o.layer, subject: o.subject || t.subject });
+  });
+  var upd = 0;
+  if ($('#csMarkups').checked) {
+    var changed = (state.csDiff.types || []).filter(function (x) { return x.kind === 'changed'; });
+    if (changed.length) pushHistory('schedule');
+    changed.forEach(function (x) {
+      live().forEach(function (a) {
+        if (!a.sym || !fixtureMatches(a, x.o)) return;
+        a.contents = x.t.contents || a.contents;
+        var f = {}; (x.t.fields || []).forEach(function (q) { f[q.name] = q.value || ''; }); a.fields = Object.assign({}, a.fields || {}, f);
+        if (!a.isNew) a.dirty = true; upd++;
+      });
+    });
+  }
+  os.tools = tools; os.channels = csNew.channels || os.channels; os.revisedFrom = csNew.name;
+  saveChest(); renderChest(); renderCounts(); renderList(); if (upd) markUnsaved();
+  $('#csModal').hidden = true;
+  toast('Palette “' + os.title + '” updated from ' + csNew.name + (upd ? '; ' + upd + ' placed fixtures updated' : '') + '.', 5000);
+});
 /* ---------- site photos ---------- */
 var photoUrls = {};
 async function photoBytes(id) { try { var r = await idb.get('photo:' + id); return r && r.bytes ? new Uint8Array(r.bytes) : null; } catch (e) { return null; } }
@@ -6759,20 +6977,24 @@ function parseChannelRows(rows) {
   }
   return out;
 }
-async function importSchedule(file) {
+async function readSchedule(file) {
   var tools = null, channels = null, buf;
-  try {
-    buf = await file.arrayBuffer();
-    var isZip = new Uint8Array(buf.slice(0, 2))[0] === 0x50;
-    if (/\.(xlsx|xlsm)$/i.test(file.name) || isZip) {
-      var sheets = readXlsxSheets(buf);
-      var fx = sheets.filter(function (x) { return /fixture\s*(list|schedule)|^schedule$/i.test(x.name); })[0];
-      var ch = sheets.filter(function (x) { return /channel|zone|control\s*schedule/i.test(x.name); })[0];
-      if (fx) tools = parseFixtureRows(fx.rows());
-      if (!tools) for (var k = 0; k < sheets.length && !tools; k++) { if (sheets[k] === ch) continue; tools = parseFixtureRows(sheets[k].rows()); }
-      if (ch) channels = parseChannelRows(ch.rows());
-    } else tools = parseFixtureRows(parseCSV(new TextDecoder('utf-8').decode(buf)));
-  } catch (e) { console.warn(e); toast('Could not read ' + file.name + ': ' + (e && e.message || e), 6000); return; }
+  buf = await file.arrayBuffer();
+  var isZip = new Uint8Array(buf.slice(0, 2))[0] === 0x50;
+  if (/\.(xlsx|xlsm)$/i.test(file.name) || isZip) {
+    var sheets = readXlsxSheets(buf);
+    var fx = sheets.filter(function (x) { return /fixture\s*(list|schedule)|^schedule$/i.test(x.name); })[0];
+    var ch = sheets.filter(function (x) { return /channel|zone|control\s*schedule/i.test(x.name); })[0];
+    if (fx) tools = parseFixtureRows(fx.rows());
+    if (!tools) for (var k = 0; k < sheets.length && !tools; k++) { if (sheets[k] === ch) continue; tools = parseFixtureRows(sheets[k].rows()); }
+    if (ch) channels = parseChannelRows(ch.rows());
+  } else tools = parseFixtureRows(parseCSV(new TextDecoder('utf-8').decode(buf)));
+  return { tools: tools, channels: channels };
+}
+async function importSchedule(file) {
+  var tools = null, channels = null;
+  try { var rd = await readSchedule(file); tools = rd.tools; channels = rd.channels; }
+  catch (e) { console.warn(e); toast('Could not read ' + file.name + ': ' + (e && e.message || e), 6000); return; }
   if (!tools) { toast('No Type (or Mark / Fixt Type) column found. Download the template to see the layout.', 6000); return; }
   if (!tools.length) { toast('No fixture types found under the header row.', 5000); return; }
   var title = String(file.name).replace(/\.(csv|tsv|txt|xlsx|xlsm)$/i, '') || 'Fixture schedule';
@@ -7750,6 +7972,10 @@ function openSettings() {
       row('Angle decimals', sel('adec', m.adec, [[0, '0'], [1, '1'], [2, '2']])) + '</div>' +
     '<div class="setsec"><h3>Keyboard shortcuts</h3><p class="hint">Tap a shortcut and press the keys you want (with a keyboard connected). \u00d7 removes it, \u21ba puts the default back. A key already in use moves to the new action.</p><div class="actions"><button class="btn" type="button" data-kresetall="1">Reset all shortcuts</button><button class="btn" type="button" data-kshow="1">Show the list</button></div><div class="tsearch ksearch"><input type="search" class="fld-in" id="keySearch" placeholder="Search shortcuts (action or key, e.g. group, undo, \u2318G, Shift)" autocomplete="off" spellcheck="false" aria-label="Search keyboard shortcuts"></div><div class="klist" id="keyList"></div></div>' +
     '<div class="setsec"><h3>Toolbar tools</h3><p class="hint">Tick the tools to show; use the arrows to change their order (also the order in the tool picker).</p><div class="tlist" id="tlist"></div></div>' +
+    '<div class="setsec"><h3>Project templates</h3><p class="hint">A template keeps a job\u2019s setup: the scale, markup layers, numbered series prefixes, the drawing style and which tool palettes it uses. Apply it to a new set of drawings to start ready to go, or export it to share with your team.</p>' +
+      '<div class="actions"><button class="btn" type="button" data-tpl="save">Save this file\u2019s setup\u2026</button><button class="btn" type="button" data-tpl="import">Import\u2026</button></div>' +
+      row('Use for new files', '<select class="fld-in" data-set="autoTemplate"><option value="">None</option>' + loadTemplates().map(function (t) { return '<option value="' + esc(t.id) + '"' + (u.autoTemplate === t.id ? ' selected' : '') + '>' + esc(t.name) + '</option>'; }).join('') + '</select>', 'Applied when you open a PDF that has no markups and no scale yet') +
+      '<div class="tpllist" id="tplList"></div></div>' +
     '<div class="setsec"><h3>Safety net</h3>' +
       row('Recovery points', sel('rpMins', u.rpMins == null ? 5 : u.rpMins, [[2, 'Every 2 minutes'], [5, 'Every 5 minutes'], [10, 'Every 10 minutes'], [0, 'Off']]), 'While markups are unsaved, a copy is kept on this iPad (newest 10 per file)') +
       row('Save reminder', sel('saveRemind', u.saveRemind == null ? 30 : u.saveRemind, [[15, 'After 15 minutes'], [30, 'After 30 minutes'], [60, 'After an hour'], [0, 'Off']]), 'A reminder bar when markups have not been saved into a PDF') +
@@ -7761,10 +7987,10 @@ function openSettings() {
   renderToolList();
   $('#setModal').hidden = false;
   renderStorage(); renderRecovery(); kbCapture = null; state.keyQ = ''; renderKeySettings();
-  setupSetNav();
+  renderTemplates(); setupSetNav();
 }
 /* Settings tabs: one section at a time. Searching looks through every section. */
-var SET_TABS = { 'Appearance': 'Look', 'Apple Pencil and touch': 'Pencil', 'Drawing': 'Drawing', 'Measurements': 'Measure', 'Keyboard shortcuts': 'Keys', 'Toolbar tools': 'Toolbar', 'Safety net': 'Safety', 'Storage on this iPad': 'Storage', 'Your data': 'Data', 'About': 'About' };
+var SET_TABS = { 'Project templates': 'Templates', 'Appearance': 'Look', 'Apple Pencil and touch': 'Pencil', 'Drawing': 'Drawing', 'Measurements': 'Measure', 'Keyboard shortcuts': 'Keys', 'Toolbar tools': 'Toolbar', 'Safety net': 'Safety', 'Storage on this iPad': 'Storage', 'Your data': 'Data', 'About': 'About' };
 function setSecs() { return $$('#setBody .setsec'); }
 function secName(sec) { var h = sec.querySelector('h3'); return h ? h.textContent.trim() : ''; }
 function setupSetNav() {
@@ -7892,6 +8118,7 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'panelPos') { u.panelPos = v; saveUI(); layoutClasses(); renderVisible(); if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } }
   else if (k === 'autoUpdate') { u.autoUpdate = v; }
   else if (k === 'nameStamp') { u.nameStamp = v; }
+  else if (k === 'autoTemplate') { u.autoTemplate = v || ''; }
   else if (k === 'snapPdf') { u.snapPdf = v; if (!v) state.pages.forEach(function (pg) { pg.geo = null; }); }
   else if (k === 'toolChip') { u.toolChip = v; saveUI(); renderToolChip(); }
   else if (k === 'haptics') { u.haptics = v; }
