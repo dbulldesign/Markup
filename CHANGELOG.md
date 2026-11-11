@@ -2,6 +2,9 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.19.1
+- Settings > Keyboard shortcuts has a search box: type part of an action ("group", "undo", "page") or a key ("cmd g", "shift", "none" for actions without a shortcut); every word must match. Escape clears the search, and Return starts changing the shortcut when only one is left.
+
 ## 3.19.0
 - Keyboard shortcuts are customisable: Settings > Keyboard shortcuts lists every action by group (File, Tools, Selection, View). Tap a shortcut and press the keys you want (Escape cancels); x removes it, the arrow-circle puts the default back, Reset all restores every default. Giving a key that another action uses moves it (the other action is left without a shortcut, and you are told). Your keys are saved with your settings (and in Back up), and the shortcuts list (Cmd+/) and the tool tooltips show your keys. Escape, the arrow keys and Enter while drawing stay fixed.
 

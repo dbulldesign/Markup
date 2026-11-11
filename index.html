@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.19.0">
+<meta name="app-version" content="3.19.1">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -164,6 +164,7 @@ body.compact #measureTools > [data-tool] { display: none; }
 .tsearch input { width: 100%; box-sizing: border-box; }
 .chest .tsearch { padding: 0 0 8px; }
 .tool-none { padding: 12px 4px; color: var(--ink-2); font-size: 14px; }
+.ksearch { position: static; padding: 8px 0 0; }
 .klist { display: grid; gap: 2px; margin-top: 8px; }
 .kgrp { margin: 10px 0 2px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
 .krow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 6px; padding: 4px 0; border-top: 1px solid var(--line); font-size: 14px; }
@@ -2425,7 +2426,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.19.0';
+var APP_VERSION = '3.19.1';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -7369,7 +7370,7 @@ function openSettings() {
       row('Decimal places', sel('dec', m.dec, [[0, '0'], [1, '1'], [2, '2'], [3, '3'], [4, '4']])) +
       row('Area units', sel('area', m.area, [['auto', 'sf / m\u00b2'], ['sy', 'Square yards'], ['acre', 'Acres'], ['ha', 'Hectares']])) +
       row('Angle decimals', sel('adec', m.adec, [[0, '0'], [1, '1'], [2, '2']])) + '</div>' +
-    '<div class="setsec"><h3>Keyboard shortcuts</h3><p class="hint">Tap a shortcut and press the keys you want (with a keyboard connected). \u00d7 removes it, \u21ba puts the default back. A key already in use moves to the new action.</p><div class="actions"><button class="btn" type="button" data-kresetall="1">Reset all shortcuts</button><button class="btn" type="button" data-kshow="1">Show the list</button></div><div class="klist" id="keyList"></div></div>' +
+    '<div class="setsec"><h3>Keyboard shortcuts</h3><p class="hint">Tap a shortcut and press the keys you want (with a keyboard connected). \u00d7 removes it, \u21ba puts the default back. A key already in use moves to the new action.</p><div class="actions"><button class="btn" type="button" data-kresetall="1">Reset all shortcuts</button><button class="btn" type="button" data-kshow="1">Show the list</button></div><div class="tsearch ksearch"><input type="search" class="fld-in" id="keySearch" placeholder="Search shortcuts (action or key, e.g. group, undo, \u2318G, Shift)" autocomplete="off" spellcheck="false" aria-label="Search keyboard shortcuts"></div><div class="klist" id="keyList"></div></div>' +
     '<div class="setsec"><h3>Toolbar tools</h3><p class="hint">Tick the tools to show; use the arrows to change their order (also the order in the tool picker).</p><div class="tlist" id="tlist"></div></div>' +
     '<div class="setsec"><h3>Safety net</h3>' +
       row('Recovery points', sel('rpMins', u.rpMins == null ? 5 : u.rpMins, [[2, 'Every 2 minutes'], [5, 'Every 5 minutes'], [10, 'Every 10 minutes'], [0, 'Off']]), 'While markups are unsaved, a copy is kept on this iPad (newest 10 per file)') +
@@ -7381,7 +7382,7 @@ function openSettings() {
     '<div class="setsec"><h3>About</h3><div class="setrow"><span>Pencil Markup v' + APP_VERSION + '</span><span class="actions"><button class="btn" type="button" data-sa="update">Check for updates</button><button class="btn" type="button" data-sa="help">Help</button></span></div></div>';
   renderToolList();
   $('#setModal').hidden = false;
-  renderStorage(); renderRecovery(); kbCapture = null; renderKeySettings();
+  renderStorage(); renderRecovery(); kbCapture = null; state.keyQ = ''; renderKeySettings();
 }
 function fmtBytes(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB'; }
 async function renderRecovery() {
@@ -7395,6 +7396,14 @@ async function renderRecovery() {
   }).join('') : '<p class="hint">No recovery points for ' + esc(state.fileName) + ' yet (they are made while markups are unsaved).</p>') +
     '<div class="actions"><button class="btn" type="button" data-rpnow="1">Make one now</button></div>';
 }
+$('#setBody').addEventListener('input', function (e) { if (e.target.id === 'keySearch') { state.keyQ = e.target.value; kbCapture = null; renderKeySettings(); } });
+$('#setBody').addEventListener('focusin', function (e) { if (e.target.id === 'keySearch' && kbCapture) { kbCapture = null; renderKeySettings(); } });
+// Escape in the search box clears it first (a second Escape closes Settings); Return starts changing the only match.
+$('#setBody').addEventListener('keydown', function (e) {
+  if (e.target.id !== 'keySearch') return;
+  if (e.key === 'Escape' && e.target.value) { e.stopPropagation(); e.preventDefault(); e.target.value = ''; state.keyQ = ''; renderKeySettings(); }
+  else if (e.key === 'Enter') { e.preventDefault(); var b = $$('#keyList [data-kset]'); if (b.length === 1) { e.target.blur(); b[0].click(); } }
+});
 $('#setBody').addEventListener('click', function (e) {
   var b = e.target.closest ? e.target.closest('[data-kset], [data-kclear], [data-kreset], [data-kresetall], [data-kshow]') : null; if (!b) return;
   if (b.dataset.kset) { kbCapture = kbCapture === b.dataset.kset ? null : b.dataset.kset; renderKeySettings(); return; }
@@ -7674,11 +7683,26 @@ function updateKeyTooltips() {
 }
 /* Settings > Keyboard shortcuts: tap a key, press the new one. */
 var kbCapture = null;
+/* Search: every word must appear in the action, its group or its key (typed as Cmd, Ctrl, Shift, \u2318 or \u21e7, or the key itself). */
+function keyMatches(g, a, q) {
+  if (!q) return true;
+  var k = keyOf(a.id) || '', parts = k.toLowerCase().split('+'), last = parts[parts.length - 1], label = (g + ' ' + a.label + ' ' + (k ? k.replace(/\+/g, ' ') : 'none')).toLowerCase();
+  var MOD = { cmd: 'mod', command: 'mod', ctrl: 'mod', control: 'mod', mod: 'mod', shift: 'shift', alt: 'alt', option: 'alt', opt: 'alt' };
+  return q.toLowerCase().replace(/⌘/g, ' cmd ').replace(/⇧/g, ' shift ').replace(/⌥/g, ' alt ').split(/[\s+]+/).filter(Boolean).every(function (w) {
+    if (MOD[w]) return parts.indexOf(MOD[w]) >= 0 && parts.length > 1;   // a modifier: the key must use it
+    if (w.length === 1) return last === w;                                // one letter or symbol: the key itself
+    return label.indexOf(w) >= 0;                                         // a word: the action, group or key name
+  });
+}
 function renderKeySettings() {
   var el = $('#keyList'); if (!el) return;
-  var o = ui().keys || {};
+  var o = ui().keys || {}, q = (state.keyQ || '').trim(), found = 0;
+  var si = $('#keySearch'); if (si && si.value !== (state.keyQ || '')) si.value = state.keyQ || '';
   el.innerHTML = SHORTCUTS.map(function (g) {
-    return '<div class="kgrp">' + esc(g[0]) + '</div>' + g[1].map(function (a) {
+    var acts = g[1].filter(function (a) { return keyMatches(g[0], a, q); });
+    if (!acts.length) return '';
+    found += acts.length;
+    return '<div class="kgrp">' + esc(g[0]) + '</div>' + acts.map(function (a) {
       var k = keyOf(a.id), custom = a.id in o;
       return '<div class="krow' + (custom ? ' custom' : '') + '"><span class="kl">' + esc(a.label) + '</span>' +
         (a.fixed ? '<span class="kfix"><kbd>' + esc(shortcutLabel(k)) + '</kbd></span>' :
@@ -7686,7 +7710,7 @@ function renderKeySettings() {
         '<button type="button" class="kmini" data-kclear="' + a.id + '" title="No shortcut" aria-label="No shortcut for ' + esc(a.label) + '"' + (k ? '' : ' disabled') + '>×</button>' +
         '<button type="button" class="kmini" data-kreset="' + a.id + '" title="Back to ' + esc(shortcutLabel(a.key)) + '" aria-label="Reset ' + esc(a.label) + '"' + (custom ? '' : ' disabled') + '>↺</button>') + '</div>';
     }).join('');
-  }).join('');
+  }).join('') || '<p class="tool-none">No shortcuts match \u201c' + esc(q) + '\u201d.</p>';
 }
 function setKey(id, key) {
   var u = ui(), o = u.keys || (u.keys = {});
