@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.23.0">
+<meta name="app-version" content="3.24.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -136,6 +136,9 @@ button { font: inherit; color: inherit; touch-action: pan-x pan-y; }
 .pages { padding: 16px 0 60px; min-width: 100%; width: max-content; margin: 0 auto; }
 .page { position: relative; margin: 0 auto 16px; background: #fff; box-shadow: 0 2px 10px rgba(0,0,0,.25); transform-origin: 0 0; }
 .page canvas.base { display: block; width: 100%; height: 100%; }
+/* Dark drawings: only the PDF image is inverted (hue kept), never the markups drawn over it. */
+body.dark-pages .page canvas.base, body.dark-pages .page canvas.detail, body.dark-pages .thumb canvas { filter: invert(1) hue-rotate(180deg); }
+body.dark-pages .page { background: #111; }
 .page canvas.detail { position: absolute; display: block; pointer-events: none; }
 .page svg { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; overflow: visible; }
 .marq { position: absolute; z-index: 4; pointer-events: none; border: 1.5px solid #2a5bd7; background: rgba(42,91,215,.10); }
@@ -1338,7 +1341,7 @@ body.picking .viewer, body.picking .page { cursor: crosshair; }
       <li><b>Press and hold</b> the Pencil (or a mouse button) still for half a second to open the <b>tool ring</b> around the tip: slide onto a tool and lift, or lift and tap one. The middle button is Undo.</li>
       <li><b>Two-finger tap</b>: undo (on a markup: open its properties). <b>Three-finger tap</b>: redo. While the Pencil is on or near the screen, your palm and fingers are ignored.</li>
       <li>Holding the iPad upright puts the toolbar at the bottom and the markups list in a sheet you drag up and down by its handle. Left-handed mode and larger touch targets are in Settings.</li>
-      <li>Pencil double-tap and squeeze are not available to web apps, so they cannot be used here.</li>
+      <li>Pencil double-tap and squeeze work in the iPad app (Settings > Pencil chooses what they do: last tool, quick menu, eraser, undo). Web apps cannot see them; use press and hold for the quick menu, or the ` key for the last tool.</li>
     </ul>
     <h3>Selecting and editing</h3>
     <ul>
@@ -2535,7 +2538,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.23.0';
+var APP_VERSION = '3.24.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -2632,7 +2635,16 @@ var STATUS_LABEL = { accepted: 'Accepted', rejected: 'Rejected', cancelled: 'Can
 function subjKey(a) { return a.subject || typeLabel(a.subtype, a.intent); }
 function isVisible(a) { return !state.hideAll && !(state.hideSubj && state.hideSubj.has(subjKey(a))) && !(a.layer && state.layerOff && state.layerOff.has(a.layer)); }
 function markupLayers() { var n = {}; live().forEach(function (a) { if (a.layer) n[a.layer] = 1; }); (state.extraLayers || []).forEach(function (x) { n[x] = 1; }); return Object.keys(n).sort(); }
-function byId(id) { for (var i = 0; i < state.annots.length; i++) if (state.annots[i].id === id) return state.annots[i]; return null; }
+// Id lookup through an index that is rebuilt when the markup list changes (checked on every use, so it is never stale).
+var idIndex = { arr: null, len: -1, map: null };
+function byId(id) {
+  var A = state.annots;
+  if (idIndex.arr !== A || idIndex.len !== A.length) { var m = new Map(); for (var i = 0; i < A.length; i++) m.set(A[i].id, A[i]); idIndex = { arr: A, len: A.length, map: m }; }
+  var a = idIndex.map.get(id);
+  if (a && a.id === id) return a;
+  for (var j = 0; j < A.length; j++) if (A[j].id === id) { idIndex.len = -1; return A[j]; }
+  return null;
+}
 function live() { return state.annots.filter(function (a) { return !a.deleted; }); }
 function selected() { return live().filter(function (a) { return state.sel.has(a.id); }); }
 function headOf(a) { if (a.parentId) { var h = byId(a.parentId); if (h && !h.deleted) return h; } return a; }
@@ -3071,7 +3083,7 @@ async function closeTabNow(id) {
 // Back to the empty start screen.
 function closeDocument() {
   if (state.pdf) { try { state.pdf.destroy(); } catch (e) { /* ignore */ } }
-  state.pdf = null; state.pages = []; state.annots = []; state.sel = new Set(); state.docId = null; state.history = []; state.future = [];
+  clearPageCache(); state.pdf = null; state.pages = []; state.annots = []; state.sel = new Set(); state.docId = null; state.history = []; state.future = [];
   $('#pages').innerHTML = ''; $('#empty').hidden = false; $('#btnSave').disabled = true; $('#saveBar').hidden = true; state.pendingSave = null;
   thumbsFor = null; state.textCache = [];
   markUnsaved(); renderList(); renderProps(); updateUndoButtons(); updateScaleButton(); updatePageInd();
@@ -3383,7 +3395,7 @@ async function buildPages(keepScroll) {
   var viewer = $('#viewer'), cont = $('#pages');
   var frac = viewer.scrollHeight ? viewer.scrollTop / viewer.scrollHeight : 0, left = viewer.scrollLeft;
   state.pages.forEach(function (p) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } } });
-  cont.innerHTML = ''; state.pages = [];
+  clearPageCache(); cont.innerHTML = ''; state.pages = [];
   var first = await state.pdf.getPage(1);
   if (!keepScroll) { state.zoom = fitZoomFor(first); state.fitMode = true; }
   var n = state.pdf.numPages, got = [first], B = 24;
@@ -3483,7 +3495,7 @@ function renderVisible() {
       var near = pb > top - h * 1.2 && pt < bottom + h * 1.2;
       var far = pb < top - h * 3 || pt > bottom + h * 3;
       if (near) renderPage(p);
-      else if (far && (p.rendered || p.renderTask)) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; } p.rendered = false; p.hasImage = false; p.canvas.width = 1; p.canvas.height = 1; dropDetail(p); setTimeout(function () { if (!p.rendered && !p.renderTask && state.pages[p.index] === p) { try { p.page.cleanup(); } catch (e) { /* ignore */ } } }, 50); }
+      else if (far && (p.rendered || p.renderTask)) { if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; } var kept = p.rendered && cachePageImage(p); p.rendered = false; p.hasImage = false; if (!kept) { p.canvas.width = 1; p.canvas.height = 1; } dropDetail(p); setTimeout(function () { if (!p.rendered && !p.renderTask && state.pages[p.index] === p) { try { p.page.cleanup(); } catch (e) { /* ignore */ } } }, 50); }
     });
     scheduleDetail();
     updateScaleButton(); updatePageInd();
@@ -3537,11 +3549,36 @@ function syncCanvasHidden() {
   pages.forEach(function (i) { var pg = state.pages[i]; if (pg) rerenderPage(pg); });
 }
 function rerenderPage(p) {
+  p.cgen = (p.cgen || 0) + 1; dropPageCache(p);
   if (p.renderTask) { try { p.renderTask.cancel(); } catch (e) { /* ignore */ } p.renderTask = null; }
   p.rendered = false; dropDetail(p); renderVisible();
 }
+/* Recently seen pages keep their image (up to a memory budget), so scrolling back shows them at once.
+   An image made at the current zoom is used as is; one from another zoom stands in until the sharp one is ready. */
+var pageCache = new Map(), PAGE_CACHE_PIXELS = 16e6;
+function cachePageImage(p) {
+  if (!p.hasImage || !p.canvas || p.canvas.width < 2) return false;
+  pageCache.delete(p); pageCache.set(p, { canvas: p.canvas, w: p.vp.width, gen: p.cgen || 0, base: p.baseScale });
+  var nc = document.createElement('canvas'); nc.className = 'base'; nc.width = 1; nc.height = 1;
+  if (p.canvas.parentNode === p.el) p.el.replaceChild(nc, p.canvas);
+  p.canvas = nc; p.hasImage = false;
+  var total = 0; pageCache.forEach(function (e) { total += e.canvas.width * e.canvas.height; });
+  for (var it = pageCache.keys(), k = it.next(); total > PAGE_CACHE_PIXELS && !k.done; k = it.next()) { var e = pageCache.get(k.value); total -= e.canvas.width * e.canvas.height; e.canvas.width = 1; e.canvas.height = 1; pageCache.delete(k.value); }
+  return true;
+}
+function dropPageCache(p) { var e = pageCache.get(p); if (e) { e.canvas.width = 1; e.canvas.height = 1; pageCache.delete(p); } }
+function clearPageCache() { pageCache.forEach(function (e) { e.canvas.width = 1; e.canvas.height = 1; }); pageCache.clear(); }
 function renderPage(p) {
   if (p.rendered || p.renderTask) return;
+  var ce = pageCache.get(p);
+  if (ce) {
+    pageCache.delete(p);
+    if (!p.hasImage && ce.gen === (p.cgen || 0)) {
+      if (p.canvas.parentNode === p.el) p.el.replaceChild(ce.canvas, p.canvas);
+      p.canvas = ce.canvas; p.hasImage = true;
+      if (Math.abs(ce.w - p.vp.width) < 0.5) { p.rendered = true; p.baseScale = ce.base; scheduleDetail(); return; }
+    } else { ce.canvas.width = 1; ce.canvas.height = 1; }
+  }
   var vp = p.vp, s = Math.min(state.dpr, Math.sqrt(MAX_BASE_PIXELS / (vp.width * vp.height)));
   p.baseScale = s;
   // Draw into a fresh canvas and swap it in when done, so the old image stays visible meanwhile.
@@ -3829,8 +3866,9 @@ function afterSelectionChange() {
   state.pages.forEach(drawOverlay); renderProps(); updateCombineBar();
   // One markup picked inside a collapsed group: open the group so its row shows.
   var opened = false;
+  var kids = {}; state.annots.forEach(function (y) { if (!y.deleted && y.parentId) (kids[y.parentId] || (kids[y.parentId] = [])).push(y); });
   selected().forEach(function (a) {
-    var h = headOf(a), grp = membersOf(a);
+    var h = headOf(a), grp = [h].concat(kids[h.id] || []);
     if (grp.length > 1 && !state.expanded.has(h.id) && !grp.every(function (m) { return state.sel.has(m.id); })) { state.expanded.add(h.id); opened = true; }
   });
   if (opened) renderList();
@@ -3908,13 +3946,19 @@ $('#btnListSelect').addEventListener('click', function () { setListSelect(!state
   };
   list.addEventListener('pointerup', end); list.addEventListener('pointercancel', end);
 })();
+var revealQueued = false;
 function revealInList() {
   if (state.fromList) { state.fromList = false; return; }
+  if (revealQueued) return; revealQueued = true;
+  requestAnimationFrame(function () { revealQueued = false; revealNow(); });
+}
+function revealNow() {
   var s = selected(); if (!s.length || $('#panel').hidden) return;
   var a = s[0], row = null, list = $('#rows');
   if (!$('#rows .row[data-id="' + a.id.replace(/"/g, '') + '"]') && !$('#rows .row[data-group="' + headOf(a).id.replace(/"/g, '') + '"]')) {
-    // Not built yet (long lists show 250 rows at a time): show enough rows to include it.
-    state.listLimit = Math.max(state.listLimit || 250, live().length); renderList();
+    // Not built yet (long lists show 250 rows at a time): build just far enough to include it.
+    var at = (state.listOrder || []).indexOf(headOf(a).id);
+    state.listLimit = Math.max(state.listLimit || 250, at >= 0 ? at + 60 : live().length); renderList();
   }
   var whole = membersOf(a).length > 1 && membersOf(a).every(function (m) { return state.sel.has(m.id); });
   row = (whole && $('#rows .row[data-group="' + headOf(a).id + '"]')) || $('#rows .row[data-id="' + a.id + '"]') || $('#rows .row[data-group="' + headOf(a).id + '"]');
@@ -4765,8 +4809,15 @@ function applyToSelection(patch, tag) {
   markUnsaved(); renderList();
 }
 /* Groups are one level deep: a head markup with members pointing at it (Revu /IRT + /RT Group). */
-function inGroup(a) { return !!(a.parentId && byId(a.parentId) && !byId(a.parentId).deleted) || live().some(function (y) { return y.parentId === a.id; }); }
-function groupCount(sel) { var heads = new Set(); sel.forEach(function (a) { if (inGroup(a)) heads.add(headOf(a).id); }); return heads.size; }
+function inGroup(a) {
+  if (a.parentId) { var h = byId(a.parentId); if (h && !h.deleted) return true; }
+  for (var i = 0, A = state.annots; i < A.length; i++) if (A[i].parentId === a.id && !A[i].deleted) return true;
+  return false;
+}
+function groupCount(sel) {
+  var parents = new Set(); state.annots.forEach(function (y) { if (!y.deleted && y.parentId) parents.add(y.parentId); });
+  var heads = new Set(); sel.forEach(function (a) { var h = headOf(a); if (h !== a || parents.has(a.id)) heads.add(h.id); }); return heads.size;
+}
 /* Unselected members whose head is moving to another group (or leaving) form their own group again. */
 function regroupLeftBehind(ids) {
   var byHead = {};
@@ -6460,6 +6511,7 @@ function renderList() {
   // strings sort naturally (L2 before L10); numbers by value
   var cmp = function (a, b) { var va = sortVal(a, k), vb = sortVal(b, k), c = typeof va === 'string' && typeof vb === 'string' ? va.localeCompare(vb, undefined, { numeric: true, sensitivity: 'base' }) : (va < vb ? -1 : va > vb ? 1 : 0); return c * dir || a.pageIndex - b.pageIndex || (b.rect[3] - a.rect[3]); };
   groups.sort(function (x, y) { return cmp(x.head, y.head); });
+  state.listOrder = groups.map(function (g) { return g.head.id; });
   var html = '', limit = state.listLimit || 250, shown = 0, more = 0;
   var row = function (a, cls) {
     var meta = [a.author || '', fmtDay(a.date)].filter(Boolean).join(', ');
@@ -7826,6 +7878,7 @@ function applyTheme() {
   if (t === 'light' || t === 'dark') root.dataset.theme = t; else delete root.dataset.theme;
   var dark = t === 'dark' || (t !== 'light' && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches);
   $$('meta[name="theme-color"]').forEach(function (m) { m.content = dark ? '#1c2024' : '#f7f8f5'; });
+  var dp = ui().darkPages; document.body.classList.toggle('dark-pages', dp === 'on' || (dp === 'theme' && dark));
 }
 
 /* ---------- floating quick palette ---------- */
@@ -7883,7 +7936,12 @@ function showRing(x, y, pid) {
   gesture = { mode: 'ring', id: pid, x: x, y: y };
   var items = [];
   favTools().slice(0, 4).forEach(function (f) { items.push({ k: 'fav:' + f.set.id + '|' + f.tool.id, html: toolPreview(f.tool), label: f.tool.title, fav: true, on: isActiveTool(f.set, f.tool) }); });
-  ui().ringTools.forEach(function (t) { if (TBTN[t] && items.length < 10) items.push({ k: 'tool:' + t, html: toolIcon(t), label: toolName(t), on: !state.chestTool && state.tool === t }); });
+  recentItems(6).forEach(function (it) {
+    if (items.length >= 7) return;
+    var k = it.tool ? 'tool:' + it.tool : 'fav:' + it.set.id + '|' + it.chest.id; if (items.some(function (x) { return x.k === k; })) return;
+    items.push(it.tool ? { k: k, html: toolIcon(it.tool), label: toolName(it.tool) + ' (recent)', on: !state.chestTool && state.tool === it.tool } : { k: k, html: toolPreview(it.chest), label: it.chest.title + ' (recent)', fav: true, on: isActiveTool(it.set, it.chest) });
+  });
+  ui().ringTools.forEach(function (t) { if (TBTN[t] && items.length < 10 && !items.some(function (x) { return x.k === 'tool:' + t; })) items.push({ k: 'tool:' + t, html: toolIcon(t), label: toolName(t), on: !state.chestTool && state.tool === t }); });
   var r = 92, cx = clamp(x, r + 30, window.innerWidth - r - 30), cy = clamp(y, r + 30, window.innerHeight - r - 30), ring = $('#ring');
   ring.style.left = cx + 'px'; ring.style.top = cy + 'px';
   ring.innerHTML = '<button type="button" class="rb mid" data-ring="undo" data-label="Undo" aria-label="Undo">' + $('#btnUndo').innerHTML + '</button>' + items.map(function (it, i) {
@@ -7931,6 +7989,13 @@ function hoverAt(e) {
 $('#viewer').addEventListener('pointerleave', clearHover);
 
 /* ---------- settings page ---------- */
+var PENCIL_ACTS = [['system', 'As set in iPad Settings'], ['last', 'Switch to the last tool'], ['ring', 'Quick menu (favourites, recent, tools)'], ['eraser', 'Eraser on / off'], ['undo', 'Undo'], ['style', 'Colour and style'], ['off', 'Nothing']];
+// The tool used before this one (drawing tool or Tool Chest tool).
+function lastTool() {
+  var it = recentItems(3).filter(function (x) { return x.tool ? !(state.tool === x.tool && !state.chestTool) : !isActiveTool(x.set, x.chest); })[0];
+  if (!it) { if (state.prevTool) setTool(state.prevTool); return; }
+  if (it.tool) pickTool(it.tool); else { applyChestTool(it.set, it.chest); renderFavBar(); }
+}
 function openSettings() {
   var u = ui(), m = mset();
   if ($('#setModal').hidden) state.setQ = '';
@@ -7939,6 +8004,7 @@ function openSettings() {
   var chk = function (id, val) { return '<input type="checkbox" data-set="' + id + '"' + (val ? ' checked' : '') + '>'; };
   $('#setBody').innerHTML =
     '<div class="setsec"><h3>Appearance</h3>' +
+      row('Dark drawings', sel('darkPages', u.darkPages || 'off', [['off', 'Off'], ['theme', 'With the dark theme'], ['on', 'Always']]), 'Shows the PDF white-on-black for night work; markup colours stay true and saved files are unchanged') +
       row('Theme', sel('theme', u.theme, [['system', 'Match the iPad'], ['light', 'Light'], ['dark', 'Dark']])) +
       row('Compact toolbar', chk('compact', u.compact), 'One tool button with a picker instead of every tool') +
       row('Floating quick palette', chk('palette', u.palette), 'A small bar of tools and favourites you can drag anywhere') +
@@ -7956,7 +8022,9 @@ function openSettings() {
       row('Finger taps', chk('fingerTaps', u.fingerTaps !== false), 'Two-finger tap: undo (on a markup: open its properties). Three-finger tap: redo') +
       row('Hover preview', chk('hover', u.hover), 'Show the symbol, markup or snap point under the hovering Pencil') +
       row('Press and hold for the tool ring', chk('hold', u.hold)) +
-      row('Hold time', sel('holdMs', u.holdMs, [[350, 'Short'], [500, 'Medium'], [750, 'Long']])) + '</div>' +
+      row('Hold time', sel('holdMs', u.holdMs, [[350, 'Short'], [500, 'Medium'], [750, 'Long']])) +
+      row('Pencil double-tap', sel('pencilTap', u.pencilTap || 'system', PENCIL_ACTS), Native ? 'Apple Pencil 2 and Pro' : 'In the iPad app (web apps cannot see the double-tap); the quick menu is also on press and hold') +
+      row('Pencil squeeze', sel('pencilSqueeze', u.pencilSqueeze || 'system', PENCIL_ACTS), 'Apple Pencil Pro, in the iPad app') + '</div>' +
     '<div class="setsec"><h3>Drawing</h3>' +
       row('Snap to the drawing', chk('snapPdf', u.snapPdf !== false), "Also to the PDF's own line ends, corners and lines (read in the background)") +
       row('Snap', chk('snap', state.snap), 'To corners, ends and centres, and level or plumb lines') +
@@ -8114,6 +8182,8 @@ $('#setBody').addEventListener('change', function (e) {
   else if (k === 'palette') { u.palette = v; renderPalette(); }
   else if (k === 'hover') { u.hover = v; if (!v) clearHover(); }
   else if (k === 'hold') u.hold = v;
+  else if (k === 'pencilTap' || k === 'pencilSqueeze') { u[k] = v; }
+  else if (k === 'darkPages') { u.darkPages = v; applyTheme(); }
   else if (k === 'symStamp') u.symStamp = v;
   else if (k === 'panelPos') { u.panelPos = v; saveUI(); layoutClasses(); renderVisible(); if (state.fitMode && state.pages[0]) { setZoom(fitZoomFor(state.pages[0].page)); state.fitMode = true; } }
   else if (k === 'autoUpdate') { u.autoUpdate = v; }
@@ -8280,6 +8350,7 @@ var SHORTCUTS = [
     toolAct('eraser', 'X', 'Eraser'), toolAct('length', 'L', 'Length'), toolAct('area', 'A', 'Area'), toolAct('perimeter', 'E', 'Perimeter'), toolAct('angle', 'U', 'Angle'),
     toolAct('radius', 'Q', 'Radius'), toolAct('diameter', 'D', 'Diameter'), toolAct('room', 'J', 'Room'), toolAct('wall', 'Shift+W', 'Wall area'), toolAct('run', 'Shift+R', 'Linear run'),
     toolAct('link', 'Shift+K', 'Link'), toolAct('signature', 'Shift+S', 'Signature'), toolAct('initials', 'Shift+I', 'Initials'),
+    { id: 'lasttool', key: '`', label: 'Switch to the last tool', fn: lastTool },
     { id: 'toolsearch', key: 'Mod+K', label: 'Search tools (favourites and palettes)', fn: openToolSearch },
     { id: 'chest', key: 'Mod+Shift+K', label: 'Tool Chest', fn: function () { var p = $('#chestPop'); p.hidden = !p.hidden; if (!p.hidden) { renderChest(); fitPop(p); } } },
     { id: 'scale', key: 'Mod+Shift+M', label: 'Scale', fn: function () { openScale(currentPageIndex()); } }]],
@@ -8513,16 +8584,19 @@ var Native = (function () {
 if (Native) {
   document.documentElement.classList.add('native-app');
   // Apple Pencil double-tap (and squeeze on Pencil Pro) follow the user's choice in iPad Settings > Apple Pencil.
-  var pencilAct = function (act, x, y) {
+  var pencilAct = function (act, x, y, kind) {
+    var mine = ui()[kind === 'squeeze' ? 'pencilSqueeze' : 'pencilTap'];
+    if (mine && mine !== 'system') act = { last: 'switchPrevious', ring: 'showContextualPalette', eraser: 'switchEraser', undo: 'undo', style: 'showColorPalette', off: 'ignore' }[mine] || act;
+    if (act === 'undo') { undo(); return; }
     if (act === 'ignore' || act === 'runSystemShortcut') return;
     if (act === 'showColorPalette' || act === 'showInkAttributes') { $('#btnStyle').click(); return; }
     if (act === 'showContextualPalette') { showRing(x != null ? x : window.innerWidth / 2, y != null ? y : window.innerHeight / 2, null); gesture = null; return; }
-    if (act === 'switchPrevious') { if (state.prevTool) setTool(state.prevTool); return; }
+    if (act === 'switchPrevious') { lastTool(); return; }
     if (state.tool === 'eraser') setTool(state.prevTool && state.prevTool !== 'eraser' ? state.prevTool : 'select'); else setTool('eraser');
   };
   if (Native.Pencil && Native.Pencil.addListener) {
-    Native.Pencil.addListener('tap', function (d) { pencilAct(d && d.action, d && d.x, d && d.y); });
-    Native.Pencil.addListener('squeeze', function (d) { if (d && d.phase === 'ended') pencilAct(d.action === 'switchEraser' || d.action === 'switchPrevious' ? d.action : 'showContextualPalette', d.x, d.y); });
+    Native.Pencil.addListener('tap', function (d) { pencilAct(d && d.action, d && d.x, d && d.y, 'tap'); });
+    Native.Pencil.addListener('squeeze', function (d) { if (d && d.phase === 'ended') pencilAct(d.action === 'switchEraser' || d.action === 'switchPrevious' ? d.action : 'showContextualPalette', d.x, d.y, 'squeeze'); });
   }
   // A PDF opened from Files, Mail or Revu's share sheet ("Open in Pencil Markup").
   if (Native.App && Native.FS) Native.App.addListener('appUrlOpen', async function (ev) {

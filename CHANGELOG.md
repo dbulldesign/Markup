@@ -2,6 +2,13 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.24.0
+- Apple Pencil double-tap and squeeze (iPad app): Settings > Pencil chooses what they do: switch to the last tool, the quick menu, eraser on/off, undo, colour and style, nothing, or follow iPad Settings. "Last tool" also returns to the last Tool Chest tool. On the web and with a keyboard, the ` key switches to the last tool.
+- The quick menu (press and hold, or the Pencil) now includes your recent tools after your favourites.
+- Dark drawings (Settings > Look): the PDF shows white-on-black, always or with the dark theme; markup colours stay true and saved files are unchanged.
+- Pages you have seen recently keep their image (within a memory budget), so scrolling back to them is instant instead of re-drawing.
+- Faster on big sets (checked with 120 sheets and 3000 markups, and one sheet with 1500): selecting a markup no longer builds the whole markups list to scroll to it, finding a markup by id uses an index, and group checks no longer re-scan every markup for each selected one. Dragging and nudging on a crowded sheet no longer stall.
+
 ## 3.23.0
 - Project templates (Settings > Templates): save a job's setup (the scale, markup layers, numbered series prefixes, drawing style and the tool palettes it uses), apply it to a new drawing set, export it to share (the palettes go with it) and import a colleague's. Choose one under "Use for new files" and it is applied whenever you open a PDF with no markups and no scale yet. Pages that already have a scale keep it.
 - Compare a revised schedule (Tool Chest > Import schedule > Compare a revision): pick the new workbook and see fixture types added, removed and changed (description, quantity, length and every field, with before and after), how many of each are already placed on the drawing, and channels added, removed and changed. Export the changes as CSV, or update the palette: types keep their look and stay linked to placed fixtures, and the placed fixtures can get the new descriptions and fields.
