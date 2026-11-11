@@ -2,6 +2,11 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.21.0
+- Edit a whole type at once: in Counts > By type, the tick button selects every markup of that type on every page and opens Properties, so one change (colour, layer, status, a field) changes them all.
+- Find and replace (Option+Cmd+F, or the Replace button by the markups search): in types, symbol labels, comments and text boxes, and field values; match case and whole words; in all markups, this page, the selection or the markups in the list. It shows the matches before you replace, can select them instead, and Cmd+Z undoes it.
+- Renumber (Shift+Cmd+N, or Renumber in the selection bar when two or more numbered markups are selected): start number, step, prefix, and order by rows, columns, room, the order placed, or their current order with the gaps closed.
+
 ## 3.20.0
 - Settings has tabs (Look, Pencil, Drawing, Measure, Keys, Toolbar, Safety, Storage, Data, About) so you see one section at a time, and it remembers the last one. A search box at the top looks through every section, including the keyboard shortcuts and toolbar tools ("snap", "undo", "update", "palm").
 - Recent tools: the last tools you used (drawing tools and Tool Chest tools) are a row at the top of the tool picker and the tool drop-down.

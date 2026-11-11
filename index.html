@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.20.0">
+<meta name="app-version" content="3.21.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -493,6 +493,8 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 .crow .cv { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
 .crow .cv .cl { display: block; font-weight: 600; color: var(--accent); font-size: 12px; }
 .crow .fnd { display: inline-flex; gap: 2px; }
+.crow .fnd { display: flex; gap: 4px; }
+.crow .fnd button svg { display: block; margin: auto; }
 .crow .fnd button { width: 34px; height: 30px; border: 1px solid var(--line); background: var(--surface-2); border-radius: 8px; cursor: pointer; color: var(--ink); font-size: 13px; }
 .crow.sub { padding-left: 16px; }
 .crow.warn .cn { color: var(--danger, #c62828); }
@@ -564,7 +566,9 @@ input[type=range]:focus-visible { outline: 2px solid var(--accent); outline-offs
 
 /* Markups list */
 .filter { padding: 10px 14px; border-bottom: 1px solid var(--line); }
-.filter .srch { position: relative; display: flex; align-items: center; }
+.filter { display: flex; align-items: center; gap: 8px; }
+.filter .srch { position: relative; display: flex; align-items: center; flex: 1; min-width: 0; }
+.frbtn { flex: none; min-height: 36px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-2); color: var(--ink); font: inherit; font-size: 13px; cursor: pointer; }
 .filter .srch > svg { position: absolute; left: 10px; color: var(--ink-2); pointer-events: none; }
 .filter .srch input { flex: 1; min-width: 0; padding-left: 34px !important; padding-right: 74px !important; }
 .filter .srch input::-webkit-search-cancel-button { display: none; }
@@ -716,6 +720,11 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
 .modal label.fld { display: grid; gap: 4px; font-size: 13px; color: var(--ink-2); }
 .modal select, .modal input:not([type=range]):not([type=checkbox]):not([type=color]) { border: 1px solid var(--line); background: var(--surface-2); border-radius: 9px; padding: 8px 10px; font-size: 16px; width: 100%; color: var(--ink); font: inherit; }
 .modal .ratio { display: grid; grid-template-columns: 1fr 84px auto 1.4fr; gap: 8px; align-items: center; }
+.frchk { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+.frprev { display: grid; gap: 2px; max-height: 180px; overflow: auto; font-size: 13px; }
+.frprev:empty { display: none; }
+.frprev div { padding: 4px 8px; border-radius: 6px; background: var(--surface-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.frprev del { color: #b42318; } .frprev ins { color: #067647; text-decoration: none; font-weight: 600; }
 .modal .hint { margin: 0; font-size: 13px; color: var(--ink-2); }
 .modal .result { font-size: 14px; color: var(--ink); background: var(--surface-2); border-radius: 9px; padding: 8px 10px; font-variant-numeric: tabular-nums; }
 .modal .actions { align-items: center; }
@@ -938,6 +947,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <button class="sbb" id="btnCombine" type="button" title="Then tap another group or markup (on the drawing or in the list) to make them one group"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="7" cy="12" r="4"/><circle cx="17" cy="12" r="4"/><path d="M11 12h2"/></svg><span>Combine&#8230;</span></button>
     <button class="sbb" id="btnUngroup" type="button" title="Ungroup (Shift+Cmd+G)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/><path d="M14 5l5 5M19 5l-5 5"/></svg><span>Ungroup</span></button>
     <button class="sbb" id="btnRemoveFromGroup" type="button" title="Take the selected markups out of their group; the rest stays together"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 2h20v20H2z" stroke-dasharray="3 3"/><rect x="8" y="8" width="8" height="8" rx="1.5"/><path d="M14 4l6 0"/></svg><span>Remove</span></button>
+    <button class="sbb" id="btnRenumber" type="button" title="Renumber the selected numbered markups in order (Shift+Cmd+N)" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 6h2v6M4 12h4M4 16h3a1 1 0 0 1 0 2H5h2a1 1 0 0 1 0 2H4M12 7h8M12 12h8M12 17h8"/></svg><span>Renumber</span></button>
     <button class="sbb" id="btnCopy" type="button" title="Copy (Cmd+C): paste on another page or into another open file"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="3" width="13" height="16" rx="2"/><path d="M5 7H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h11a1 1 0 0 0 1-1v-1"/></svg><span>Copy</span></button>
     <button class="sbb" id="btnDuplicate" type="button" title="Duplicate (Cmd+D)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><rect x="8" y="8" width="13" height="13" rx="2"/><path d="M16 8V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h3"/></svg><span>Duplicate</span></button>
     <button class="sbb danger" id="btnDelete" type="button" title="Delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13M10 11v6M14 11v6"/></svg><span>Delete</span></button>
@@ -1040,7 +1050,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
     <div class="counts" id="counts" hidden></div>
     <div class="ctable" id="ctable" hidden></div>
     <div class="stbar" id="stBar" hidden></div>
-    <div class="filter"><span class="srch"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="filter" placeholder="Search markups" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search"><span class="fcount" id="filterCount"></span><button type="button" class="fclear" id="filterClear" aria-label="Clear the search" hidden>&#215;</button></span></div>
+    <div class="filter"><span class="srch"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l4.5 4.5"/></svg><input id="filter" placeholder="Search markups" type="search" autocomplete="off" spellcheck="false" enterkeyhint="search"><span class="fcount" id="filterCount"></span><button type="button" class="fclear" id="filterClear" aria-label="Clear the search" hidden>&#215;</button></span><button type="button" class="frbtn" id="btnFindReplace" title="Find and replace (Option+Cmd+F)">Replace…</button></div>
     <div class="list-head">
       <span class="lbl">Sort by</span>
       <select class="sortsel" id="sortSel" aria-label="Sort markups by">
@@ -1104,6 +1114,41 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
       <button class="btn" id="scCancel" type="button">Cancel</button>
       <button class="btn primary" id="scOk" type="button">Apply</button>
     </div>
+  </div>
+</div>
+<div class="modal simple" id="frModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="frTitle">
+    <h2 id="frTitle">Find and replace</h2>
+    <label class="fld">Find<input type="text" id="frFind" autocomplete="off" spellcheck="false"></label>
+    <label class="fld">Replace with<input type="text" id="frWith" autocomplete="off" spellcheck="false"></label>
+    <div class="frchk">
+      <label class="check"><input type="checkbox" id="frSubj" checked>Type (subject)</label>
+      <label class="check"><input type="checkbox" id="frLabel" checked>Symbol labels</label>
+      <label class="check"><input type="checkbox" id="frText" checked>Comments and text</label>
+      <label class="check"><input type="checkbox" id="frFields" checked>Field values</label>
+      <label class="check"><input type="checkbox" id="frCase">Match case</label>
+      <label class="check"><input type="checkbox" id="frWord">Whole words</label>
+    </div>
+    <label class="fld">In<select id="frScope"><option value="all">All markups</option><option value="page">This page</option><option value="sel">The selected markups</option><option value="list">The markups in the list (search and filters)</option></select></label>
+    <div class="result" id="frResult">Type something to find.</div>
+    <div class="frprev" id="frPrev"></div>
+    <div class="actions"><button class="btn" type="button" id="frSelect" disabled>Select them</button><span class="spacer"></span><button class="btn" type="button" id="frClose">Close</button><button class="btn primary" type="button" id="frGo" disabled>Replace all</button></div>
+  </div>
+</div>
+<div class="modal simple" id="rnModal" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="rnTitle">
+    <h2 id="rnTitle">Renumber</h2>
+    <p class="sub" id="rnSub"></p>
+    <div class="two"><label class="fld">Start at<input type="number" id="rnFrom" min="0" step="1" value="1" inputmode="numeric"></label><label class="fld">Step<input type="number" id="rnStep" min="1" step="1" value="1" inputmode="numeric"></label></div>
+    <label class="fld">Prefix<input type="text" id="rnPrefix" autocomplete="off" spellcheck="false" placeholder="Keep each one's prefix"></label>
+    <label class="fld">Order<select id="rnOrder">
+      <option value="rows">Rows: top to bottom, left to right</option>
+      <option value="cols">Columns: left to right, top to bottom</option>
+      <option value="room">By room, then rows</option>
+      <option value="placed">The order they were placed</option>
+      <option value="current">Keep their current order (close the gaps)</option></select></label>
+    <div class="result" id="rnPrev"></div>
+    <div class="actions"><span class="spacer"></span><button class="btn" type="button" id="rnClose">Cancel</button><button class="btn primary" type="button" id="rnGo">Renumber</button></div>
   </div>
 </div>
 <div class="modal" id="visModal" hidden>
@@ -2443,7 +2488,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.20.0';
+var APP_VERSION = '3.21.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -5102,8 +5147,115 @@ function renderProps() {
   $('#btnGroup').querySelector('span').textContent = s.length < 2 ? 'Group' : gcount > 1 ? 'Combine' : gcount === 1 && !whole ? 'Add to group' : 'Group';
   $('#btnUngroup').hidden = !gcount;
   $('#btnRemoveFromGroup').hidden = !gcount || whole;
+  $('#btnRenumber').hidden = s.filter(function (x) { return x.sym && x.sym.n != null && x.owned !== false; }).length < 2;
   if (s.length === 1 && inGroup(a)) $('#propsMeta').textContent += ' · in a group of ' + membersOf(a).length + ' (tap Remove from group to take it out)';
 }
+
+/* ---------- find and replace (types, labels, comments and field values) ---------- */
+function frOpts() {
+  return { find: $('#frFind').value, rep: $('#frWith').value, subj: $('#frSubj').checked, label: $('#frLabel').checked, text: $('#frText').checked, fields: $('#frFields').checked, mcase: $('#frCase').checked, word: $('#frWord').checked, scope: $('#frScope').value };
+}
+function frRegex(o) {
+  if (!o.find) return null;
+  var src = o.find.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  if (o.word) src = '(^|[^\\w])(' + src + ')(?=$|[^\\w])'; else src = '()(' + src + ')';
+  return new RegExp(src, o.mcase ? 'g' : 'gi');
+}
+function frScopeList(o) {
+  var l = live();
+  if (o.scope === 'page') { var i = currentPageIndex(); l = l.filter(function (a) { return a.pageIndex === i; }); }
+  else if (o.scope === 'sel') l = selected();
+  else if (o.scope === 'list') l = l.filter(function (a) { return isVisible(a) && matchesFilter(a); });
+  return l;
+}
+// The places a markup's text lives, as [what, get, set].
+function frSlots(a, o) {
+  var out = [];
+  if (o.subj && a.subject != null) out.push(['Type', function () { return a.subject || ''; }, function (v) { a.subject = v; }]);
+  if (o.label && a.sym && a.sym.n == null && a.owned !== false) out.push(['Label', function () { return a.sym.label || ''; }, function (v) { a.sym = Object.assign({}, a.sym, { label: v }); a.styleDirty = true; }]);
+  if (o.text) out.push([a.subtype === 'FreeText' ? 'Text' : 'Comment', function () { return a.contents || ''; }, function (v) { a.contents = v; if (a.subtype === 'FreeText') { fitTextBox(a, false); a.styleDirty = true; a.geomDirty = true; } }]);
+  if (o.fields && a.fields) Object.keys(a.fields).forEach(function (k) { out.push([k, function () { return String(a.fields[k] == null ? '' : a.fields[k]); }, function (v) { a.fields = Object.assign({}, a.fields); a.fields[k] = v; }]); });
+  return out;
+}
+function frScan(o) {
+  var re = frRegex(o), hits = [], n = 0; if (!re) return { hits: hits, n: 0 };
+  frScopeList(o).forEach(function (a) {
+    frSlots(a, o).forEach(function (sl) {
+      var v = sl[1](); re.lastIndex = 0; var m = v.match(re); if (!m) return;
+      n += m.length; hits.push({ a: a, slot: sl, before: v, after: v.replace(re, function (all, pre) { return pre + o.rep; }) });
+    });
+  });
+  return { hits: hits, n: n };
+}
+function frRefresh() {
+  var o = frOpts(), r = frScan(o), ms = new Set(r.hits.map(function (h) { return h.a.id; })).size;
+  $('#frResult').textContent = !o.find ? 'Type something to find.' : r.n ? r.n + ' match' + (r.n === 1 ? '' : 'es') + ' in ' + ms + ' markup' + (ms === 1 ? '' : 's') + '.' : 'No matches.';
+  $('#frGo').disabled = !r.n; $('#frSelect').disabled = !r.n;
+  $('#frPrev').innerHTML = r.hits.slice(0, 40).map(function (h) { return '<div title="' + esc(h.before + ' → ' + h.after) + '"><b>' + esc(h.slot[0]) + '</b> p' + esc(pageLabel(h.a.pageIndex)) + ': <del>' + esc(h.before.slice(0, 50)) + '</del> → <ins>' + esc(h.after.slice(0, 50)) + '</ins></div>'; }).join('') + (r.hits.length > 40 ? '<div>… and ' + (r.hits.length - 40) + ' more</div>' : '');
+}
+function openFindReplace() {
+  if (!state.pdf) return;
+  $('#frScope').value = state.sel.size > 1 ? 'sel' : 'all';
+  $('#frModal').hidden = false; frRefresh(); setTimeout(function () { $('#frFind').focus(); $('#frFind').select(); }, 30);
+}
+['frFind', 'frWith', 'frSubj', 'frLabel', 'frText', 'frFields', 'frCase', 'frWord', 'frScope'].forEach(function (id) { $('#' + id).addEventListener(/^fr(Find|With)$/.test(id) ? 'input' : 'change', frRefresh); });
+$('#btnFindReplace').addEventListener('click', openFindReplace);
+$('#frClose').addEventListener('click', function () { $('#frModal').hidden = true; });
+$('#frSelect').addEventListener('click', function () { var r = frScan(frOpts()); $('#frModal').hidden = true; state.sel = new Set(r.hits.map(function (h) { return h.a.id; })); afterSelectionChange(); toast(state.sel.size + ' markups selected.', 2000); });
+$('#frGo').addEventListener('click', function () {
+  var o = frOpts(), r = frScan(o); if (!r.n) return;
+  pushHistory('replace');
+  r.hits.forEach(function (h) { h.slot[2](h.after); if (!h.a.isNew) h.a.dirty = true; });
+  var as = new Set(r.hits.map(function (h) { return h.a; }));
+  new Set(Array.from(as).map(function (a) { return a.pageIndex; })).forEach(function (i) { drawOverlay(state.pages[i]); });
+  markUnsaved(); renderList(); renderProps(); renderCounts();
+  toast('Replaced ' + r.n + ' in ' + as.size + ' markups. Cmd+Z undoes it.', 3500);
+  frRefresh();
+});
+$('#frFind').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#frWith').focus(); } });
+$('#frWith').addEventListener('keydown', function (e) { if (e.key === 'Enter' && !$('#frGo').disabled) { e.preventDefault(); $('#frGo').click(); } });
+
+/* ---------- renumber the selected numbered markups in an order you choose ---------- */
+function rnItems() { return selected().filter(function (a) { return a.sym && a.sym.n != null && a.owned !== false; }); }
+function rnOrder(items, how) {
+  var c = function (a) { return symCentre(a); }, rowTol = function (a) { return Math.max(6, (a.sym.size || 18) * 0.6); };
+  var rows = function (a, b) { var ca = c(a), cb = c(b); return a.pageIndex - b.pageIndex || (Math.abs(ca[1] - cb[1]) > rowTol(a) ? cb[1] - ca[1] : ca[0] - cb[0]); };
+  var cols = function (a, b) { var ca = c(a), cb = c(b); return a.pageIndex - b.pageIndex || (Math.abs(ca[0] - cb[0]) > rowTol(a) ? ca[0] - cb[0] : cb[1] - ca[1]); };
+  var l = items.slice();
+  if (how === 'rows') l.sort(rows);
+  else if (how === 'cols') l.sort(cols);
+  else if (how === 'room') { var rs = rooms(), rn = function (a) { var r = roomOf(a, rs); return r ? String(r.roomName || '') : '￿'; }; l.sort(function (a, b) { return a.pageIndex - b.pageIndex || rn(a).localeCompare(rn(b), undefined, { numeric: true }) || rows(a, b); }); }
+  else if (how === 'placed') l.sort(function (a, b) { return state.annots.indexOf(a) - state.annots.indexOf(b); });
+  else l.sort(function (a, b) { return a.sym.n - b.sym.n || rows(a, b); });
+  return l;
+}
+function rnPreview() {
+  var items = rnItems(), from = parseInt($('#rnFrom').value, 10), step = Math.max(1, parseInt($('#rnStep').value, 10) || 1), pre = $('#rnPrefix').value;
+  var l = rnOrder(items, $('#rnOrder').value);
+  $('#rnGo').disabled = !(from >= 0) || !l.length;
+  $('#rnPrev').textContent = !(from >= 0) ? 'Type a number to start at.' : l.slice(0, 8).map(function (a, i) { return MarkupIO.symLabel(a) + ' → ' + (pre || a.sym.prefix || '') + (from + i * step); }).join(',  ') + (l.length > 8 ? ' …' : '');
+}
+function openRenumber() {
+  var items = rnItems(); if (items.length < 2) { toast('Select two or more numbered markups first.'); return; }
+  var pages = new Set(items.map(function (a) { return a.pageIndex; })).size;
+  $('#rnSub').textContent = items.length + ' numbered markups' + (pages > 1 ? ' on ' + pages + ' pages' : '') + '.';
+  $('#rnFrom').value = Math.min.apply(null, items.map(function (a) { return a.sym.n; }));
+  $('#rnModal').hidden = false; rnPreview();
+}
+['rnFrom', 'rnStep', 'rnPrefix'].forEach(function (id) { $('#' + id).addEventListener('input', rnPreview); });
+$('#rnOrder').addEventListener('change', rnPreview);
+$('#rnClose').addEventListener('click', function () { $('#rnModal').hidden = true; });
+$('#btnRenumber').addEventListener('click', openRenumber);
+$('#rnGo').addEventListener('click', function () {
+  var from = parseInt($('#rnFrom').value, 10), step = Math.max(1, parseInt($('#rnStep').value, 10) || 1), pre = $('#rnPrefix').value;
+  var l = rnOrder(rnItems(), $('#rnOrder').value); if (!l.length || !(from >= 0)) return;
+  pushHistory('renumber');
+  l.forEach(function (a, i) { a.sym = Object.assign({}, a.sym, { n: from + i * step, prefix: pre ? pre : a.sym.prefix || '' }); if (!a.isNew) { a.styleDirty = true; a.dirty = true; } });
+  new Set(l.map(function (a) { return a.pageIndex; })).forEach(function (i) { drawOverlay(state.pages[i]); });
+  $('#rnModal').hidden = true; markUnsaved(); renderList(); renderProps(); updateSeqBar();
+  var last = l[l.length - 1]; toast('Renumbered ' + MarkupIO.symLabel(l[0]) + '–' + MarkupIO.symLabel(last) + '.', 3000);
+});
+$('#rnFrom').addEventListener('keydown', function (e) { if (e.key === 'Enter') { e.preventDefault(); $('#rnGo').click(); } });
 /* ---------- site photos ---------- */
 var photoUrls = {};
 async function photoBytes(id) { try { var r = await idb.get('photo:' + id); return r && r.bytes ? new Uint8Array(r.bytes) : null; } catch (e) { return null; } }
@@ -5712,7 +5864,15 @@ function cRow(key, name, sub, items, extraCls) {
   var len = sumLen(items);
   return '<div class="crow ' + (extraCls || '') + '"><span class="cn" title="' + esc(name) + '">' + esc(name) + (sub ? ' <small>' + esc(sub) + '</small>' : '') + '</span>' +
     '<span class="cv">\u00d7' + items.length + (len ? '<span class="cl">' + esc(len) + '</span>' : '') + '</span>' +
-    '<span class="fnd">' + (items.length ? '<button type="button" data-find="' + esc(key) + '|-1" aria-label="Previous">\u25C0</button><button type="button" data-find="' + esc(key) + '|1" aria-label="Next">\u25B6</button>' : '') + '</span></div>';
+    '<span class="fnd">' + (items.length ? '<button type="button" data-selall="' + esc(key) + '" title="Select all ' + items.length + ' and edit them together" aria-label="Select all ' + esc(name) + '"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/></svg></button><button type="button" data-find=""' + esc(key) + '|-1" aria-label="Previous">\u25C0</button><button type="button" data-find="' + esc(key) + '|1" aria-label="Next">\u25B6</button>' : '') + '</span></div>';
+}
+/* Select a set of markups (any pages) and open Properties so they can be changed together. */
+function selectForEdit(items) {
+  if (!items.length) return;
+  state.sel = new Set(items.map(function (a) { return a.id; })); afterSelectionChange();
+  var pages = new Set(items.map(function (a) { return a.pageIndex; })).size;
+  if (propsPopup()) openPropsPop(); else { state.propsOpen = true; renderProps(); }
+  toast(items.length + ' selected' + (pages > 1 ? ' on ' + pages + ' pages' : '') + '. Change colour, layer, status or fields in Properties and they all change.', 4500);
 }
 function renderCountTable() {
   var el = $('#ctable'); if (!el) return;
@@ -5775,7 +5935,7 @@ function schedRow(key, name, sub, items, want, linear, opts) {
   if (linear && have.unit === 'n' && want) note = ' <small>(scheduled in feet; give these fixtures a length to compare)</small>';
   return '<div class="crow s-' + cls + '"><span class="cn" title="' + esc(name + (sub ? ' ' + sub : '')) + '">' + esc(name) + (sub ? ' <small>' + esc(sub) + '</small>' : '') + note + '</span>' +
     '<span class="cv">' + esc(have.txt) + (want != null ? '<span class="cw">of ' + esc(wantTxt) + '</span>' : '') + (opts.tag ? '<span class="cw">' + esc(opts.tag) + '</span>' : '') + '</span>' +
-    '<span class="fnd">' + (items.length ? '<button type="button" data-find="' + esc(key) + '|-1" aria-label="Previous">\u25C0</button><button type="button" data-find="' + esc(key) + '|1" aria-label="Next">\u25B6</button>' : '') + '</span></div>';
+    '<span class="fnd">' + (items.length ? '<button type="button" data-selall="' + esc(key) + '" title="Select all ' + items.length + ' and edit them together" aria-label="Select all ' + esc(name) + '"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 12l3 3 5-6"/></svg></button><button type="button" data-find=""' + esc(key) + '|-1" aria-label="Previous">\u25C0</button><button type="button" data-find="' + esc(key) + '|1" aria-label="Next">\u25B6</button>' : '') + '</span></div>';
 }
 // Which page shows which sheet number: the page label, or the sheet number printed on the page (title block).
 function detectSheets() {
@@ -5867,6 +6027,8 @@ $('#ctable').addEventListener('click', function (e) {
   if (st) { state.schTab = st.dataset.schtab; renderCountTable(); return; }
   var t = e.target.closest ? e.target.closest('[data-ctab]') : null;
   if (t) { state.ctTab = t.dataset.ctab; renderCountTable(); return; }
+  var sa = e.target.closest ? e.target.closest('[data-selall]') : null;
+  if (sa) { selectForEdit(findLists[sa.dataset.selall] || []); return; }
   var f = e.target.closest ? e.target.closest('[data-find]') : null; if (!f) return;
   var q = f.dataset.find.split('|'), key = q[0], dir = +q[1], items = findLists[key] || []; if (!items.length) return;
   var cur = state.findAt && state.findAt.key === key ? state.findAt.i : (dir > 0 ? -1 : items.length);
@@ -7724,6 +7886,8 @@ var SHORTCUTS = [
     { id: 'ungroup', key: 'Mod+Shift+G', label: 'Ungroup', fn: function () { ungroupSelection(); } },
     { id: 'combine', key: 'Mod+Shift+C', label: 'Combine with... (pick more, then Enter)', fn: function () { if (state.sel.size) startCombine(); } },
     { id: 'removegroup', key: 'Mod+Shift+R', label: 'Remove from group', fn: function () { removeFromGroup(); } },
+    { id: 'renumber', key: 'Mod+Shift+N', label: 'Renumber the selected numbered markups', fn: openRenumber },
+    { id: 'findreplace', key: 'Mod+Alt+F', label: 'Find and replace in markups', fn: openFindReplace },
     { id: 'rotl', key: ',', label: 'Rotate symbols -15 degrees', fn: function () { if (!state.sel.size) return false; applyToSelection({ symAngle: -15 }, 'rot'); renderProps(); } },
     { id: 'rotr', key: '.', label: 'Rotate symbols +15 degrees', fn: function () { if (!state.sel.size) return false; applyToSelection({ symAngle: 15 }, 'rot'); renderProps(); } },
     { id: 'undo', key: 'Mod+Z', label: 'Undo', fn: function () { undo(); } },
@@ -7833,6 +7997,7 @@ document.addEventListener('keydown', function (e) {
   state.multi = e.shiftKey || e.metaKey || e.ctrlKey;
   if (!$('#kbModal').hidden) { if (e.key === 'Escape' || KEYMAP[keyName(e).toUpperCase()] === 'shortcuts') { e.preventDefault(); $('#kbModal').hidden = true; } return; }
   if (!$('#exportModal').hidden) { if (e.key === 'Escape') closeExport(); return; }
+  var sm = document.querySelector('.modal.simple:not([hidden])'); if (sm) { if (e.key === 'Escape') sm.hidden = true; return; }
   if (!$('#visModal').hidden) { if (e.key === 'Escape') $('#visModal').hidden = true; return; }
   if (!$('#setModal').hidden || !$('#helpModal').hidden) { if (e.key === 'Escape') { $('#setModal').hidden = true; $('#helpModal').hidden = true; } else if (KEYMAP[keyName(e).toUpperCase()] === 'shortcuts') { e.preventDefault(); openShortcuts(); } return; }
   if (!$('#ring').hidden && e.key === 'Escape') { closeRing(); return; }
