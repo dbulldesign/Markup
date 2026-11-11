@@ -1,5 +1,5 @@
 {
-  "version": "3.18.0",
+  "version": "3.19.0",
   "date": "2026-11-10",
-  "notes": "Keyboard shortcuts for every tool and action (Cmd+/ lists them); Combine with... picks any number of groups and fixtures."
+  "notes": "Keyboard shortcuts can be changed in Settings."
 }

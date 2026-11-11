@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.18.0">
+<meta name="app-version" content="3.19.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -164,6 +164,18 @@ body.compact #measureTools > [data-tool] { display: none; }
 .tsearch input { width: 100%; box-sizing: border-box; }
 .chest .tsearch { padding: 0 0 8px; }
 .tool-none { padding: 12px 4px; color: var(--ink-2); font-size: 14px; }
+.klist { display: grid; gap: 2px; margin-top: 8px; }
+.kgrp { margin: 10px 0 2px; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
+.krow { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 6px; padding: 4px 0; border-top: 1px solid var(--line); font-size: 14px; }
+.krow.custom .kl { font-weight: 600; }
+.krow .kl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.krow .kfix { grid-column: 2 / span 3; text-align: right; opacity: .7; }
+.kbtn { min-width: 96px; padding: 4px 8px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface-2); font: inherit; font-size: 13px; color: var(--ink); cursor: pointer; text-align: center; }
+.kbtn.wait { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); animation: kbwait 1s ease-in-out infinite; }
+@keyframes kbwait { 50% { opacity: .55; } }
+.kmini { width: 30px; height: 30px; border: 1px solid var(--line); border-radius: 8px; background: var(--surface); color: var(--ink); cursor: pointer; font-size: 15px; }
+.kmini:disabled { opacity: .3; cursor: default; }
+.muted { color: var(--ink-2); }
 .kbsheet { width: min(860px, 100%) !important; }
 .kbbody { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 6px 22px; }
 .kbbody h3 { margin: 8px 0 4px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); }
@@ -2413,7 +2425,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.18.0';
+var APP_VERSION = '3.19.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -7357,6 +7369,7 @@ function openSettings() {
       row('Decimal places', sel('dec', m.dec, [[0, '0'], [1, '1'], [2, '2'], [3, '3'], [4, '4']])) +
       row('Area units', sel('area', m.area, [['auto', 'sf / m\u00b2'], ['sy', 'Square yards'], ['acre', 'Acres'], ['ha', 'Hectares']])) +
       row('Angle decimals', sel('adec', m.adec, [[0, '0'], [1, '1'], [2, '2']])) + '</div>' +
+    '<div class="setsec"><h3>Keyboard shortcuts</h3><p class="hint">Tap a shortcut and press the keys you want (with a keyboard connected). \u00d7 removes it, \u21ba puts the default back. A key already in use moves to the new action.</p><div class="actions"><button class="btn" type="button" data-kresetall="1">Reset all shortcuts</button><button class="btn" type="button" data-kshow="1">Show the list</button></div><div class="klist" id="keyList"></div></div>' +
     '<div class="setsec"><h3>Toolbar tools</h3><p class="hint">Tick the tools to show; use the arrows to change their order (also the order in the tool picker).</p><div class="tlist" id="tlist"></div></div>' +
     '<div class="setsec"><h3>Safety net</h3>' +
       row('Recovery points', sel('rpMins', u.rpMins == null ? 5 : u.rpMins, [[2, 'Every 2 minutes'], [5, 'Every 5 minutes'], [10, 'Every 10 minutes'], [0, 'Off']]), 'While markups are unsaved, a copy is kept on this iPad (newest 10 per file)') +
@@ -7368,7 +7381,7 @@ function openSettings() {
     '<div class="setsec"><h3>About</h3><div class="setrow"><span>Pencil Markup v' + APP_VERSION + '</span><span class="actions"><button class="btn" type="button" data-sa="update">Check for updates</button><button class="btn" type="button" data-sa="help">Help</button></span></div></div>';
   renderToolList();
   $('#setModal').hidden = false;
-  renderStorage(); renderRecovery();
+  renderStorage(); renderRecovery(); kbCapture = null; renderKeySettings();
 }
 function fmtBytes(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB'; }
 async function renderRecovery() {
@@ -7382,6 +7395,14 @@ async function renderRecovery() {
   }).join('') : '<p class="hint">No recovery points for ' + esc(state.fileName) + ' yet (they are made while markups are unsaved).</p>') +
     '<div class="actions"><button class="btn" type="button" data-rpnow="1">Make one now</button></div>';
 }
+$('#setBody').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-kset], [data-kclear], [data-kreset], [data-kresetall], [data-kshow]') : null; if (!b) return;
+  if (b.dataset.kset) { kbCapture = kbCapture === b.dataset.kset ? null : b.dataset.kset; renderKeySettings(); return; }
+  if (b.dataset.kclear) { kbCapture = null; setKey(b.dataset.kclear, ''); return; }
+  if (b.dataset.kreset) { kbCapture = null; var u = ui(); if (u.keys) delete u.keys[b.dataset.kreset]; setKey(b.dataset.kreset, ACTIONS[b.dataset.kreset].key); return; }
+  if (b.dataset.kresetall) { if (!confirm('Put every keyboard shortcut back to its default?')) return; kbCapture = null; ui().keys = {}; saveUI(); buildKeymap(); renderKeySettings(); toast('All shortcuts are back to their defaults.'); return; }
+  if (b.dataset.kshow) { $('#setModal').hidden = true; openShortcuts(); }
+});
 $('#setBody').addEventListener('click', async function (e) {
   var b = e.target.closest ? e.target.closest('[data-rp], [data-rpnow]') : null; if (!b) return;
   if (b.dataset.rpnow) { if (await makeRecoveryPoint('made by hand')) toast('Recovery point made.'); renderRecovery(); return; }
@@ -7561,78 +7582,146 @@ function togglePanel() { var p = $('#panel'); p.hidden = !p.hidden; renderVisibl
 function openCountsTable() { if ($('#panel').hidden) togglePanel(); state.ctOpen = !state.ctOpen; renderCounts(); }
 function focusMarkupSearch() { if ($('#panel').hidden) togglePanel(); setTimeout(function () { $('#filter').focus(); $('#filter').select(); }, 30); }
 function openToolSearch() { if ($('#favDD') && !$('#favBar').hidden) { openFavPop(); setTimeout(function () { $('#favSearch').focus(); $('#favSearch').select(); }, 30); } else { $('#chestPop').hidden = false; renderChest(); fitPop($('#chestPop')); setTimeout(function () { $('#chestSearch').focus(); }, 30); } }
+/* Every action with its default key. Ids are stable so your own keys (Settings > Keyboard shortcuts) survive updates.
+   fixed: shown in the list but not reassignable. */
+function toolAct(id, key, name) { return { id: 'tool:' + id, key: key, label: name, fn: function () { if (TBTN[id]) TBTN[id].click(); else pickTool(id); } }; }
+function pageStep(d) { goToPage(clamp(currentPageIndex() + d, 0, state.pages.length - 1)); }
 var SHORTCUTS = [
   ['File', [
-    ['Mod+O', 'Open a PDF', function () { $('#file').click(); }],
-    ['Mod+S', 'Save PDF (markups into the file)', function () { if (state.pdf) savePdf(); }],
-    ['Mod+E', 'Counts and export', function () { openExport(); }],
-    ['Mod+P', 'Printable summary (PDF)', function () { if (state.pdf) summaryPdf(); }],
-    ['Mod+,', 'Settings', function () { openSettings(); }]]],
+    { id: 'open', key: 'Mod+O', label: 'Open a PDF', fn: function () { $('#file').click(); } },
+    { id: 'save', key: 'Mod+S', label: 'Save PDF (markups into the file)', fn: function () { if (state.pdf) savePdf(); } },
+    { id: 'export', key: 'Mod+E', label: 'Counts and export', fn: function () { openExport(); } },
+    { id: 'summary', key: 'Mod+P', label: 'Printable summary (PDF)', fn: function () { if (state.pdf) summaryPdf(); } },
+    { id: 'settings', key: 'Mod+,', label: 'Settings', fn: function () { openSettings(); } }]],
   ['Tools', [
-    ['V', 'Select'], ['B', 'Lasso'], ['C', 'Circle'], ['R', 'Rectangle'], ['G', 'Polygon'], ['P', 'Pen'], ['H', 'Highlighter'], ['I', 'Line'], ['W', 'Arrow'], ['O', 'Cloud'],
-    ['T', 'Text box'], ['K', 'Callout'], ['M', 'Stamp'], ['S', 'Symbol'], ['N', 'Numbered'], ['X', 'Eraser'], ['L', 'Length'], ['A', 'Area'], ['E', 'Perimeter'], ['U', 'Angle'], ['Q', 'Radius'], ['D', 'Diameter'],
-    ['J', 'Room'], ['Shift+W', 'Wall area'], ['Shift+R', 'Linear run'], ['Shift+K', 'Link'], ['Shift+S', 'Signature'], ['Shift+I', 'Initials'],
-    ['Mod+K', 'Search tools (favourites and palettes)', openToolSearch],
-    ['Mod+Shift+K', 'Tool Chest', function () { var p = $('#chestPop'); p.hidden = !p.hidden; if (!p.hidden) { renderChest(); fitPop(p); } }],
-    ['Mod+Shift+M', 'Scale', function () { openScale(currentPageIndex()); }]]],
+    toolAct('select', 'V', 'Select'), toolAct('lasso', 'B', 'Lasso'), toolAct('circle', 'C', 'Circle'), toolAct('rect', 'R', 'Rectangle'), toolAct('polygon', 'G', 'Polygon'),
+    toolAct('pen', 'P', 'Pen'), toolAct('highlighter', 'H', 'Highlighter'), toolAct('line', 'I', 'Line'), toolAct('arrow', 'W', 'Arrow'), toolAct('cloud', 'O', 'Cloud'),
+    toolAct('text', 'T', 'Text box'), toolAct('callout', 'K', 'Callout'), toolAct('stamp', 'M', 'Stamp'), toolAct('symbol', 'S', 'Symbol'), toolAct('numbered', 'N', 'Numbered'),
+    toolAct('eraser', 'X', 'Eraser'), toolAct('length', 'L', 'Length'), toolAct('area', 'A', 'Area'), toolAct('perimeter', 'E', 'Perimeter'), toolAct('angle', 'U', 'Angle'),
+    toolAct('radius', 'Q', 'Radius'), toolAct('diameter', 'D', 'Diameter'), toolAct('room', 'J', 'Room'), toolAct('wall', 'Shift+W', 'Wall area'), toolAct('run', 'Shift+R', 'Linear run'),
+    toolAct('link', 'Shift+K', 'Link'), toolAct('signature', 'Shift+S', 'Signature'), toolAct('initials', 'Shift+I', 'Initials'),
+    { id: 'toolsearch', key: 'Mod+K', label: 'Search tools (favourites and palettes)', fn: openToolSearch },
+    { id: 'chest', key: 'Mod+Shift+K', label: 'Tool Chest', fn: function () { var p = $('#chestPop'); p.hidden = !p.hidden; if (!p.hidden) { renderChest(); fitPop(p); } } },
+    { id: 'scale', key: 'Mod+Shift+M', label: 'Scale', fn: function () { openScale(currentPageIndex()); } }]],
   ['Selection', [
-    ['Mod+A', 'Select everything on this page', selectAllOnPage],
-    ['Escape', 'Deselect / close / cancel'],
-    ['Enter', 'Properties of the selection', function () { if (state.sel.size) { if (propsPopup()) openPropsPop(); else { state.propsOpen = true; renderProps(); } } }],
-    ['Delete', 'Delete'],
-    ['Mod+C', 'Copy'], ['Mod+V', 'Paste here'], ['Mod+Shift+V', 'Paste in place'], ['Mod+D', 'Duplicate'],
-    ['Mod+G', 'Group'], ['Mod+Shift+G', 'Ungroup'],
-    ['Mod+Shift+C', 'Combine with... (pick more, then Enter)', function () { if (state.sel.size) startCombine(); }],
-    ['Mod+Shift+R', 'Remove from group', function () { removeFromGroup(); }],
-    ['Arrows', 'Nudge (Shift: 10x)'],
-    [',  .', 'Rotate symbols -15 / +15 degrees'],
-    ['Mod+Z', 'Undo'], ['Mod+Shift+Z', 'Redo']]],
+    { id: 'selectall', key: 'Mod+A', label: 'Select everything on this page', fn: selectAllOnPage },
+    { id: 'props', key: 'Enter', label: 'Properties of the selection', fn: function () { if (!state.sel.size) return false; if (propsPopup()) openPropsPop(); else { state.propsOpen = true; renderProps(); } } },
+    { id: 'delete', key: 'Delete', label: 'Delete', fn: function () { if (!state.sel.size) return false; deleteSelection(); }, alt: ['Backspace'] },
+    { id: 'copy', key: 'Mod+C', label: 'Copy', fn: function () { if (!state.sel.size) return false; copySelection(); } },
+    { id: 'paste', key: 'Mod+V', label: 'Paste here', fn: function () { pasteClip(false); } },
+    { id: 'pasteinplace', key: 'Mod+Shift+V', label: 'Paste in place', fn: function () { pasteClip(true); } },
+    { id: 'duplicate', key: 'Mod+D', label: 'Duplicate', fn: function () { duplicateSelection(); } },
+    { id: 'group', key: 'Mod+G', label: 'Group', fn: function () { groupSelection(); } },
+    { id: 'ungroup', key: 'Mod+Shift+G', label: 'Ungroup', fn: function () { ungroupSelection(); } },
+    { id: 'combine', key: 'Mod+Shift+C', label: 'Combine with... (pick more, then Enter)', fn: function () { if (state.sel.size) startCombine(); } },
+    { id: 'removegroup', key: 'Mod+Shift+R', label: 'Remove from group', fn: function () { removeFromGroup(); } },
+    { id: 'rotl', key: ',', label: 'Rotate symbols -15 degrees', fn: function () { if (!state.sel.size) return false; applyToSelection({ symAngle: -15 }, 'rot'); renderProps(); } },
+    { id: 'rotr', key: '.', label: 'Rotate symbols +15 degrees', fn: function () { if (!state.sel.size) return false; applyToSelection({ symAngle: 15 }, 'rot'); renderProps(); } },
+    { id: 'undo', key: 'Mod+Z', label: 'Undo', fn: function () { undo(); } },
+    { id: 'redo', key: 'Mod+Shift+Z', label: 'Redo', fn: function () { redo(); }, alt: ['Mod+Y'] },
+    { id: 'nudge', key: 'Arrows', label: 'Nudge (Shift: 10x)', fixed: true },
+    { id: 'escape', key: 'Escape', label: 'Deselect / close / cancel', fixed: true }]],
   ['View', [
-    ['Mod+=', 'Zoom in', function () { setZoom(state.zoom * 1.25); }],
-    ['Mod+-', 'Zoom out', function () { setZoom(state.zoom / 1.25); }],
-    ['Mod+0', 'Fit', function () { $('#zoomFit').click(); }],
-    ['[  ]', 'Previous / next page'],
-    ['Home  End', 'First / last page'],
-    ['Mod+1', 'Show / hide the markups list', togglePanel],
-    ['Mod+2', 'Pages and thumbnails', function () { $('#btnPages').click(); }],
-    ['Mod+3', 'Floating tool palette', function () { $('#btnPalette').click(); }],
-    ['Mod+4', 'Counts table', openCountsTable],
-    ['Mod+F', 'Search the drawing text', function () { openDrawer('search'); }],
-    ['Mod+Shift+F', 'Search the markups list', focusMarkupSearch],
-    ['Mod+Shift+L', 'Select mode in the list', function () { if ($('#panel').hidden) togglePanel(); setListSelect(!state.listSelect); }],
-    ['Mod+Shift+H', 'Show / hide markups and layers', function () { openVis(); }],
-    ['Mod+/', 'This list of shortcuts', function () { openShortcuts(); }],
-    ['?', 'Help']]]
+    { id: 'zoomin', key: 'Mod+=', label: 'Zoom in', fn: function () { setZoom(state.zoom * 1.25); } },
+    { id: 'zoomout', key: 'Mod+-', label: 'Zoom out', fn: function () { setZoom(state.zoom / 1.25); } },
+    { id: 'fit', key: 'Mod+0', label: 'Fit', fn: function () { $('#zoomFit').click(); } },
+    { id: 'prevpage', key: '[', label: 'Previous page', fn: function () { pageStep(-1); } },
+    { id: 'nextpage', key: ']', label: 'Next page', fn: function () { pageStep(1); } },
+    { id: 'firstpage', key: 'Home', label: 'First page', fn: function () { goToPage(0); } },
+    { id: 'lastpage', key: 'End', label: 'Last page', fn: function () { goToPage(state.pages.length - 1); } },
+    { id: 'list', key: 'Mod+1', label: 'Show / hide the markups list', fn: togglePanel },
+    { id: 'pages', key: 'Mod+2', label: 'Pages and thumbnails', fn: function () { $('#btnPages').click(); } },
+    { id: 'palette', key: 'Mod+3', label: 'Floating tool palette', fn: function () { $('#btnPalette').click(); } },
+    { id: 'counts', key: 'Mod+4', label: 'Counts table', fn: openCountsTable },
+    { id: 'findtext', key: 'Mod+F', label: 'Search the drawing text', fn: function () { openDrawer('search'); } },
+    { id: 'findmarkups', key: 'Mod+Shift+F', label: 'Search the markups list', fn: focusMarkupSearch },
+    { id: 'listselect', key: 'Mod+Shift+L', label: 'Select mode in the list', fn: function () { if ($('#panel').hidden) togglePanel(); setListSelect(!state.listSelect); } },
+    { id: 'layers', key: 'Mod+Shift+H', label: 'Show / hide markups and layers', fn: function () { openVis(); } },
+    { id: 'shortcuts', key: 'Mod+/', label: 'This list of shortcuts', fn: function () { openShortcuts(); } },
+    { id: 'help', key: '?', label: 'Help', fn: function () { $('#helpModal').hidden = false; } }]]
 ];
-function keyName(e) {
-  var k = e.key; if (k === ' ') k = 'Space'; if (k.length === 1) k = k.toUpperCase(); if (k === '+') k = '=';
-  return (e.metaKey || e.ctrlKey ? 'Mod+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey && k.length > 1 || e.shiftKey && /[A-Z]/.test(k) ? 'Shift+' : '') + k;
+var ACTIONS = {}; SHORTCUTS.forEach(function (g) { g[1].forEach(function (a) { ACTIONS[a.id] = a; }); });
+function keyOf(id) { var o = ui().keys || {}, a = ACTIONS[id]; return a ? (id in o ? o[id] : a.key) : ''; }
+var KEYMAP = {};
+function buildKeymap() {
+  KEYMAP = {};
+  Object.keys(ACTIONS).forEach(function (id) {
+    var a = ACTIONS[id]; if (a.fixed || !a.fn) return;
+    var k = keyOf(id); if (k) KEYMAP[k.toUpperCase()] = id;
+    if (!(ui().keys && id in ui().keys)) (a.alt || []).forEach(function (x) { if (!KEYMAP[x.toUpperCase()]) KEYMAP[x.toUpperCase()] = id; });
+  });
+  updateKeyTooltips();
 }
-var SHORTCUT_FN = {}; SHORTCUTS.forEach(function (g) { g[1].forEach(function (r) { if (r[2]) SHORTCUT_FN[r[0].toUpperCase()] = r[2]; }); });
-function shortcutLabel(k) { var mac = /Mac|iPad|iPhone/.test(navigator.platform) || /Mac OS/.test(navigator.userAgent); return k.replace(/Mod\+/g, mac ? '⌘' : 'Ctrl+').replace(/Shift\+/g, mac ? '⇧' : 'Shift+').replace(/Alt\+/g, mac ? '⌥' : 'Alt+'); }
+function keyName(e) {
+  var k = e.key; if (k === ' ') k = 'Space'; if (k === 'Del') k = 'Delete'; if (k.length === 1) k = k.toUpperCase(); if (k === '+') k = '=';
+  if (/^(Shift|Meta|Control|Alt|CapsLock|Dead)$/.test(k)) return '';
+  var shiftable = k.length > 1 || /[A-Z0-9]/.test(k);
+  return (e.metaKey || e.ctrlKey ? 'Mod+' : '') + (e.altKey ? 'Alt+' : '') + (e.shiftKey && shiftable ? 'Shift+' : '') + k;
+}
+function shortcutLabel(k) { if (!k) return '—'; var mac = /Mac|iPad|iPhone/.test(navigator.platform) || /Mac OS/.test(navigator.userAgent); return k.replace(/Mod\+/g, mac ? '⌘' : 'Ctrl+').replace(/Shift\+/g, mac ? '⇧' : 'Shift+').replace(/Alt\+/g, mac ? '⌥' : 'Alt+'); }
 function openShortcuts() {
   $('#kbBody').innerHTML = SHORTCUTS.map(function (g) {
-    return '<section><h3>' + esc(g[0]) + '</h3><dl>' + g[1].map(function (r) { return '<dt><kbd>' + esc(shortcutLabel(r[0])).replace(/  /g, '</kbd> <kbd>') + '</kbd></dt><dd>' + esc(r[1]) + '</dd>'; }).join('') + '</dl></section>';
+    return '<section><h3>' + esc(g[0]) + '</h3><dl>' + g[1].map(function (a) { var k = keyOf(a.id); return '<dt>' + (k ? '<kbd>' + esc(shortcutLabel(k)) + '</kbd>' : '<span class="muted">none</span>') + '</dt><dd>' + esc(a.label) + '</dd>'; }).join('') + '</dl></section>';
   }).join('');
   $('#helpModal').hidden = true; $('#kbModal').hidden = false;
 }
 // Tool buttons say their key in the tooltip.
-(function () { var rev = {}; Object.keys(KEY_TOOL).forEach(function (k) { rev[KEY_TOOL[k]] = k.length === 1 ? k.toUpperCase() : k; }); $$('.topbar [data-tool]').forEach(function (b) { var k = rev[b.dataset.tool]; if (k && b.title && b.title.indexOf('(' + k + ')') < 0) b.title += ' (' + shortcutLabel(k) + ')'; }); })();
+function updateKeyTooltips() {
+  $$('.topbar [data-tool]').forEach(function (b) {
+    if (b.dataset.baseTitle == null) b.dataset.baseTitle = (b.title || '').replace(/ \([^)]*\)$/, '');
+    var k = keyOf('tool:' + b.dataset.tool); b.title = b.dataset.baseTitle + (k ? ' (' + shortcutLabel(k) + ')' : '');
+  });
+}
+/* Settings > Keyboard shortcuts: tap a key, press the new one. */
+var kbCapture = null;
+function renderKeySettings() {
+  var el = $('#keyList'); if (!el) return;
+  var o = ui().keys || {};
+  el.innerHTML = SHORTCUTS.map(function (g) {
+    return '<div class="kgrp">' + esc(g[0]) + '</div>' + g[1].map(function (a) {
+      var k = keyOf(a.id), custom = a.id in o;
+      return '<div class="krow' + (custom ? ' custom' : '') + '"><span class="kl">' + esc(a.label) + '</span>' +
+        (a.fixed ? '<span class="kfix"><kbd>' + esc(shortcutLabel(k)) + '</kbd></span>' :
+        '<button type="button" class="kbtn' + (kbCapture === a.id ? ' wait' : '') + '" data-kset="' + a.id + '">' + (kbCapture === a.id ? 'Press keys…' : k ? '<kbd>' + esc(shortcutLabel(k)) + '</kbd>' : '<span class="muted">none</span>') + '</button>' +
+        '<button type="button" class="kmini" data-kclear="' + a.id + '" title="No shortcut" aria-label="No shortcut for ' + esc(a.label) + '"' + (k ? '' : ' disabled') + '>×</button>' +
+        '<button type="button" class="kmini" data-kreset="' + a.id + '" title="Back to ' + esc(shortcutLabel(a.key)) + '" aria-label="Reset ' + esc(a.label) + '"' + (custom ? '' : ' disabled') + '>↺</button>') + '</div>';
+    }).join('');
+  }).join('');
+}
+function setKey(id, key) {
+  var u = ui(), o = u.keys || (u.keys = {});
+  if (key) Object.keys(ACTIONS).forEach(function (other) {
+    if (other !== id && !ACTIONS[other].fixed && keyOf(other).toUpperCase() === key.toUpperCase()) { o[other] = ''; toast(shortcutLabel(key) + ' was used for “' + ACTIONS[other].label + '”; that now has no shortcut.', 4500); }
+  });
+  if (key === ACTIONS[id].key) delete o[id]; else o[id] = key;
+  saveUI(); buildKeymap(); renderKeySettings();
+}
+document.addEventListener('keydown', function (e) {
+  if (!kbCapture) return;
+  e.preventDefault(); e.stopPropagation();
+  if (e.key === 'Escape') { kbCapture = null; renderKeySettings(); return; }
+  var k = keyName(e); if (!k) return;
+  if (/^(Arrow|Tab$)/.test(e.key)) { toast('Arrow keys and Tab are kept for moving around.'); return; }
+  var id = kbCapture; kbCapture = null; setKey(id, k);
+}, true);
 document.addEventListener('keydown', function (e) {
   var tag = (e.target.tagName || '').toLowerCase(), mod = e.metaKey || e.ctrlKey;
   state.multi = e.shiftKey || e.metaKey || e.ctrlKey;
-  if (!$('#kbModal').hidden) { if (e.key === 'Escape' || (mod && e.key === '/')) { e.preventDefault(); $('#kbModal').hidden = true; } return; }
+  if (!$('#kbModal').hidden) { if (e.key === 'Escape' || KEYMAP[keyName(e).toUpperCase()] === 'shortcuts') { e.preventDefault(); $('#kbModal').hidden = true; } return; }
   if (!$('#exportModal').hidden) { if (e.key === 'Escape') closeExport(); return; }
   if (!$('#visModal').hidden) { if (e.key === 'Escape') $('#visModal').hidden = true; return; }
-  if (!$('#setModal').hidden || !$('#helpModal').hidden) { if (e.key === 'Escape') { $('#setModal').hidden = true; $('#helpModal').hidden = true; } else if (mod && e.key === '/') { e.preventDefault(); openShortcuts(); } return; }
+  if (!$('#setModal').hidden || !$('#helpModal').hidden) { if (e.key === 'Escape') { $('#setModal').hidden = true; $('#helpModal').hidden = true; } else if (KEYMAP[keyName(e).toUpperCase()] === 'shortcuts') { e.preventDefault(); openShortcuts(); } return; }
   if (!$('#ring').hidden && e.key === 'Escape') { closeRing(); return; }
   if (!$('#toolModal').hidden) { if (e.key === 'Escape') closeToolEditor(); else if (e.key === 'Enter' && tag === 'input') { e.preventDefault(); saveToolFromEditor(); } return; }
   if (!$('#scaleModal').hidden) { if (e.key === 'Escape') closeScale(); else if (e.key === 'Enter' && tag !== 'select') { e.preventDefault(); applyScaleFromDialog(); } return; }
   if (e.key === 'Escape' && (tag === 'input' || tag === 'textarea' || tag === 'select')) {
     e.target.blur(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; $('#favPop').hidden = true; return;
   }
-  // Shortcuts with Cmd work even while typing in a search box, except the editing ones.
-  if ((tag === 'input' || tag === 'textarea') && !(mod && /^[,\/1-4ekospfFK]$/i.test(e.key))) return;
+  var kn = keyName(e), id = kn ? KEYMAP[kn.toUpperCase()] : null;
+  // While typing, only Cmd shortcuts work, and not the ones the text field needs (select all, copy, paste, cut, undo).
+  if (tag === 'input' || tag === 'textarea' || e.target.isContentEditable) {
+    if (!id || !mod || /^MOD\+(SHIFT\+)?[ACVXZY]$/.test(kn.toUpperCase())) return;
+  }
   if (state.combine && e.key === 'Escape') { endCombine(true); return; }
   if (state.combine && e.key === 'Enter') { e.preventDefault(); $('#combineGo').click(); return; }
   if (state.propsOpen && propsPopup() && e.key === 'Escape') { closePropsPop(); return; }
@@ -7641,28 +7730,12 @@ document.addEventListener('keydown', function (e) {
     if (e.key === 'Escape') { cancelDraft(); return; }
     if (e.key === 'Backspace' || e.key === 'Delete') { e.preventDefault(); undoDraftPoint(); return; }
   }
-  var kn = keyName(e), fn = SHORTCUT_FN[kn.toUpperCase()];
-  if (fn) { e.preventDefault(); fn(); return; }
-  if (e.key === '?') { $('#helpModal').hidden = false; return; }
-  if ((e.key === 'Delete' || e.key === 'Backspace') && state.sel.size) { e.preventDefault(); deleteSelection(); }
-  else if (mod && e.key.toLowerCase() === 'z') { e.preventDefault(); if (e.shiftKey) redo(); else undo(); }
-  else if (mod && e.key.toLowerCase() === 'y') { e.preventDefault(); redo(); }
-  else if (mod && e.key.toLowerCase() === 'd') { e.preventDefault(); duplicateSelection(); }
-  else if (mod && e.key.toLowerCase() === 'c' && state.sel.size) { e.preventDefault(); copySelection(); }
-  else if (mod && e.key.toLowerCase() === 'v') { e.preventDefault(); pasteClip(e.shiftKey); }
-  else if (mod && e.key.toLowerCase() === 'g') { e.preventDefault(); if (e.shiftKey) ungroupSelection(); else groupSelection(); }
-  else if (/^Arrow/.test(e.key) && state.sel.size && !mod) {
+  if (id) { var r = ACTIONS[id].fn(); if (r !== false) { e.preventDefault(); return; } }
+  if (/^Arrow/.test(e.key) && state.sel.size && !mod) {
     e.preventDefault(); var st = e.shiftKey ? 10 : 1;
     nudge(e.key === 'ArrowLeft' ? -st : e.key === 'ArrowRight' ? st : 0, e.key === 'ArrowUp' ? -st : e.key === 'ArrowDown' ? st : 0);
   }
-  else if ((e.key === ',' || e.key === '.') && !mod && state.sel.size) { applyToSelection({ symAngle: e.key === ',' ? -15 : 15 }, 'rot'); renderProps(); }
-  else if ((e.key === '[' || e.key === ']') && !mod) { goToPage(clamp(currentPageIndex() + (e.key === '[' ? -1 : 1), 0, state.pages.length - 1)); }
-  else if ((e.key === 'Home' || e.key === 'End') && !mod) { e.preventDefault(); goToPage(e.key === 'Home' ? 0 : state.pages.length - 1); }
   else if (e.key === 'Escape') { clearSel(); $('#stylePop').hidden = true; $('#chestPop').hidden = true; $('#verPop').hidden = true; $('#favPop').hidden = true; }
-  else if (!mod && !e.altKey && KEY_TOOL[e.shiftKey ? 'Shift+' + e.key.toUpperCase() : e.key.toLowerCase()]) {
-    var tool = KEY_TOOL[e.shiftKey ? 'Shift+' + e.key.toUpperCase() : e.key.toLowerCase()];
-    if (TBTN[tool]) TBTN[tool].click(); else pickTool(tool);
-  }
 });
 document.addEventListener('keyup', function (e) { state.multi = e.shiftKey || e.metaKey || e.ctrlKey; });
 
@@ -7777,7 +7850,7 @@ window.addEventListener('offline', function () { toast('You are offline. Opening
 renderVersion(); setTimeout(maybeCheck, 4000);
 renderFavBar(); arrangeToolbar(); renderPalette();
 if (ui().sheetH) document.body.style.setProperty('--sheet-h', ui().sheetH);
-applyPanelW();
+applyPanelW(); buildKeymap();
 window.addEventListener('resize', function () { if (ui().palette) renderPalette(); });
 setTimeout(fitToolbar, 0);
 if (window.matchMedia && window.matchMedia('(min-width: 900px)').matches) $('#panel').hidden = false;

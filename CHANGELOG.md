@@ -2,6 +2,9 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.19.0
+- Keyboard shortcuts are customisable: Settings > Keyboard shortcuts lists every action by group (File, Tools, Selection, View). Tap a shortcut and press the keys you want (Escape cancels); x removes it, the arrow-circle puts the default back, Reset all restores every default. Giving a key that another action uses moves it (the other action is left without a shortcut, and you are told). Your keys are saved with your settings (and in Back up), and the shortcuts list (Cmd+/) and the tool tooltips show your keys. Escape, the arrow keys and Enter while drawing stay fixed.
+
 ## 3.18.0 (shortcuts, combine many)
 - Keyboard shortcuts for every tool and action, with a keyboard connected to the iPad. Cmd+/ (or Help) shows them all. Highlights: every tool has a key (V select, B lasso, S symbol, J room, Shift+W wall area, Shift+R linear run...); Cmd+S save, Cmd+O open, Cmd+E export, Cmd+P printable summary; Cmd+A select all on the page; Enter properties; Cmd+C / Cmd+V / Shift+Cmd+V; Cmd+D duplicate; Cmd+G / Shift+Cmd+G group / ungroup; Shift+Cmd+C combine; arrows nudge (Shift: 10x); , and . rotate symbols; [ and ] previous / next page; Cmd+= / Cmd+- / Cmd+0 zoom; Cmd+1 markups list, Cmd+2 pages, Cmd+3 palette, Cmd+4 counts; Cmd+K search tools; Shift+Cmd+F search markups; Cmd+Y or Shift+Cmd+Z redo. Tool buttons show their key in their tooltip.
 - Fixed: the short messages at the bottom of the screen could sit on top of buttons (such as Combine or Paste) and swallow the tap. They no longer block anything.
