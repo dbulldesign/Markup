@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="default">
 <meta name="theme-color" content="#f7f8f5" media="(prefers-color-scheme: light)">
 <meta name="theme-color" content="#1c2024" media="(prefers-color-scheme: dark)">
-<meta name="app-version" content="3.19.1">
+<meta name="app-version" content="3.20.0">
 <title>Pencil Markup</title>
 <script src="vendor/pdf.min.js?v=3.11.174"></script>
 <script src="vendor/pdf-lib.min.js?v=1.17.1"></script>
@@ -150,6 +150,14 @@ body.compact #measureTools > [data-tool] { display: none; }
 .toolpick .chev { width: 14px; height: 14px; margin-left: -2px; }
 .toolpick[hidden] { display: none; }
 .pop.toolpop { width: min(460px, calc(100vw - 24px)); }
+.recent { margin-bottom: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); }
+.rec-h { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--ink-2); padding: 2px 4px 6px; }
+.rec-row { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding-bottom: 2px; }
+.rec-row::-webkit-scrollbar { display: none; }
+.rec-row .tb { flex: none; flex-direction: column; justify-content: center; width: 84px; min-height: 64px; padding: 6px 4px; gap: 4px; font-size: 12px; background: var(--surface-2); }
+.rec-row .tb .lbl { display: block !important; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rec-row .tb svg { width: 22px; height: 22px; }
+.rec-row .tb.on { background: var(--accent-soft); color: var(--accent); box-shadow: inset 0 0 0 1.5px var(--accent); }
 .tgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; }
 .tgrid .tb { flex-direction: column; justify-content: center; min-height: 64px; padding: 6px 4px; gap: 4px; font-size: 12px; background: var(--surface-2); }
 .tgrid .tb .lbl { display: inline !important; }
@@ -216,6 +224,14 @@ body:not(.narrow) .topbar > .seg.favs.menu { flex: none; min-width: 0; overflow:
 .qbtns .sep { width: 1px; background: var(--line); margin: 6px 2px; }
 /* settings + help */
 .modal .sheet.wide { width: min(560px, 100%); }
+.setnav { position: sticky; top: -18px; z-index: 3; margin: -6px -18px 0; padding: 8px 18px 8px; background: var(--surface); border-bottom: 1px solid var(--line); display: grid; gap: 8px; }
+.settabs { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
+.settabs::-webkit-scrollbar { display: none; }
+.settabs.dim { opacity: .45; }
+.stab { flex: none; min-height: 34px; padding: 0 12px; border: 1px solid var(--line); border-radius: 17px; background: var(--surface-2); color: var(--ink); font: inherit; font-size: 14px; cursor: pointer; }
+.stab.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.setsec[hidden], .setrow[hidden], .trow[hidden] { display: none !important; }
+#setBody > .setsec:not([hidden]) ~ .setsec:not([hidden]) { margin-top: 4px; }
 .setsec { border-top: 1px solid var(--line); padding-top: 10px; display: grid; gap: 8px; }
 .setsec h3, .help h3 { margin: 0; font-size: 15px; }
 .setrow { display: flex; align-items: center; justify-content: space-between; gap: 12px; min-height: 40px; font-size: 15px; }
@@ -725,7 +741,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
   </button>
 
   <button class="tb toolpick" id="btnToolPick" type="button" title="Choose a tool" aria-haspopup="true" hidden><span class="ti"></span><span class="lbl keep tn">Tool</span><svg class="chev" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m6 9 6 6 6-6"/></svg></button>
-  <div class="pop toolpop" id="toolPop" hidden><div class="tgrid" id="toolGrid"></div></div>
+  <div class="pop toolpop" id="toolPop" hidden><div id="toolRecent"></div><div class="tgrid" id="toolGrid"></div></div>
   <div class="pop toolpop" id="favPop" hidden><div class="fp-head"><b>Tools</b><button class="linkbtn" type="button" id="favEdit">Manage in Tool Chest&#8230;</button></div><div class="tsearch"><input type="search" class="fld-in" id="favSearch" placeholder="Search tools" autocomplete="off" spellcheck="false" aria-label="Search tools"></div><div id="favGrid"></div></div>
   <div class="seg" id="tools">
     <button class="tb on" type="button" data-tool="select" title="Select and move markups" aria-label="Select">
@@ -1207,6 +1223,7 @@ body.big .toggle input:checked::after { transform: translateX(20px); }
 <div class="modal" id="setModal" hidden>
   <div class="sheet wide" role="dialog" aria-modal="true" aria-labelledby="setTitle">
     <h2 id="setTitle">Settings</h2>
+    <div class="setnav" id="setNav"><input type="search" class="fld-in" id="setSearch" placeholder="Search settings" autocomplete="off" spellcheck="false" aria-label="Search settings"><div class="settabs" id="setTabs" role="tablist"></div></div>
     <div id="setBody"></div>
     <div class="actions"><span class="spacer"></span><button class="btn primary" type="button" id="setClose">Done</button></div>
   </div>
@@ -2426,7 +2443,7 @@ var MAX_BASE_PIXELS = 4e6, MAX_DETAIL_PIXELS = 6e6; // canvas caps: keep Safari 
 var PALETTE = ['#E53935', '#FB8C00', '#FDD835', '#43A047', '#00ACC1', '#1E88E5', '#8E24AA', '#D81B60', '#212121'];
 /* Bump APP_VERSION here and "version" in version.json together when you publish a change.
    The app compares the two to tell you when a newer version is on the server. */
-var APP_VERSION = '3.19.1';
+var APP_VERSION = '3.20.0';
 
 /* Drawing tools. poly: tap corners one at a time; line: drag from end to end. */
 var TOOLS = {
@@ -3885,8 +3902,15 @@ function pinchClear(g) {
   g.pages.forEach(function (p) { p.el.style.transform = ''; p.el.style.zIndex = ''; });
 }
 /* Palm rejection: while the Pencil is on or just above the screen, finger and palm touches are ignored. */
-var penDownCount = 0, lastPenAt = 0;
-function penNear() { return penDownCount > 0 || Date.now() - lastPenAt < 600; }
+var penDownCount = 0, lastPenAt = 0, penIds = new Set();
+/* Fingers are ignored while the Pencil touches the screen and for 0.4 s after it lifts. A Pencil that went
+   missing (lifted outside the drawing, app switched) stops counting after 4 s without any Pencil event. */
+function penNear() { var t = Date.now() - lastPenAt; return (penDownCount > 0 && t < 4000) || t < 400; }
+window.addEventListener('pointerup', function (e) { if (e.pointerType === 'pen') { penIds.delete(e.pointerId); if (!penIds.size) penDownCount = 0; lastPenAt = Date.now(); } }, true);
+window.addEventListener('pointercancel', function (e) { if (e.pointerType === 'pen') { penIds.delete(e.pointerId); if (!penIds.size) penDownCount = 0; } }, true);
+window.addEventListener('pointerdown', function (e) { if (e.pointerType === 'pen') penIds.add(e.pointerId); }, true);
+window.addEventListener('pointermove', function (e) { if (e.pointerType === 'pen' && penIds.size) lastPenAt = Date.now(); }, true);
+window.addEventListener('blur', function () { penIds.clear(); penDownCount = 0; });
 function notePen(e) { if (e.pointerType === 'pen') lastPenAt = Date.now(); }
 /* Two-finger tap: undo (or, on a markup, open its properties). Three-finger tap: redo. */
 var tapS = null;
@@ -6465,6 +6489,7 @@ function fillFavPop() {
     var closed = !!shut[key];
     return '<section class="fp-sec' + (closed ? ' shut' : '') + '"><button type="button" class="fp-sh" data-fpsec="' + esc(key) + '" aria-expanded="' + !closed + '"><span class="tw">\u25B8</span><span class="t">' + esc(title) + '</span><span class="n">' + n + '</span></button>' + (closed ? '' : '<div class="tgrid favgrid">' + body + '</div>') + '</section>';
   };
+  if (!q) html += recentHTML(8);
   if (favs.length) html += section('__fav', '\u2605 Favourites', favs.length, favs.map(function (f) { return chip(f.set, f.tool); }).join(''));
   state.chestSets.forEach(function (set) {
     var tools = set.tools.filter(function (t) { return toolMatches(t, q); });
@@ -6472,6 +6497,7 @@ function fillFavPop() {
     html += section(set.id, set.title, tools.length, tools.map(function (t) { return chip(set, t); }).join(''));
   });
   if (q && !html) html = '<p class="tool-none">No tools match \u201c' + esc(q) + '\u201d.</p>';
+  if (!q && html && html.indexOf('fp-sec') < 0 && html.indexOf('class="recent"') === 0) html += '<p class="hint">No Tool Chest tools yet.</p>';
   $('#favGrid').innerHTML = html || '<p class="hint">No tools yet. Make one in the Tool Chest (+ Tool), import a Revu tool set, or a fixture schedule.</p>';
 }
 function openFavPop() {
@@ -6484,6 +6510,8 @@ function openFavPop() {
   fitPop(pop);
 }
 $('#favGrid').addEventListener('click', function (e) {
+  var pk = e.target.closest ? e.target.closest('[data-pick]') : null;
+  if (pk) { pickTool(pk.dataset.pick); $('#favPop').hidden = true; renderFavBar(); return; }
   var sh = e.target.closest ? e.target.closest('[data-fpsec]') : null;
   if (sh) { var u = ui(), k = sh.dataset.fpsec; u.favShut = u.favShut || {}; if (u.favShut[k]) delete u.favShut[k]; else u.favShut[k] = 1; saveUI(); fillFavPop(); fitPop($('#favPop')); return; }
   var b = e.target.closest ? e.target.closest('[data-fav]') : null; if (!b || b.disabled) return;
@@ -7217,11 +7245,17 @@ function updateToolPick() {
 }
 function openToolPop() {
   var cur = state.tool;
+  $('#toolRecent').innerHTML = recentHTML(6);
   $('#toolGrid').innerHTML = toolOrder().map(function (t) { return '<button type="button" class="tb' + (t === cur ? ' on' : '') + '" data-pick="' + t + '">' + toolIcon(t) + '<span class="lbl">' + esc(toolName(t)) + '</span></button>'; }).join('');
   $('#toolPop').hidden = false; fitPop($('#toolPop'));
 }
 $('#btnToolPick').addEventListener('click', function (e) { e.stopPropagation(); var pp = $('#toolPop'); if (pp.hidden) openToolPop(); else pp.hidden = true; });
 $('#toolGrid').addEventListener('click', function (e) { var b = e.target.closest ? e.target.closest('[data-pick]') : null; if (!b) return; pickTool(b.dataset.pick); $('#toolPop').hidden = true; });
+$('#toolRecent').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-pick], [data-fav]') : null; if (!b) return;
+  if (b.dataset.pick) pickTool(b.dataset.pick); else { var f = findTool(b.dataset.set, b.dataset.fav); if (f.tool) applyChestTool(f.set, f.tool); renderFavBar(); }
+  $('#toolPop').hidden = true;
+});
 function pickTool(t) { if (!TOOLS[t] && t !== 'select') return; setTool(t); state.chestTool = null; renderChest(); }
 function applyTheme() {
   var t = ui().theme, root = document.documentElement;
@@ -7335,6 +7369,7 @@ $('#viewer').addEventListener('pointerleave', clearHover);
 /* ---------- settings page ---------- */
 function openSettings() {
   var u = ui(), m = mset();
+  if ($('#setModal').hidden) state.setQ = '';
   var row = function (label, ctl, sub) { return '<label class="setrow"><span>' + label + (sub ? '<br><span class="sub2">' + sub + '</span>' : '') + '</span>' + ctl + '</label>'; };
   var sel = function (id, val, opts) { return '<select class="fld-in" data-set="' + id + '">' + opts.map(function (o) { return '<option value="' + o[0] + '"' + (String(val) === String(o[0]) ? ' selected' : '') + '>' + o[1] + '</option>'; }).join('') + '</select>'; };
   var chk = function (id, val) { return '<input type="checkbox" data-set="' + id + '"' + (val ? ' checked' : '') + '>'; };
@@ -7383,7 +7418,48 @@ function openSettings() {
   renderToolList();
   $('#setModal').hidden = false;
   renderStorage(); renderRecovery(); kbCapture = null; state.keyQ = ''; renderKeySettings();
+  setupSetNav();
 }
+/* Settings tabs: one section at a time. Searching looks through every section. */
+var SET_TABS = { 'Appearance': 'Look', 'Apple Pencil and touch': 'Pencil', 'Drawing': 'Drawing', 'Measurements': 'Measure', 'Keyboard shortcuts': 'Keys', 'Toolbar tools': 'Toolbar', 'Safety net': 'Safety', 'Storage on this iPad': 'Storage', 'Your data': 'Data', 'About': 'About' };
+function setSecs() { return $$('#setBody .setsec'); }
+function secName(sec) { var h = sec.querySelector('h3'); return h ? h.textContent.trim() : ''; }
+function setupSetNav() {
+  var secs = setSecs(), cur = ui().setTab;
+  if (!secs.some(function (x) { return secName(x) === cur; })) cur = secName(secs[0]);
+  $('#setTabs').innerHTML = secs.map(function (x) { var n = secName(x); return '<button type="button" role="tab" class="stab' + (n === cur ? ' on' : '') + '" data-stab="' + esc(n) + '" aria-selected="' + (n === cur) + '">' + esc(SET_TABS[n] || n) + '</button>'; }).join('');
+  $('#setSearch').value = state.setQ || '';
+  applySetFilter();
+}
+function applySetFilter() {
+  if (!$('#setTabs')) return;
+  var q = (state.setQ || '').trim().toLowerCase(), cur = ui().setTab, secs = setSecs(), any = 0;
+  if (!secs.some(function (x) { return secName(x) === cur; })) cur = secs.length ? secName(secs[0]) : '';
+  $('#setTabs').classList.toggle('dim', !!q);
+  var words = q.split(/\s+/).filter(Boolean), hit = function (t) { t = t.toLowerCase(); return words.every(function (w) { return t.indexOf(w) >= 0; }); };
+  secs.forEach(function (sec) {
+    var name = secName(sec);
+    var rows = sec.querySelectorAll('.setrow, .trow');
+    if (!q) { sec.hidden = name !== cur; rows.forEach(function (r) { r.hidden = false; }); return; }
+    var titleHit = hit(name + ' ' + (SET_TABS[name] || '')), n = 0;
+    rows.forEach(function (r) { var ok = titleHit || hit(r.textContent + ' ' + (r.querySelector('input[placeholder]') ? r.querySelector('input[placeholder]').placeholder : '')); r.hidden = !ok; if (ok) n++; });
+    if (sec.querySelector('#keyList')) { state.keyQ = titleHit ? '' : q; renderKeySettings(); n += sec.querySelectorAll('.krow').length; }
+    var other = !rows.length && !sec.querySelector('#keyList') && hit(sec.textContent);   // sections without rows (storage, data, about)
+    sec.hidden = !(titleHit || n || other); if (!sec.hidden) any++;
+  });
+  var none = $('#setNone');
+  if (q && !any) { if (!none) { none = document.createElement('p'); none.id = 'setNone'; none.className = 'tool-none'; $('#setBody').appendChild(none); } none.textContent = 'No settings match \u201c' + state.setQ.trim() + '\u201d.'; }
+  else if (none) none.remove();
+}
+$('#setTabs').addEventListener('click', function (e) {
+  var b = e.target.closest ? e.target.closest('[data-stab]') : null; if (!b) return;
+  ui().setTab = b.dataset.stab; saveUI();
+  if (state.setQ) { state.setQ = ''; $('#setSearch').value = ''; state.keyQ = ''; renderKeySettings(); }
+  $$('#setTabs .stab').forEach(function (x) { var on = x === b; x.classList.toggle('on', on); x.setAttribute('aria-selected', on); });
+  applySetFilter(); $('#setModal .sheet').scrollTop = 0;
+});
+$('#setSearch').addEventListener('input', function (e) { state.setQ = e.target.value; if (!state.setQ.trim()) { state.keyQ = ''; renderKeySettings(); } applySetFilter(); $('#setModal .sheet').scrollTop = 0; });
+$('#setSearch').addEventListener('keydown', function (e) { if (e.key === 'Escape' && e.target.value) { e.stopPropagation(); e.preventDefault(); e.target.value = ''; state.setQ = ''; state.keyQ = ''; renderKeySettings(); applySetFilter(); } });
 function fmtBytes(n) { return n >= 1e9 ? (n / 1e9).toFixed(1) + ' GB' : n >= 1e6 ? (n / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1e3)) + ' KB'; }
 async function renderRecovery() {
   var el = $('#rpList'); if (!el) return;
@@ -7456,6 +7532,7 @@ function renderToolList() {
     return '<div class="trow"><input type="checkbox" data-tshow="' + t + '"' + (hid.indexOf(t) < 0 ? ' checked' : '') + ' aria-label="Show ' + esc(toolName(t)) + '"><span class="ic">' + toolIcon(t) + '</span><span class="nm">' + esc(toolName(t)) + '</span>' +
       '<button type="button" data-tmv="' + i + '|-1" aria-label="Move up"' + (i ? '' : ' disabled') + '>\u2191</button><button type="button" data-tmv="' + i + '|1" aria-label="Move down"' + (i < ord.length - 1 ? '' : ' disabled') + '>\u2193</button></div>';
   }).join('');
+  if (!$('#setModal').hidden && state.setQ) applySetFilter();
 }
 $('#setBody').addEventListener('change', function (e) {
   var k = e.target.dataset.set, u = ui(), m = mset(); if (!k) {
@@ -7531,7 +7608,30 @@ function renderToolChip() {
   ch.innerHTML = (ct ? toolPreview(ct) : toolIcon(t)) + '<span class="nm">' + esc(ct ? ct.title : toolName(t)) + '</span>' + (col ? '<span class="dot" style="background:' + esc(col) + '"></span>' : '');
   ch.classList.remove('pulse'); void ch.offsetWidth; ch.classList.add('pulse');
 }
+/* Recently used tools (basic tools and Tool Chest tools), newest first, shown at the top of the tool menus. */
+function noteRecent(t) {
+  if (!t || t === 'select') return;
+  var k = state.chestTool && state.chestTool.drawTool === t ? 'c:' + state.chestTool.setId + '/' + state.chestTool.id : 't:' + t;
+  var u = ui(), r = (u.recentTools || []).filter(function (x) { return x !== k; }); r.unshift(k); u.recentTools = r.slice(0, 12); saveUI();
+}
+function recentItems(n) {
+  var out = [];
+  (ui().recentTools || []).forEach(function (k) {
+    if (out.length >= n) return;
+    if (k.indexOf('t:') === 0) { var t = k.slice(2); if (TBTN[t]) out.push({ k: k, tool: t }); }
+    else { var m = /^c:(.*)\/(.*)$/.exec(k), f = m && findTool(m[1], m[2]); if (f && f.tool && f.tool.supported) out.push({ k: k, set: f.set, chest: f.tool }); }
+  });
+  return out;
+}
+function recentHTML(n) {
+  var items = recentItems(n); if (!items.length) return '';
+  return '<section class="recent"><div class="rec-h">Recent</div><div class="rec-row">' + items.map(function (it) {
+    if (it.tool) return '<button type="button" class="tb' + (!state.chestTool && state.tool === it.tool ? ' on' : '') + '" data-pick="' + it.tool + '" title="' + esc(toolName(it.tool)) + '">' + toolIcon(it.tool) + '<span class="lbl">' + esc(toolName(it.tool)) + '</span></button>';
+    return '<button type="button" class="tb' + (isActiveTool(it.set, it.chest) ? ' on' : '') + '" data-set="' + esc(it.set.id) + '" data-fav="' + esc(it.chest.id) + '" title="' + esc(it.chest.title) + '">' + toolPreview(it.chest) + '<span class="lbl">' + esc(it.chest.title) + '</span></button>';
+  }).join('') + '</div></section>';
+}
 function setTool(tool) {
+  setTimeout(function () { noteRecent(tool); }, 0);
   if (state.draft && state.draft.tool !== tool) finishDraft();
   if (state.tool && state.tool !== tool) { state.prevTool = state.tool; haptic('tool'); }
   state.tool = tool; setTimeout(renderToolChip, 0);

@@ -2,6 +2,11 @@
 
 All notable changes to Pencil Markup. The version number shows in the toolbar.
 
+## 3.20.0
+- Settings has tabs (Look, Pencil, Drawing, Measure, Keys, Toolbar, Safety, Storage, Data, About) so you see one section at a time, and it remembers the last one. A search box at the top looks through every section, including the keyboard shortcuts and toolbar tools ("snap", "undo", "update", "palm").
+- Recent tools: the last tools you used (drawing tools and Tool Chest tools) are a row at the top of the tool picker and the tool drop-down.
+- Palm rejection is steadier: fingers are ignored only while the Pencil touches and for 0.4 s after (was 0.6 s), and a Pencil lift that happened outside the drawing can no longer leave finger taps ignored.
+
 ## 3.19.1
 - Settings > Keyboard shortcuts has a search box: type part of an action ("group", "undo", "page") or a key ("cmd g", "shift", "none" for actions without a shortcut); every word must match. Escape clears the search, and Return starts changing the shortcut when only one is left.
 
